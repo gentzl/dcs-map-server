@@ -3,9 +3,6 @@
 A live navigation display for DCS World in the browser: one server on the DCS PC, any number of
 clients on the LAN. No per-client install, no API key.
 
-Built for the pilot in the cockpit, not for a controller looking down from above — own aircraft
-centred, heading up, smooth motion, cockpit units throughout.
-
 ## Features
 
 **Map**
