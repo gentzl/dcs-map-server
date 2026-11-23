@@ -24,3 +24,20 @@ Checked for anything identifying before this was committed: unit names are
 vehicle/ship types (BMP-1, Mi-24P, CVN-75 Harry S. Truman, ...) or
 auto-generated Mission Editor group labels (`Convoi Mobil Hard#001-03`, ...).
 The only player identity present is the recording session's own callsign.
+
+## real-session-2026-11-23-multiplayer.jsonl
+
+Second capture, 30 seconds / 254 messages, 301 objects at the opening
+snapshot -- same mechanism as above, but from a multiplayer mission rather
+than single-player. Notably different composition: mostly `air` and
+`carrier`/`naval`, air defence and ground present but less dominant than in
+the first fixture, plus a couple of `static` and `unknown` entries. Useful
+precisely because it looks different from the first one.
+
+**Anonymised before committing.** Two other pilots' real callsigns appeared
+as `unitName` on their aircraft (an F-15EX and an F/A-18C); replaced with
+`Player-1` / `Player-2` throughout. Group names (mission slot identifiers
+like `Nalchik_F-15EX_36`) were left as-is -- those are mission-editor slot
+labels, not personal. Carrier/ship class names (`Essex`, `Kuznetsov`,
+`Tarawa`) and TACAN beacon names (`Tacan Mozdok`, ...) are not personal
+either and were left untouched.
