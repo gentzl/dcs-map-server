@@ -111,7 +111,7 @@ export function formatAltitude(meters: number): string {
  * und Viper. Stufenlos zu zoomen ist am Boden bequem, im Flug aber hinderlich:
  * Man will eine bekannte Entfernung auf Knopfdruck, nicht irgendeinen Maßstab.
  */
-export const RANGES_NM = [5, 10, 20, 40, 50, 80, 160] as const;
+export const RANGES_NM = [1, 5, 10, 20, 40, 50, 80, 160] as const;
 
 /**
  * Stufen mit Direkttaste -- alle. 50 nm gehört nicht zur klassischen

@@ -3,10 +3,16 @@ import type { Delta, OptionsView, Ownship, Snapshot, Unit } from '../shared/type
 /** Ohne Update gilt ein Objekt als veraltet bzw. verschwunden. */
 const STALE_MS = 5_000;
 const DROP_MS = 30_000;
+// Haelt stehende Ziele unter der "stale"-Schwelle des Clients (5s), auch wenn
+// sie nie dirty werden -- sonst dimmt der Client SAM-Stellungen, Gebaeude und
+// geparkte Fahrzeuge nach kurzer Zeit dauerhaft ab, obwohl ihre Position
+// weiterhin aktuell ist.
+const HEARTBEAT_MS = 3_000;
 
 interface Tracked {
   unit: Unit;
   lastSeen: number;
+  lastSent: number;
   dirty: boolean;
 }
 
@@ -42,7 +48,12 @@ export class World {
 
     // lastSeen wird immer fortgeschrieben: das Objekt ist gesehen worden,
     // auch wenn es sich nicht bewegt hat.
-    this.units.set(unit.id, { unit, lastSeen: now, dirty: moved || (prev?.dirty ?? false) });
+    this.units.set(unit.id, {
+      unit,
+      lastSeen: now,
+      lastSent: prev?.lastSent ?? 0,
+      dirty: moved || (prev?.dirty ?? false),
+    });
   }
 
   setOwnship(own: Ownship, view: OptionsView, now = Date.now()): void {
@@ -126,7 +137,11 @@ export class World {
 
     const units: Unit[] = [];
     for (const t of this.units.values()) {
-      if (t.dirty && this.visible(t.unit)) units.push(t.unit);
+      const heartbeatDue = now - t.lastSent > HEARTBEAT_MS;
+      if ((t.dirty || heartbeatDue) && this.visible(t.unit)) {
+        units.push(t.unit);
+        t.lastSent = now;
+      }
       t.dirty = false;
     }
     const removed = [...this.removed];
