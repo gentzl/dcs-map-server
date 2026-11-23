@@ -1,6 +1,6 @@
 import maplibregl, { type Map as MLMap } from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
-import type { Coalition, ServerMessage, Unit } from '../shared/types.js';
+import type { Coalition, OptionsView, ServerMessage, Unit } from '../shared/types.js';
 import { CHART_COLORS } from './chart.js';
 import {
   MAG_VAR_DEG,
@@ -58,8 +58,18 @@ const own = new OwnshipEstimator();
 const units = new UnitBuffer();
 
 let headingUp = true;
+
+/**
+ * Verfolgen oder frei bewegen.
+ *
+ * Bewusst nicht gespeichert: Beim naechsten Oeffnen in einem freien Ausschnitt
+ * irgendwo auf der Karte zu landen waere die falsche Vorgabe.
+ */
+let follow = true;
 let connected = false;
 let lastSeq = 0;
+/** Sichtbarkeitsregel, wie DCS sie meldet. Entscheidet, ob Kontakte kommen. */
+let optionsView: OptionsView = 'optview_all';
 /**
  * Entfernungsstufe statt freiem Zoom. Der Index zeigt in RANGES_NM; die
  * Zoomstufe wird daraus je Frame berechnet, damit "40 nm" unabhängig von
@@ -102,12 +112,33 @@ map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-lef
 // dagegen zu arbeiten, gehört die Kamera vollständig uns.
 
 map.scrollZoom.disable();
-map.dragPan.disable();
 map.touchZoomRotate.disable();
+// interactive: false schaltet beim Aufbau alle Handler ab, dragPan muss daher
+// ausdruecklich eingeschaltet werden.
+map.dragPan.enable();
+// dragPan bleibt in beiden Modi aktiv. Im Verfolgen-Modus ueberschreibt die
+// Render-Schleife die Mitte zwar jeden Frame, aber MapLibres eigenes
+// dragstart-Ereignis schaltet vorher auf frei um -- so greift schon der erste
+// Zug, statt erst nach einem Knopfdruck.
+map.on('dragstart', () => {
+  if (follow) setFollow(false);
+});
 
 function stepRange(delta: number): void {
   rangeIndex = Math.max(0, Math.min(RANGES_NM.length - 1, rangeIndex + delta));
   updateRangeLabel();
+  applyFreeZoom();
+}
+
+/**
+ * Im freien Modus ruehrt die Render-Schleife die Kamera nicht an, damit sie
+ * nicht gegen das Ziehen arbeitet. Eine Massstabsaenderung muss deshalb hier
+ * angewandt werden -- um die aktuelle Mitte, nicht um das Flugzeug.
+ */
+function applyFreeZoom(): void {
+  if (follow) return;
+  const shortSide = Math.min(map.getCanvas().clientWidth, map.getCanvas().clientHeight);
+  map.jumpTo({ zoom: zoomForRange(currentRange(), map.getCenter().lat, shortSide) });
 }
 
 const currentRange = (): number => RANGES_NM[rangeIndex]!;
@@ -116,6 +147,7 @@ function setRange(nm: number): void {
   const i = RANGES_NM.indexOf(nm as (typeof RANGES_NM)[number]);
   if (i >= 0) rangeIndex = i;
   updateRangeLabel();
+  applyFreeZoom();
 }
 
 function updateRangeLabel(): void {
@@ -403,6 +435,7 @@ function connect(): void {
       for (const id of msg.removed ?? []) units.remove(id);
     }
     lastSeq = msg.seq;
+    optionsView = msg.optionsView;
   };
   const retry = () => {
     connected = false;
@@ -430,16 +463,20 @@ function frame(now: number): void {
   if (!document.hidden && own.ready) {
     own.step(dt);
 
-    // Die Zoomstufe folgt der gewählten Entfernung und der Fenstergröße, damit
-    // die Angabe auf jedem Gerät dieselbe Strecke bedeutet.
-    const shortSide = Math.min(map.getCanvas().clientWidth, map.getCanvas().clientHeight);
-    zoom = zoomForRange(currentRange(), own.lat, shortSide);
-    map.jumpTo({ center: [own.lon, own.lat], bearing: headingUp ? -toDeg(own.hdg) : 0, zoom });
+    if (follow) {
+      // Die Zoomstufe folgt der gewählten Entfernung und der Fenstergröße, damit
+      // die Angabe auf jedem Gerät dieselbe Strecke bedeutet.
+      const shortSide = Math.min(map.getCanvas().clientWidth, map.getCanvas().clientHeight);
+      zoom = zoomForRange(currentRange(), own.lat, shortSide);
+      map.jumpTo({ center: [own.lon, own.lat], bearing: headingUp ? -toDeg(own.hdg) : 0, zoom });
+    }
 
-    // In Heading-up dreht sich die Karte unter dem Symbol, es bleibt also oben.
-    // Genordet muss das Symbol selbst den Kurs zeigen, sonst steht es falsch.
-    const symbolRotation = headingUp ? 0 : toDeg(own.hdg);
+    // Verfolgend steht das Symbol fest in der Bildmitte: In Heading-up dreht
+    // sich die Karte darunter, genordet muss das Symbol selbst den Kurs zeigen.
+    // Frei bewegt wandert es mit der Karte und zeigt immer den Kurs.
+    const symbolRotation = follow && headingUp ? 0 : toDeg(own.hdg);
     ownshipEl.style.transform = `translate(-50%, -55%) rotate(${symbolRotation.toFixed(1)}deg)`;
+    placeOwnship();
 
     if (now - lastSources > 1000 / SOURCE_HZ) {
       lastSources = now;
@@ -529,6 +566,69 @@ function updateGraticule(): void {
 const hud = document.getElementById('hud')!;
 const braaBox = document.getElementById('braa')!;
 const ownshipEl = document.getElementById('ownship')!;
+const edgeEl = document.getElementById('offscreen')!;
+const warnEl = document.getElementById('warning')!;
+
+/**
+ * Abstaende der Randmarke zu den Bildkanten, je Kante verschieden: Oben liegt
+ * die HUD-Leiste, unten die Bedienleiste -- mit einem einheitlichen Abstand
+ * verschwindet die Marke genau dort darunter.
+ */
+const EDGE_MARGIN = { top: 58, right: 36, bottom: 82, left: 36 };
+
+/**
+ * Setzt das Ownship-Symbol und, falls es aus dem Bild gewandert ist, eine
+ * Randmarke mit Peilung und Entfernung.
+ *
+ * Die eigene Position auf einer Navigationsanzeige zu verlieren ist der
+ * schlimmste Fehlerfall eines freien Modus -- deshalb zeigt der Rand immer an,
+ * wo das Flugzeug steht.
+ */
+function placeOwnship(): void {
+  const canvasEl = map.getCanvas();
+  const w = canvasEl.clientWidth;
+  const h = canvasEl.clientHeight;
+
+  if (follow) {
+    ownshipEl.style.left = '50%';
+    ownshipEl.style.top = '50%';
+    edgeEl.hidden = true;
+    return;
+  }
+
+  const p = map.project([own.lon, own.lat]);
+  const inside = p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h;
+  ownshipEl.style.left = `${p.x}px`;
+  ownshipEl.style.top = `${p.y}px`;
+  ownshipEl.hidden = !inside;
+
+  if (inside) {
+    edgeEl.hidden = true;
+    return;
+  }
+
+  // Auf den Bildrand entlang der Linie von der Mitte zum Flugzeug klemmen.
+  const cx = w / 2;
+  const cy = h / 2;
+  const dx = p.x - cx;
+  const dy = p.y - cy;
+  const limitX = dx >= 0 ? w - EDGE_MARGIN.right - cx : cx - EDGE_MARGIN.left;
+  const limitY = dy >= 0 ? h - EDGE_MARGIN.bottom - cy : cy - EDGE_MARGIN.top;
+  const scale = Math.min(
+    limitX / Math.max(Math.abs(dx), 1e-6),
+    limitY / Math.max(Math.abs(dy), 1e-6),
+  );
+  edgeEl.style.left = `${cx + dx * scale}px`;
+  edgeEl.style.top = `${cy + dy * scale}px`;
+  // Pfeil zeigt vom Rand aus zum Flugzeug; 0 Grad ist nach oben.
+  edgeEl.style.setProperty('--angle', `${toDeg(Math.atan2(dy, dx)) + 90}deg`);
+
+  const centre = map.getCenter();
+  const nm = metersToNm(distanceTo(centre.lat, centre.lng, own.lat, own.lon));
+  const brg = bearingTo(centre.lat, centre.lng, own.lat, own.lon);
+  edgeEl.dataset['label'] = `${bearing3(refBearing(brg))}${refSuffix} ${Math.round(nm)}`;
+  edgeEl.hidden = false;
+}
 
 const magVar = () => MAG_VAR_DEG[settings.theater] ?? 0;
 const refBearing = (trueRad: number) =>
@@ -546,6 +646,12 @@ function updateHud(): void {
     `HDG ${bearing3(refBearing(own.hdg))}${refSuffix}   ` +
     `BULLS ${bearing3(refBearing(brgToUs))}/${Math.round(bullRange)}   ` +
     `${currentRange()} NM   ${units.meta.size} CONTACTS`;
+
+  // Wenn die Mission Fremdeinheiten zurueckhaelt, muss das dastehen. Sonst
+  // sucht man den Fehler bei sich, obwohl die Anzeige korrekt arbeitet.
+  const withheld = optionsView === 'optview_onlymap' || optionsView === 'optview_myaircraft';
+  warnEl.hidden = !withheld;
+  if (withheld) warnEl.textContent = `CONTACTS WITHHELD BY MISSION (${optionsView})`;
 
   updateBraa();
 }
@@ -589,6 +695,30 @@ canvas.addEventListener('click', (e) => {
   selectedId = typeof id === 'number' && id !== selectedId ? id : null;
 });
 
+const btnCtr = document.getElementById('mode-centre')!;
+const btnFree = document.getElementById('mode-free')!;
+
+/**
+ * Frei bewegt wird immer genordet dargestellt.
+ *
+ * Eine Karte zu schieben, die sich gleichzeitig unter der Hand dreht, ist
+ * unbrauchbar, und die Gitterbeschriftung liest sich nur genordet richtig. Die
+ * Einstellung HDG/N bleibt erhalten und gilt beim Zurueckschalten wieder.
+ */
+function setFollow(on: boolean): void {
+  follow = on;
+  btnCtr.setAttribute('aria-pressed', String(on));
+  btnFree.setAttribute('aria-pressed', String(!on));
+  for (const el of [btnHdg, btnNorth]) el.toggleAttribute('disabled', !on);
+
+  if (!on) {
+    map.jumpTo({ bearing: 0 });
+    applyFreeZoom();
+  } else {
+    ownshipEl.hidden = false;
+  }
+}
+
 const btnHdg = document.getElementById('mode-hdg')!;
 const btnNorth = document.getElementById('mode-north')!;
 
@@ -600,6 +730,9 @@ function setOrientation(up: boolean): void {
 btnHdg.addEventListener('click', () => setOrientation(true));
 btnNorth.addEventListener('click', () => setOrientation(false));
 setOrientation(headingUp);
+btnCtr.addEventListener('click', () => setFollow(true));
+btnFree.addEventListener('click', () => setFollow(false));
+setFollow(true);
 // Schrittasten zusätzlich zu den Direkttasten: Auf dem Tablet sind die großen
 // Flächen leichter zu treffen als eine bestimmte Zahl.
 document.getElementById('range-out')!.addEventListener('click', () => stepRange(1));
@@ -626,7 +759,9 @@ function updateStatus(): void {
     !('wakeLock' in navigator) ? 'not supported'
     : wakeLock ? 'on'
     : secure ? 'off' : 'needs HTTPS';
-  statusLine.textContent = `Screen lock: ${lock} · ${secure ? 'secure context' : 'insecure context'}`;
+  statusLine.textContent =
+    `Map view: ${optionsView}\n` +
+    `Screen lock: ${lock} · ${secure ? 'secure context' : 'insecure context'}`;
 }
 
 /** Modus und Beschriftung erfordern einen neuen Stil, alles andere nur Sichtbarkeit. */

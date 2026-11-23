@@ -17,6 +17,14 @@
            background: var(--panel); backdrop-filter: blur(4px);
            white-space: nowrap; overflow-x: auto; letter-spacing: .02em; }
 
+    /* Hinweis, wenn die Mission Fremdeinheiten zurueckhaelt. Auffaellig, aber
+       nicht als Fehler gefaerbt -- die Anzeige arbeitet ja korrekt. */
+    #warning { position: absolute; top: 44px; right: 12px; padding: 6px 10px;
+               background: rgba(10,14,18,.88); border: 1px solid #e9c46a;
+               border-radius: 6px; color: #e9c46a; font-size: 11px;
+               letter-spacing: .04em; }
+    #status { white-space: pre-line; }
+
     #braa { position: absolute; top: 44px; left: 12px; padding: 6px 10px;
             background: var(--panel); border: 1px solid #ffd166; border-radius: 6px;
             color: #ffd166; }
@@ -28,9 +36,30 @@
        light chart. This way the symbol carries in both modes. */
     /* transform wird pro Frame gesetzt; transform-origin muss die Symbolmitte
        sein, sonst wandert das Symbol beim Drehen aus der Bildmitte. */
+    /* left/top werden pro Frame gesetzt: verfolgend die Bildmitte, frei die
+       projizierte Position des Flugzeugs. */
     #ownship { position: absolute; top: 50%; left: 50%;
                transform: translate(-50%, -55%); transform-origin: 50% 50%;
                pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
+
+    /* Randmarke: zeigt im freien Modus, wo das Flugzeug ausserhalb des Bildes
+       steht, mit Peilung und Entfernung von der Bildmitte aus. */
+    #offscreen { position: absolute; transform: translate(-50%, -50%);
+                 pointer-events: none; z-index: 3; }
+    #offscreen::before { content: '▲'; display: block; color: #ffd166;
+                         font-size: 20px; line-height: 1;
+                         transform: rotate(var(--angle, 0deg));
+                         text-shadow: 0 0 3px rgba(0,0,0,.9); }
+    /* Dunkle Flaeche hinter der Beschriftung: Ohne sie laeuft sie in die
+       Kartenschrift und ist genau dann unlesbar, wenn man sie braucht. */
+    #offscreen::after { content: attr(data-label); position: absolute;
+                        left: 50%; top: 100%; transform: translateX(-50%);
+                        margin-top: 2px; padding: 2px 6px; border-radius: 4px;
+                        white-space: nowrap; color: #ffd166; font-size: 11px;
+                        font-weight: 600; letter-spacing: .03em;
+                        background: rgba(10,14,18,.85); }
+
+    button[disabled] { opacity: .35; }
 
     /* Umbrechend, damit die Leiste auch auf Telefonbreite nicht überläuft. */
     #controls { position: absolute; bottom: max(12px, env(safe-area-inset-bottom));
@@ -87,8 +116,10 @@
     <path d="M12 1 L22 26 L12 20 L2 26 Z" fill="#ffd166" stroke="#14181c" stroke-width="2"
           stroke-linejoin="round" />
   </svg>
+  <div id="offscreen" hidden></div>
   <div id="hud">connecting…</div>
   <div id="braa" hidden></div>
+  <div id="warning" hidden></div>
 
   <div id="settings" hidden>
     <h3>Display</h3>
@@ -175,6 +206,10 @@
       <button id="range-80" class="preset" aria-pressed="false">80</button>
       <button id="range-160" class="preset" aria-pressed="false">160</button>
       <button id="range-in" title="Range in">+</button>
+    </div>
+    <div class="seg" role="group" aria-label="Camera mode">
+      <button id="mode-centre" aria-pressed="true" title="Follow the aircraft">CTR</button>
+      <button id="mode-free" aria-pressed="false" title="Pan the map freely">FREE</button>
     </div>
     <div class="seg" role="group" aria-label="Map orientation">
       <button id="mode-hdg" aria-pressed="true" title="Heading up">HDG</button>

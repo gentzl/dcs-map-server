@@ -164,13 +164,36 @@ Both tools emit the same wire format as the hook and verify their first datagram
 against the server's own parser before sending. Two independent implementations
 of one format drift apart otherwise, and that has already happened once.
 
+### No contacts appear
+
+Own position shows but nothing else: the mission is withholding them, which is
+normal and not a fault of the display. DCS exposes its map setting as
+`optionsView`, and two of its values suppress every other unit —
+`optview_myaircraft` and `optview_onlymap`.
+
+The display says so: a banner reads `CONTACTS WITHHELD BY MISSION` and the
+settings panel shows the reported value. The hook also writes it to
+`Saved Games/DCS/Logs/dcs.log` every ten seconds, together with how many objects
+the export returned:
+
+```
+[map-server] optionsView=optview_myaircraft  Objekte=0  gesendet=0
+[map-server] Mission haelt Fremdeinheiten zurueck ...
+```
+
+The setting belongs to the mission, not to this tool. Single player: the
+mission's own difficulty options, or the gameplay settings where the mission
+does not force them. Multiplayer: the server decides and you cannot change it.
+Filtering happens server-side here by design — see Contributing.
+
 ## Controls
 
 | Input | Effect |
 |---|---|
 | `5` `10` `20` `40` `50` `80` `160` | Range scale in nautical miles |
 | Wheel, pinch | Step through range scales |
-| `HDG / N` | Heading up or north up |
+| `CTR / FREE` | Follow the aircraft, or pan the map freely |
+| `HDG / N` | Heading up or north up (follow mode only) |
 | `⚙` | Settings (stored in the browser) |
 | Tap a contact | BRAA readout: bearing, range, altitude, aspect |
 | `⚙` → Symbols | Legend of all contact symbols |

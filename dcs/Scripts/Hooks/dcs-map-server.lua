@@ -32,6 +32,9 @@ local function load_hook()
   local current = {}        -- IDs des laufenden Durchlaufs
   local buffer = {}
   local buffer_len = 0
+  local diag_at = 0          -- naechste Diagnoseausgabe
+  local diag_objects = 0     -- Objekte im letzten Durchlauf
+  local diag_sent = 0        -- davon gesendet
 
   --- Tabs und Zeilenumbrueche wuerden das Format zerlegen. Komma darf bleiben:
   --- DCS-Unit- und Gruppennamen enthalten regelmaessig Kommata, Tabs praktisch nie.
@@ -139,6 +142,20 @@ local function load_hook()
 
     -- Bei eingeschraenkter Sicht gar nicht erst senden, statt sich auf eine
     -- nachgelagerte Filterung zu verlassen.
+    -- Alle zehn Sekunden festhalten, was DCS hergibt. Ohne das ist nicht
+    -- erkennbar, ob Fremdeinheiten fehlen, weil die Missionseinstellung sie
+    -- zurueckhaelt oder weil der Export nichts liefert.
+    if now >= diag_at then
+      diag_at = now + 10
+      log(string.format('optionsView=%s  Objekte=%d  gesendet=%d',
+                        tostring(options_view), diag_objects, diag_sent))
+      if options_view == 'optview_onlymap' or options_view == 'optview_myaircraft' then
+        log('Mission haelt Fremdeinheiten zurueck (Karteneinstellung in den '
+            .. 'Missions- oder Serveroptionen)')
+      end
+      diag_sent = 0
+    end
+
     if options_view ~= 'optview_onlymap' and options_view ~= 'optview_myaircraft' then
       if next(sweep) == nil then
         -- Durchlauf abgeschlossen: Verschwundene melden und neu beginnen.
@@ -147,6 +164,8 @@ local function load_hook()
         end
         seen, current = current, {}
         sweep = Export.LoGetWorldObjects() or {}
+        diag_objects = 0
+        for _ in pairs(sweep) do diag_objects = diag_objects + 1 end
       end
 
       local budget = SWEEP_BUDGET
@@ -158,6 +177,7 @@ local function load_hook()
             emit(line)
             current[id] = true
             budget = budget - 1
+            diag_sent = diag_sent + 1
           end
         end
         if budget <= 0 then break end
