@@ -188,7 +188,7 @@ function addOverlayLayers(): void {
   const c = CHART_COLORS[settings.mode];
   const ink = c.ink;
 
-  for (const id of ['graticule', 'threats', 'rings', 'bullseye', 'track', 'contacts'] as const) {
+  for (const id of ['graticule', 'threats', 'rings', 'bullseye', 'track', 'selected-trail', 'contacts'] as const) {
     if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY });
   }
 
@@ -297,6 +297,19 @@ function addOverlayLayers(): void {
     });
   }
 
+  if (!map.getLayer('selected-trail-line')) {
+    // Spur eines angewaehlten Kontakts -- aus echten Positionen ueber Zeit
+    // angesammelt, nicht aus einer Missionsvorgabe gelesen. Ein Tanker im
+    // Orbit zeichnet so nach ein, zwei Runden sein Rennbahnmuster von selbst
+    // nach, ohne dass DCS' eigenes Scripting-Markup (das die F10-Karte fuer
+    // Tankerrouten zeigt) ausgelesen werden muesste -- das waere aus der
+    // Export-API ohnehin nicht erreichbar.
+    map.addLayer({
+      id: 'selected-trail-line', type: 'line', source: 'selected-trail',
+      paint: { 'line-color': '#ffd166', 'line-width': 1.5, 'line-opacity': 0.75, 'line-dasharray': [2, 2] },
+    });
+  }
+
   if (!map.getLayer('contacts-dot')) {
     // Auswahlring unter dem Symbol, damit er es nicht überdeckt.
     map.addLayer({
@@ -384,6 +397,7 @@ function applyVisibility(): void {
   vis('rings-line', settings.rings);
   vis('rings-label', settings.rings);
   vis('bullseye-center', settings.bullseye);
+  vis('selected-trail-line', settings.contacts !== 'none');
   vis('contacts-dot', settings.contacts !== 'none');
   vis('contacts-air', settings.contacts !== 'none');
   vis('contacts-selected', settings.contacts !== 'none');
@@ -415,6 +429,8 @@ function restyle(): void {
 let ws: WebSocket | null = null;
 let backoff = 500;
 const trackPoints: Array<[number, number]> = [];
+/** Spur des angewaehlten Kontakts. Wird bei jedem Auswahlwechsel geleert. */
+let selectedTrail: Array<[number, number]> = [];
 
 function connect(): void {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -550,6 +566,22 @@ function updateSources(now: number): void {
     if (trackPoints.length > 3000) trackPoints.shift();
     setData('track', { type: 'Feature', geometry: { type: 'LineString', coordinates: trackPoints }, properties: {} });
   }
+
+  if (selectedId !== null) {
+    const sel = contacts.find((c) => c.unit.id === selectedId);
+    if (sel) {
+      const lastSel = selectedTrail[selectedTrail.length - 1];
+      if (!lastSel || Math.abs(lastSel[0] - sel.lon) > 1e-4 || Math.abs(lastSel[1] - sel.lat) > 1e-4) {
+        selectedTrail.push([sel.lon, sel.lat]);
+        if (selectedTrail.length > 3000) selectedTrail.shift();
+      }
+    }
+  }
+  setData('selected-trail', {
+    type: 'Feature',
+    geometry: { type: 'LineString', coordinates: selectedId === null ? [] : selectedTrail },
+    properties: {},
+  });
 }
 
 function updateGraticule(): void {
@@ -693,6 +725,7 @@ canvas.addEventListener('click', (e) => {
   const hits = map.queryRenderedFeatures([[pt[0] - 12, pt[1] - 12], [pt[0] + 12, pt[1] + 12]], { layers: ['contacts-dot', 'contacts-air'] });
   const id = hits[0]?.properties?.['id'];
   selectedId = typeof id === 'number' && id !== selectedId ? id : null;
+  selectedTrail = [];
 });
 
 const btnCtr = document.getElementById('mode-centre')!;

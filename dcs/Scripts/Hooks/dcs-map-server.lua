@@ -1,18 +1,18 @@
 -------------------------------------------------------------------------------
--- dcs-map-server -- Export-Hook
+-- dcs-map-server -- Export Hook
 --
--- Sendet Positionsdaten per UDP an einen lokal laufenden Server.
--- Schema 2: tabgetrennt, gebuendelt, versioniert.
+-- Sends telemetry over UDP to a server running locally on this machine.
+-- Schema 3: tab-separated, batched, versioned.
 --
--- Installation: nach Saved Games\DCS\Scripts\Hooks\
+-- Install: copy into Saved Games\DCS\Scripts\Hooks\
 -------------------------------------------------------------------------------
 
 local SCHEMA        = 3
-local HOST          = '127.0.0.1'   -- bewusst nur Loopback, der LAN-Hop ist WebSocket
+local HOST          = '127.0.0.1'   -- deliberately loopback only, the LAN hop is WebSocket
 local PORT          = 50000
-local INTERVAL      = 0.1           -- 10 Hz, wie vom Client erwartet
-local MAX_DATAGRAM  = 8000          -- ueber Loopback unkritisch, haelt die Latenz klein
-local SWEEP_BUDGET  = 120           -- Objekte pro Tick; begrenzt die Lua-Last im Sim-Thread
+local INTERVAL      = 0.1           -- 10 Hz, matching what the client expects
+local MAX_DATAGRAM  = 8000          -- uncritical over loopback, keeps latency low
+local SWEEP_BUDGET  = 120           -- objects per tick; bounds the Lua load on the sim thread
 
 local function log(msg)
   net.log('[map-server] ' .. msg)
@@ -27,17 +27,17 @@ local function load_hook()
   local udp
   local next_send
   local options_view
-  local sweep = {}          -- Restliste des laufenden Durchlaufs
-  local seen = {}           -- IDs aus dem letzten vollstaendigen Durchlauf
-  local current = {}        -- IDs des laufenden Durchlaufs
+  local sweep = {}          -- remaining items of the current sweep
+  local seen = {}           -- ids from the last completed sweep
+  local current = {}        -- ids seen in the sweep in progress
   local buffer = {}
   local buffer_len = 0
-  local diag_at = 0          -- naechste Diagnoseausgabe
-  local diag_objects = 0     -- Objekte im letzten Durchlauf
-  local diag_sent = 0        -- davon gesendet
+  local diag_at = 0          -- next diagnostic output
+  local diag_objects = 0     -- objects in the last sweep
+  local diag_sent = 0        -- of those, how many were actually sent
 
-  --- Tabs und Zeilenumbrueche wuerden das Format zerlegen. Komma darf bleiben:
-  --- DCS-Unit- und Gruppennamen enthalten regelmaessig Kommata, Tabs praktisch nie.
+  --- Tabs and newlines would break the format apart. Commas may stay: DCS
+  --- unit and group names routinely contain commas, tabs almost never.
   local function clean(s)
     if s == nil then return '' end
     return (tostring(s):gsub('[\t\r\n]', ' '))
@@ -47,14 +47,14 @@ local function load_hook()
     if buffer_len == 0 then return end
     local payload = table.concat(buffer)
     buffer, buffer_len = {}, 0
-    -- Ein fehlgeschlagenes Senden darf die Simulation nie anhalten.
+    -- A failed send must never stall the simulation.
     pcall(function() udp:sendto(payload, HOST, PORT) end)
   end
 
   local function emit(line)
     if buffer_len + #line > MAX_DATAGRAM then
       flush()
-      -- Jedes Datagramm traegt einen eigenen Kopf, damit es fuer sich lesbar ist.
+      -- Every datagram carries its own header, so it stays readable on its own.
       local header = string.format('MM\t%d\t%.3f\t%s\n', SCHEMA,
                                    Export.LoGetModelTime() or 0, options_view or '')
       buffer[#buffer + 1] = header
@@ -70,7 +70,7 @@ local function load_hook()
     local ralt = Export.LoGetAltitudeAboveGroundLevel() or 0
     local accel = Export.LoGetAccelerationUnits() or { y = 1 }
 
-    -- Weight on Wheels ueber die Einfederung eines beliebigen Fahrwerksbeins.
+    -- Weight on wheels, via the compression of any landing gear strut.
     local gear = (Export.LoGetAircraftDrawArgumentValue(6) or 0)
                + (Export.LoGetAircraftDrawArgumentValue(1) or 0)
                + (Export.LoGetAircraftDrawArgumentValue(4) or 0)
@@ -97,13 +97,14 @@ local function load_hook()
         v.Heading or 0, v.CoalitionID or 0)
     end
 
-    -- Alles andere als A-Zeile, auch statische Objekte ohne GroupName (Gebaeude,
-    -- Baracken, Treibstofftanks, Befehlszentren). Bisher wurden sie komplett
-    -- verworfen ("if v.GroupName ~= nil"), obwohl DCS selbst sie auf der
-    -- F10-Karte zeigt -- clean(nil) liefert ohnehin schon einen leeren String,
-    -- das Weglassen brachte also keinen Vorteil, nur fehlende Objekte.
-    -- level1/level2 mitschicken: Ohne sie laesst sich Flugabwehr nicht von
-    -- sonstigen Bodenzielen trennen, und nur Erstere bekommt einen Bedrohungsring.
+    -- Everything else goes out as an A line, including static objects without
+    -- a GroupName (buildings, barracks, fuel tanks, command posts). These used
+    -- to be dropped entirely ("if v.GroupName ~= nil"), even though DCS's own
+    -- F10 map shows them -- clean(nil) already returns an empty string, so
+    -- skipping them bought nothing but missing objects.
+    -- level1/level2 are included because without them air defence can't be
+    -- told apart from other ground targets, and only the former gets a
+    -- threat ring.
     return string.format('A\t%d\t%s\t%.6f\t%.6f\t%.1f\t%.5f\t%s\t%s\t%d\t%d\t%d\n',
       id, clean(v.Name), v.LatLongAlt.Lat, v.LatLongAlt.Long, v.LatLongAlt.Alt,
       v.Heading or 0, clean(v.UnitName), clean(v.GroupName), v.CoalitionID or 0,
@@ -112,21 +113,21 @@ local function load_hook()
 
   function mm.onSimulationStart()
     udp = socket.udp()
-    udp:settimeout(0)          -- nicht blockierend: der Sim-Thread wartet auf nichts
+    udp:settimeout(0)          -- non-blocking: the sim thread never waits on this
     next_send = 0
     sweep, seen, current = {}, {}, {}
     buffer, buffer_len = {}, 0
-    log('Export gestartet -> ' .. HOST .. ':' .. PORT)
+    log('export started -> ' .. HOST .. ':' .. PORT)
 
-    -- Sonde: Ohne sie ist nicht unterscheidbar, ob LoGetWorldObjects im
-    -- Hooks-Umfeld fehlt, leer zurueckkommt oder Objekte ohne GroupName
-    -- liefert. Alle drei sehen von aussen gleich aus.
-    log('LoGetWorldObjects ist ' .. type(Export.LoGetWorldObjects))
+    -- Probe: without this there's no way to tell apart LoGetWorldObjects
+    -- being missing in the hooks environment, returning empty, or returning
+    -- objects without a GroupName. All three look the same from outside.
+    log('LoGetWorldObjects is ' .. type(Export.LoGetWorldObjects))
     local ok_probe, probe = pcall(Export.LoGetWorldObjects)
     if not ok_probe then
-      log('LoGetWorldObjects() wirft: ' .. tostring(probe))
+      log('LoGetWorldObjects() threw: ' .. tostring(probe))
     elseif type(probe) ~= 'table' then
-      log('LoGetWorldObjects() liefert ' .. type(probe))
+      log('LoGetWorldObjects() returned ' .. type(probe))
     else
       local total, with_group, with_pos, first = 0, 0, 0, nil
       for id, v in pairs(probe) do
@@ -139,19 +140,19 @@ local function load_hook()
             tostring(v.CoalitionID), tostring(v.Type and v.Type.level1))
         end
       end
-      log(string.format('LoGetWorldObjects(): %d Objekte, davon %d mit GroupName, %d mit Position',
+      log(string.format('LoGetWorldObjects(): %d objects, %d with a GroupName, %d with a position',
                         total, with_group, with_pos))
-      if first then log('erstes Objekt: ' .. first) end
+      if first then log('first object: ' .. first) end
     end
 
-    -- Gegenprobe mit ausdruecklichem Argument; die Vorgabe ist "units".
+    -- Cross-check with the explicit argument; the default is "units".
     local ok_units, units = pcall(Export.LoGetWorldObjects, 'units')
     if ok_units and type(units) == 'table' then
       local n = 0
       for _ in pairs(units) do n = n + 1 end
-      log(string.format("LoGetWorldObjects('units'): %d Objekte", n))
+      log(string.format("LoGetWorldObjects('units'): %d objects", n))
     else
-      log("LoGetWorldObjects('units') nicht nutzbar: " .. tostring(units))
+      log("LoGetWorldObjects('units') not usable: " .. tostring(units))
     end
   end
 
@@ -161,7 +162,7 @@ local function load_hook()
       udp:close()
       udp = nil
     end
-    log('Export beendet')
+    log('export stopped')
   end
 
   function mm.onSimulationFrame()
@@ -181,11 +182,11 @@ local function load_hook()
 
     emit(ownship_line(Export.LoGetPlayerPlaneId() or 0, self_data))
 
-    -- Bei eingeschraenkter Sicht gar nicht erst senden, statt sich auf eine
-    -- nachgelagerte Filterung zu verlassen.
+    -- Under a restricted view, don't even send -- rather than relying on
+    -- filtering further down the line.
     if options_view ~= 'optview_onlymap' and options_view ~= 'optview_myaircraft' then
       if next(sweep) == nil then
-        -- Durchlauf abgeschlossen: Verschwundene melden und neu beginnen.
+        -- Sweep complete: report anything that vanished, then start a new one.
         for id in pairs(seen) do
           if not current[id] then emit(string.format('D\t%d\n', id)) end
         end
@@ -211,16 +212,16 @@ local function load_hook()
       end
     end
 
-    -- Alle zehn Sekunden festhalten, was DCS hergibt. Ohne das ist nicht
-    -- erkennbar, ob Fremdeinheiten fehlen, weil die Missionseinstellung sie
-    -- zurueckhaelt oder weil der Export nichts liefert.
+    -- Record what DCS actually gives us every ten seconds. Without this
+    -- there's no way to tell whether missing contacts are held back by the
+    -- mission's view setting or the export itself returns nothing.
     if now >= diag_at then
       diag_at = now + 10
-      log(string.format('optionsView=%s  Objekte=%d  gesendet=%d',
+      log(string.format('optionsView=%s  objects=%d  sent=%d',
                         tostring(options_view), diag_objects, diag_sent))
       if options_view == 'optview_onlymap' or options_view == 'optview_myaircraft' then
-        log('Mission haelt Fremdeinheiten zurueck (Karteneinstellung in den '
-            .. 'Missions- oder Serveroptionen)')
+        log('mission is withholding other units (map view setting in the '
+            .. 'mission or server options)')
       end
       diag_sent = 0
     end
@@ -229,10 +230,10 @@ local function load_hook()
   end
 
   DCS.setUserCallbacks(mm)
-  log('geladen (Schema ' .. SCHEMA .. ')')
+  log('loaded (schema ' .. SCHEMA .. ')')
 end
 
 local ok, err = pcall(load_hook)
 if not ok then
-  net.log('[map-server] Ladefehler: ' .. tostring(err))
+  net.log('[map-server] load error: ' .. tostring(err))
 end
