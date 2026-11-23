@@ -75,8 +75,59 @@ Fetching tiles requires the [pmtiles CLI](https://github.com/protomaps/go-pmtile
 (`brew install pmtiles`). It pulls only the bytes of the requested region out of the public
 Protomaps planet build via HTTP range requests — no Java, no key, about 20 seconds.
 
-Install the hook by copying `dcs/Scripts/Hooks/dcs-map-server.lua` into
-`Saved Games\DCS\Scripts\Hooks\`.
+### Installing the hook
+
+Copy `dcs/Scripts/Hooks/dcs-map-server.lua` into `Saved Games\DCS\Scripts\Hooks\`
+and restart DCS. That is all — **no `Export.lua` is needed and none is modified.**
+
+This matters because the two mechanisms are easy to confuse:
+
+| | `Scripts/Export.lua` | `Scripts/Hooks/*.lua` |
+|---|---|---|
+| Entry points | `LuaExportStart`, `LuaExportActivity`, `LuaExportStop` | `DCS.setUserCallbacks` with `onSimulationStart/Frame/Stop` |
+| Loaded | once, as a single file shared by every tool | one file per tool, side by side |
+| Used by | SRS, DCS-BIOS, many instrument exporters | this project |
+
+The hook route was chosen deliberately: `Export.lua` is a single shared file, so
+every tool that wants it has to chain onto whatever is already there. Hooks live
+in their own files and cannot collide.
+
+Both environments can call the `Export.Lo*` functions, which is where the
+telemetry comes from — `LoGetSelfData`, `LoGetWorldObjects` and friends.
+
+#### If you prefer the Export.lua route
+
+Should you want to run the telemetry from `Export.lua` instead — for instance to
+keep everything in one place — the important part is to chain rather than
+replace. Overwriting the existing handlers silently breaks every other tool:
+
+```lua
+-- Saved Games\DCS\Scripts\Export.lua
+local previousStart    = LuaExportStart
+local previousActivity = LuaExportActivity
+local previousStop     = LuaExportStop
+
+LuaExportStart = function()
+    if previousStart then previousStart() end
+    -- open your socket here
+end
+
+LuaExportActivity = function()
+    if previousActivity then previousActivity() end
+    -- send here; LuaExportActivity fires on the export interval,
+    -- not once per rendered frame
+end
+
+LuaExportStop = function()
+    if previousStop then previousStop() end
+    -- close your socket here
+end
+```
+
+Two differences to keep in mind on that route: `Export.lua` has no equivalent of
+`DCS.getMissionOptions()`, so the fog-of-war setting would have to be obtained
+elsewhere, and the export interval is configured in `Config/Export.lua` rather
+than derived from the model time.
 
 ### Why HTTPS on a LAN
 
@@ -96,22 +147,26 @@ lua dcs/test/hook_harness.lua 300 optview_all 150
 Synthetic telemetry:
 
 ```bash
-python3 tools/generate_telemetry.py --send
+npm run telemetry -- --send --units 20
 ```
 
 A real recording — DCS/Tacview writes one after every flight:
 
 ```bash
-python3 tools/acmi_to_telemetry.py flight.zip.acmi --list   # show objects
-python3 tools/acmi_to_telemetry.py flight.zip.acmi --send
+npm run acmi -- flight.zip.acmi --list    # show objects
+npm run acmi -- flight.zip.acmi --send
 ```
+
+Both tools emit the same wire format as the hook and verify their first datagram
+against the server's own parser before sending. Two independent implementations
+of one format drift apart otherwise, and that has already happened once.
 
 ## Controls
 
 | Input | Effect |
 |---|---|
-| `+` / `−`, wheel, pinch | Step through range scales |
-| `5` `20` `50` `160` | Jump to a range scale |
+| `5` `10` `20` `40` `50` `80` `160` | Range scale in nautical miles |
+| Wheel, pinch | Step through range scales |
 | `HDG / N` | Heading up or north up |
 | `⚙` | Settings (stored in the browser) |
 | Tap a contact | BRAA readout: bearing, range, altitude, aspect |
@@ -149,6 +204,8 @@ src/client/symbols/      Contact symbols, drawn at runtime (nato.ts, dcs.ts)
 src/client/main.ts       MapLibre, render loop, HUD
 dcs/Scripts/Hooks/       DCS export hook (Lua)
 dcs/test/                Harness driving the hook against mocked DCS APIs
+tools/wire.ts            Datagram writer, counterpart to protocol.ts
+tools/zip.ts             Minimal ZIP reader for Tacview archives
 tools/                   Telemetry generator and ACMI converter
 ```
 

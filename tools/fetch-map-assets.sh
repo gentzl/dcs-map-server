@@ -20,7 +20,9 @@ RANGES=(0-255 256-511 512-767 768-1023 1024-1279 1280-1535 1536-1791 1792-2047 4
 FONTS=("Noto Sans Regular" "Noto Sans Medium" "Noto Sans Italic")
 
 for font in "${FONTS[@]}"; do
-  enc=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$font")
+  # Nur Leerzeichen muessen kodiert werden; die Fontstack-Namen enthalten
+  # nichts anderes, was in einem Pfad stoerte. Spart eine Python-Abhaengigkeit.
+  enc="${font// /%20}"
   mkdir -p "public/fonts/$font"
   for r in "${RANGES[@]}"; do
     out="public/fonts/$font/$r.pbf"

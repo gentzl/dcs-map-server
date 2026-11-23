@@ -52,11 +52,9 @@
        ablesbar sein, nicht nur veränderbar. */
     /* Direkttasten schmaler als die Schrittasten: Vier davon plus Plus und
        Minus müssen auf Telefonbreite nebeneinander passen. */
-    .seg button.preset { min-width: 44px; padding: 12px 8px; }
-    #range-value { display: flex; align-items: center; min-width: 64px;
-                   padding: 12px 8px; background: var(--panel);
-                   border: 1px solid var(--line); border-radius: 8px;
-                   color: #ffd166; font-weight: 600; }
+    /* Sieben Stufen muessen auf Telefonbreite nebeneinander passen, deshalb
+       schmal; die Leiste bricht zusaetzlich um. */
+    .seg button.preset { min-width: 40px; padding: 12px 6px; }
 
     #settings { position: absolute; bottom: 70px; right: 12px; width: min(300px, calc(100vw - 24px));
                 max-height: calc(100vh - 140px); overflow-y: auto;
@@ -167,15 +165,15 @@
 
   <div id="controls">
     <button id="toggle-settings" title="Settings">⚙</button>
-    <div class="seg" role="group" aria-label="Range">
-      <button id="range-out" title="Range out">−</button>
+    <div class="seg" role="group" aria-label="Range in nautical miles">
       <button id="range-5" class="preset" aria-pressed="false">5</button>
+      <button id="range-10" class="preset" aria-pressed="false">10</button>
       <button id="range-20" class="preset" aria-pressed="false">20</button>
+      <button id="range-40" class="preset" aria-pressed="false">40</button>
       <button id="range-50" class="preset" aria-pressed="false">50</button>
+      <button id="range-80" class="preset" aria-pressed="false">80</button>
       <button id="range-160" class="preset" aria-pressed="false">160</button>
-      <button id="range-in" title="Range in">+</button>
     </div>
-    <span id="range-value">20 NM</span>
     <div class="seg" role="group" aria-label="Map orientation">
       <button id="mode-hdg" aria-pressed="true" title="Heading up">HDG</button>
       <button id="mode-north" aria-pressed="false" title="North up">N</button>

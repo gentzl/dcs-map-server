@@ -114,11 +114,10 @@ export function formatAltitude(meters: number): string {
 export const RANGES_NM = [5, 10, 20, 40, 50, 80, 160] as const;
 
 /**
- * Stufen mit Direkttaste. 50 nm gehört nicht zur klassischen MFD-Staffelung
- * (die geht 40 → 80), ist hier aber als Schnellwahl gewünscht und deshalb
- * zusätzlich in RANGES_NM aufgenommen.
+ * Stufen mit Direkttaste -- alle. 50 nm gehört nicht zur klassischen
+ * MFD-Staffelung (die geht 40 → 80), ist hier aber als Schnellwahl gewünscht.
  */
-export const RANGE_PRESETS_NM = [5, 20, 50, 160] as const;
+export const RANGE_PRESETS_NM = RANGES_NM;
 
 /** Auflösung des Web-Mercator bei Zoom 0, Meter je Pixel am Äquator. */
 const MPP_ZOOM0 = 156_543.03392;

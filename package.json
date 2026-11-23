@@ -11,7 +11,10 @@
     "build:server": "tsc -p tsconfig.json",
     "build": "npm run typecheck && npm run build:server && npm run build:client",
     "dev": "npm run build && node dist/server/index.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json && tsc -p tsconfig.tools.json --noEmit",
+    "build:tools": "tsc -p tsconfig.tools.json",
+    "telemetry": "npm run build:tools --silent && node dist-tools/tools/generate-telemetry.js",
+    "acmi": "npm run build:tools --silent && node dist-tools/tools/acmi-to-telemetry.js"
   },
   "dependencies": {
     "@fastify/static": "^8.0.0",

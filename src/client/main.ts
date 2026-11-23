@@ -119,10 +119,8 @@ function setRange(nm: number): void {
 }
 
 function updateRangeLabel(): void {
-  const el = document.getElementById('range-value');
-  if (el) el.textContent = `${currentRange()} NM`;
-  // Aktive Direkttaste hervorheben, damit die eingestellte Stufe auch an den
-  // Tasten ablesbar ist und nicht nur an der Zahl daneben.
+  // Keine separate Zahlenanzeige mehr: Jede Stufe hat eine eigene Taste, die
+  // hervorgehobene zeigt den eingestellten Wert.
   for (const nm of RANGE_PRESETS_NM) {
     document
       .getElementById(`range-${nm}`)
@@ -602,8 +600,6 @@ function setOrientation(up: boolean): void {
 btnHdg.addEventListener('click', () => setOrientation(true));
 btnNorth.addEventListener('click', () => setOrientation(false));
 setOrientation(headingUp);
-document.getElementById('range-in')!.addEventListener('click', () => stepRange(-1));
-document.getElementById('range-out')!.addEventListener('click', () => stepRange(1));
 for (const nm of RANGE_PRESETS_NM) {
   document.getElementById(`range-${nm}`)!.addEventListener('click', () => setRange(nm));
 }
