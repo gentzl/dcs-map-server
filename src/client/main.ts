@@ -600,6 +600,10 @@ function setOrientation(up: boolean): void {
 btnHdg.addEventListener('click', () => setOrientation(true));
 btnNorth.addEventListener('click', () => setOrientation(false));
 setOrientation(headingUp);
+// Schrittasten zusätzlich zu den Direkttasten: Auf dem Tablet sind die großen
+// Flächen leichter zu treffen als eine bestimmte Zahl.
+document.getElementById('range-out')!.addEventListener('click', () => stepRange(1));
+document.getElementById('range-in')!.addEventListener('click', () => stepRange(-1));
 for (const nm of RANGE_PRESETS_NM) {
   document.getElementById(`range-${nm}`)!.addEventListener('click', () => setRange(nm));
 }
