@@ -67,6 +67,15 @@ let headingUp = true;
  * irgendwo auf der Karte zu landen waere die falsche Vorgabe.
  */
 let follow = true;
+/**
+ * Zoom level set by pinch or wheel, overriding the preset-driven zoom while
+ * still following the aircraft. Pinch/wheel used to kick the view into FREE
+ * mode like a drag does, but zooming while centred is a different gesture
+ * from panning away -- only an actual pan should give up centring.
+ * Cleared by picking a range preset, which is the explicit way back to a
+ * known distance.
+ */
+let manualZoom: number | null = null;
 let connected = false;
 let lastSeq = 0;
 /** Sichtbarkeitsregel, wie DCS sie meldet. Entscheidet, ob Kontakte kommen. */
@@ -135,8 +144,12 @@ function stepRange(delta: number): void {
  * Im freien Modus ruehrt die Render-Schleife die Kamera nicht an, damit sie
  * nicht gegen das Ziehen arbeitet. Eine Massstabsaenderung muss deshalb hier
  * angewandt werden -- um die aktuelle Mitte, nicht um das Flugzeug.
+ *
+ * Eine Preset-Taste ist die ausdrueckliche Rueckkehr zu einer bekannten
+ * Entfernung, loescht also einen vorherigen Pinch-/Mausrad-Zoom.
  */
 function applyFreeZoom(): void {
+  manualZoom = null;
   if (follow) return;
   const shortSide = Math.min(map.getCanvas().clientWidth, map.getCanvas().clientHeight);
   map.jumpTo({ zoom: zoomForRange(currentRange(), map.getCenter().lat, shortSide) });
@@ -177,9 +190,12 @@ const canvas = map.getCanvas();
 // zoom level per wheel notch.
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
-  if (follow) setFollow(false);
-  const z = map.getZoom() - e.deltaY * 0.01;
-  map.jumpTo({ zoom: Math.max(0, Math.min(22, z)) });
+  // Zooming is not panning -- stays centred on the aircraft in follow mode,
+  // see manualZoom. Only free mode needs an explicit jumpTo here; in follow
+  // mode the render loop applies manualZoom itself every frame.
+  const z = (manualZoom ?? map.getZoom()) - e.deltaY * 0.01;
+  manualZoom = Math.max(0, Math.min(22, z));
+  if (!follow) map.jumpTo({ zoom: manualZoom });
 }, { passive: false });
 
 // Pinch zooms steplessly, unlike the wheel and the buttons -- when nudging
@@ -190,10 +206,7 @@ let pinch: { dist: number; zoom: number } | null = null;
 const touchDist = (t: TouchList) => Math.hypot(t[0]!.clientX - t[1]!.clientX, t[0]!.clientY - t[1]!.clientY);
 canvas.addEventListener('touchstart', (e) => {
   if (e.touches.length === 2) {
-    // Same as dragging: pinch is a free gesture, follow mode would just
-    // overwrite the zoom level every frame.
-    if (follow) setFollow(false);
-    pinch = { dist: touchDist(e.touches), zoom: map.getZoom() };
+    pinch = { dist: touchDist(e.touches), zoom: manualZoom ?? map.getZoom() };
   }
 });
 canvas.addEventListener('touchmove', (e) => {
@@ -201,7 +214,8 @@ canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
     // Doubling the finger distance is one zoom level.
     const z = pinch.zoom + Math.log2(touchDist(e.touches) / pinch.dist);
-    map.jumpTo({ zoom: Math.max(0, Math.min(22, z)) });
+    manualZoom = Math.max(0, Math.min(22, z));
+    if (!follow) map.jumpTo({ zoom: manualZoom });
   }
 }, { passive: false });
 canvas.addEventListener('touchend', () => { pinch = null; });
@@ -506,9 +520,11 @@ function frame(now: number): void {
 
     if (follow) {
       // Die Zoomstufe folgt der gewählten Entfernung und der Fenstergröße, damit
-      // die Angabe auf jedem Gerät dieselbe Strecke bedeutet.
+      // die Angabe auf jedem Gerät dieselbe Strecke bedeutet -- es sei denn,
+      // Pinch oder Mausrad haben gerade einen eigenen Zoom gesetzt: Zoomen
+      // waehrend des Verfolgens ist kein Verlassen des Modus, nur Schwenken ist das.
       const shortSide = Math.min(map.getCanvas().clientWidth, map.getCanvas().clientHeight);
-      zoom = zoomForRange(currentRange(), own.lat, shortSide);
+      zoom = manualZoom ?? zoomForRange(currentRange(), own.lat, shortSide);
       map.jumpTo({ center: [own.lon, own.lat], bearing: headingUp ? -toDeg(own.hdg) : 0, zoom });
     }
 
