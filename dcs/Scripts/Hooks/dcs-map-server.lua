@@ -89,20 +89,25 @@ local function load_hook()
   end
 
   local function object_line(id, v)
-    if v.GroupName ~= nil then
-      -- level1 und level2 mitschicken: Ohne sie laesst sich Flugabwehr nicht von
-      -- sonstigen Bodenzielen trennen, und nur Erstere bekommt einen Bedrohungsring.
-      local t = v.Type or {}
-      return string.format('A\t%d\t%s\t%.6f\t%.6f\t%.1f\t%.5f\t%s\t%s\t%d\t%d\t%d\n',
-        id, clean(v.Name), v.LatLongAlt.Lat, v.LatLongAlt.Long, v.LatLongAlt.Alt,
-        v.Heading or 0, clean(v.UnitName), clean(v.GroupName), v.CoalitionID or 0,
-        t.level1 or 0, t.level2 or 0)
-    elseif v.Type and v.Type.level1 == 4 and v.Type.level2 == 4 then
+    local t = v.Type or {}
+
+    if t.level1 == 4 and t.level2 == 4 then
       return string.format('W\t%d\t%s\t%.6f\t%.6f\t%.1f\t%.5f\t%d\n',
         id, clean(v.Name), v.LatLongAlt.Lat, v.LatLongAlt.Long, v.LatLongAlt.Alt,
         v.Heading or 0, v.CoalitionID or 0)
     end
-    return nil
+
+    -- Alles andere als A-Zeile, auch statische Objekte ohne GroupName (Gebaeude,
+    -- Baracken, Treibstofftanks, Befehlszentren). Bisher wurden sie komplett
+    -- verworfen ("if v.GroupName ~= nil"), obwohl DCS selbst sie auf der
+    -- F10-Karte zeigt -- clean(nil) liefert ohnehin schon einen leeren String,
+    -- das Weglassen brachte also keinen Vorteil, nur fehlende Objekte.
+    -- level1/level2 mitschicken: Ohne sie laesst sich Flugabwehr nicht von
+    -- sonstigen Bodenzielen trennen, und nur Erstere bekommt einen Bedrohungsring.
+    return string.format('A\t%d\t%s\t%.6f\t%.6f\t%.1f\t%.5f\t%s\t%s\t%d\t%d\t%d\n',
+      id, clean(v.Name), v.LatLongAlt.Lat, v.LatLongAlt.Long, v.LatLongAlt.Alt,
+      v.Heading or 0, clean(v.UnitName), clean(v.GroupName), v.CoalitionID or 0,
+      t.level1 or 0, t.level2 or 0)
   end
 
   function mm.onSimulationStart()

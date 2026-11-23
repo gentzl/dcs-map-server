@@ -1,5 +1,5 @@
 import type { Ownship, Unit } from '../shared/types.js';
-import { destination, shortestAngle } from './geo.js';
+import { bearingTo, destination, distanceTo, shortestAngle } from './geo.js';
 
 /**
  * Eigenes Flugzeug: vorwaerts schaetzen statt verzoegern.
@@ -68,15 +68,27 @@ interface Sample {
 
 /**
  * Fremdeinheiten: bewusst ~150 ms in der Vergangenheit rendern und zwischen den
- * umschliessenden Samples interpolieren. Dadurch liegt immer ein Zielwert vor
+ * umschliessenden Samples interpolieren. Dadurch liegt meist ein Zielwert vor
  * und Jitter im WLAN faellt nicht auf.
  *
- * Fuer Objekte, die wegen des Round-Robin-Versands laenger kein Update hatten,
- * wird NICHT extrapoliert -- lieber eine ehrlich veraltete Position als eine
- * erfundene.
+ * Reicht das nicht, wird aus den letzten beiden echten Samples vorwaerts
+ * geschaetzt -- dieselbe Technik wie beim eigenen Flugzeug, nur ohne dessen
+ * laufende Korrektur. Das war zunaechst bewusst weggelassen ("lieber eine
+ * ehrlich veraltete Position als eine erfundene"), hat sich an echten
+ * DCS-Daten aber als zu kurz gegriffen erwiesen: Der Export-Hook sendet
+ * Fremdeinheiten im Round-Robin mit einer festen Objektzahl pro Tick
+ * (SWEEP_BUDGET). Bei vielen Objekten in der Mission -- bei 333 real
+ * beobachteten etwa alle 300 ms statt alle 100 ms -- stand ein Kontakt die
+ * meiste Zeit still und "raste" dann in den letzten 150 ms zur neuen
+ * Position, weil kein zweites Sample zum Einrahmen vorlag. Die Schaetzung
+ * schliesst genau diese Luecke, bleibt aber durch EXTRAPOLATE_CAP_MS
+ * begrenzt: Nach laengerem Ausbleiben soll die Position wieder ehrlich
+ * einfrieren statt beliebig weiterzulaufen.
  */
 export class UnitBuffer {
   static readonly DELAY_MS = 150;
+  /** Laenger wird nicht mehr extrapoliert, nur noch die letzte Position gehalten. */
+  private static readonly EXTRAPOLATE_CAP_MS = 3000;
   private static readonly KEEP = 4;
 
   private samples = new Map<number, Sample[]>();
@@ -110,8 +122,23 @@ export class UnitBuffer {
       const last = list[list.length - 1];
       if (!unit || !last) continue;
 
-      if (list.length === 1 || target >= last.t) {
-        out.push({ unit, lat: last.lat, lon: last.lon, hdg: last.hdg, ageMs: now - last.t });
+      if (target >= last.t) {
+        const prevSample = list.length >= 2 ? list[list.length - 2]! : null;
+        const gap = last.t - (prevSample?.t ?? last.t);
+        const overdue = Math.min(target - last.t, UnitBuffer.EXTRAPOLATE_CAP_MS);
+
+        // Ohne zweites Sample oder bei einer Standzeit (gap<=0, etwa beim
+        // ersten Erscheinen) laesst sich keine Richtung ableiten -- dann
+        // ehrlich an der letzten Position bleiben statt zu raten.
+        if (!prevSample || gap <= 0 || overdue <= 0) {
+          out.push({ unit, lat: last.lat, lon: last.lon, hdg: last.hdg, ageMs: now - last.t });
+          continue;
+        }
+
+        const speed = distanceTo(prevSample.lat, prevSample.lon, last.lat, last.lon) / (gap / 1000);
+        const heading = bearingTo(prevSample.lat, prevSample.lon, last.lat, last.lon);
+        const [lat, lon] = destination(last.lat, last.lon, heading, speed * (overdue / 1000));
+        out.push({ unit, lat, lon, hdg: last.hdg, ageMs: now - last.t });
         continue;
       }
 

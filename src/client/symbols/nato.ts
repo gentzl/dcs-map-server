@@ -159,12 +159,14 @@ const ICONS: Partial<Record<Category, Draw>> = {
     c.ellipse(s * 0.5, s * 0.47, s * 0.2, s * 0.07, 0, 0, Math.PI * 2);
   },
   // Rotorblätter: gekreuzt, als Andeutung der Drehbewegung.
+  // Gefuellte Rotorscheibe (wie beim Starrfluegler die Luftschraube), darauf
+  // die Kreuzstriche als Rotorblaetter. Ohne die Flaeche blieb vom Symbol nur
+  // ein duenner Strich, weil der Luftrahmen selbst nach APP-6 unten offen und
+  // daher ungefuellt ist -- beim Starrfluegler kompensiert das die gefuellte
+  // Luftschraube, beim Hubschrauber fehlte das Gegenstueck.
   helo: (c, s) => {
     c.beginPath();
-    c.moveTo(s * 0.33, s * 0.36);
-    c.lineTo(s * 0.67, s * 0.58);
-    c.moveTo(s * 0.67, s * 0.36);
-    c.lineTo(s * 0.33, s * 0.58);
+    c.ellipse(s * 0.5, s * 0.47, s * 0.19, s * 0.19, 0, 0, Math.PI * 2);
   },
   // Kettenandeutung: liegendes Oval. Steht nach der Norm allein Kampfpanzern
   // zu; sonstige Bodenziele führen einen leeren Rahmen, was "nicht näher
@@ -209,7 +211,7 @@ const ICONS: Partial<Record<Category, Draw>> = {
 };
 
 /** Icons, die gefüllt werden; die übrigen bleiben Striche. */
-const FILLED = new Set<Category>(['armor', 'sam', 'weapon', 'air', 'naval']);
+const FILLED = new Set<Category>(['armor', 'sam', 'weapon', 'air', 'naval', 'helo']);
 
 function render(category: Category, affiliation: Affiliation): ImageData {
   const { ctx, px } = newCanvas();
