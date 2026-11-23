@@ -186,6 +186,21 @@ mission's own difficulty options, or the gameplay settings where the mission
 does not force them. Multiplayer: the server decides and you cannot change it.
 Filtering happens server-side here by design — see Contributing.
 
+#### Recording what the hook actually sends
+
+When the log is not enough, record the raw datagrams and have them summarised.
+Three causes look identical from outside — nothing arrives, something arrives
+unreadably, or the mission withholds it — and this tells them apart:
+
+```bash
+MM_CAPTURE=/tmp/hook.jsonl npm run dev     # fly for a minute
+npm run capture -- /tmp/hook.jsonl
+```
+
+It reports line types, the reported visibility rule, parse errors, the type
+levels DCS supplied and the unit names seen, then states which of the three
+cases applies.
+
 ## Controls
 
 | Input | Effect |

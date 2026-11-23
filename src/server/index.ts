@@ -113,6 +113,7 @@ setInterval(() => {
 startIngest(world, {
   port: UDP_PORT,
   host: UDP_HOST,
+  capture: process.env.MM_CAPTURE,
   onError: (reason) => console.warn(`[ingest] verworfen: ${reason}`),
 });
 
@@ -137,3 +138,4 @@ if (certs) console.log(`HTTP  http://localhost:${HTTP_PORT}  (Weiterleitung)`);
 else console.log('      kein Zertifikat -- Wake Lock bleibt aus, s. tools/make-cert.sh');
 console.log(`UDP   ${UDP_HOST}:${UDP_PORT}  (nur Loopback)`);
 console.log(`Tick  ${TICK_HZ} Hz`);
+if (process.env.MM_CAPTURE) console.log(`Mitschnitt  ${process.env.MM_CAPTURE}`);
