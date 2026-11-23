@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>DCS Map Server</title>
+  <link rel="stylesheet" href="maplibre-gl.css" />
+  <style>
+    :root { color-scheme: dark; --ink: #e0e1dd; --panel: rgba(10,16,22,.88); --line: #415a77; }
+    html, body { margin: 0; height: 100%; background: #0d1b2a; color: var(--ink);
+                 font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+                 -webkit-user-select: none; user-select: none; }
+    #map { position: absolute; inset: 0; }
+
+    #hud { position: absolute; top: 0; left: 0; right: 0; padding: 8px 12px;
+           padding-top: max(8px, env(safe-area-inset-top));
+           background: var(--panel); backdrop-filter: blur(4px);
+           white-space: nowrap; overflow-x: auto; letter-spacing: .02em; }
+
+    #braa { position: absolute; top: 44px; left: 12px; padding: 6px 10px;
+            background: var(--panel); border: 1px solid #ffd166; border-radius: 6px;
+            color: #ffd166; }
+
+    /* Ownship stays fixed at screen centre while the map moves beneath it.
+       As a DOM element rather than a map layer this avoids recomputing tile
+       geometry every frame. */
+    /* Dark outline rather than plain fill: yellow alone lacks contrast on the
+       light chart. This way the symbol carries in both modes. */
+    /* transform wird pro Frame gesetzt; transform-origin muss die Symbolmitte
+       sein, sonst wandert das Symbol beim Drehen aus der Bildmitte. */
+    #ownship { position: absolute; top: 50%; left: 50%;
+               transform: translate(-50%, -55%); transform-origin: 50% 50%;
+               pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
+
+    /* Umbrechend, damit die Leiste auch auf Telefonbreite nicht überläuft. */
+    #controls { position: absolute; bottom: max(12px, env(safe-area-inset-bottom));
+                z-index: 2; right: 12px; left: 12px; display: flex; gap: 8px;
+                flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+    button { padding: 12px 16px; font: inherit; color: var(--ink); background: var(--panel);
+             border: 1px solid var(--line); border-radius: 8px; min-width: 48px; }
+    button:active { background: #1b2a3a; }
+
+    /* Umschalter mit sichtbarem Zustand: Beim einzelnen Knopf war nicht
+       erkennbar, welche Ausrichtung gerade aktiv ist. */
+    .seg { display: flex; }
+    .seg button { border-radius: 0; min-width: 52px; }
+    .seg button:first-child { border-radius: 8px 0 0 8px; }
+    .seg button:last-child { border-radius: 0 8px 8px 0; border-left-width: 0; }
+    .seg button[aria-pressed="true"] { background: #ffd166; color: #14181c;
+                                       border-color: #ffd166; font-weight: 600; }
+    /* Entfernungsanzeige zwischen den Tasten: Der eingestellte Maßstab muss
+       ablesbar sein, nicht nur veränderbar. */
+    /* Direkttasten schmaler als die Schrittasten: Vier davon plus Plus und
+       Minus müssen auf Telefonbreite nebeneinander passen. */
+    .seg button.preset { min-width: 44px; padding: 12px 8px; }
+    #range-value { display: flex; align-items: center; min-width: 64px;
+                   padding: 12px 8px; background: var(--panel);
+                   border: 1px solid var(--line); border-radius: 8px;
+                   color: #ffd166; font-weight: 600; }
+
+    #settings { position: absolute; bottom: 70px; right: 12px; width: min(300px, calc(100vw - 24px));
+                max-height: calc(100vh - 140px); overflow-y: auto;
+                background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+                padding: 12px 14px; backdrop-filter: blur(6px); }
+    #settings h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase;
+                   letter-spacing: .1em; opacity: .65; font-weight: 600; }
+    #settings h3:not(:first-child) { margin-top: 16px; }
+    #settings label { display: flex; align-items: center; justify-content: space-between;
+                      gap: 10px; padding: 7px 0; }
+    #settings select { font: inherit; color: var(--ink); background: #16202b;
+                       border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; }
+    #settings input[type=range] { width: 120px; }
+    #settings input[type=checkbox] { width: 20px; height: 20px; accent-color: #ffd166; }
+    #legend table { border-collapse: collapse; width: 100%; }
+    #legend td { padding: 2px 4px; vertical-align: middle; }
+    #legend td:first-child { font-size: 11px; opacity: .8; }
+    #legend td:not(:first-child) { text-align: center; width: 34px; }
+    #legend .legend-head { font-size: 10px; text-transform: uppercase;
+                           letter-spacing: .08em; opacity: .55; }
+
+    #status { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line);
+              font-size: 11px; opacity: .75; }
+    #hint { margin-top: 8px; font-size: 11px; opacity: .6; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <svg id="ownship" viewBox="0 0 24 28" width="26" height="30" aria-hidden="true">
+    <path d="M12 1 L22 26 L12 20 L2 26 Z" fill="#ffd166" stroke="#14181c" stroke-width="2"
+          stroke-linejoin="round" />
+  </svg>
+  <div id="hud">connecting…</div>
+  <div id="braa" hidden></div>
+
+  <div id="settings" hidden>
+    <h3>Display</h3>
+    <label>Mode
+      <select data-key="mode">
+        <option value="chart">Aero chart</option>
+        <option value="night">Night</option>
+      </select>
+    </label>
+    <label>Elevation tint <input type="checkbox" data-key="elevationTint" /></label>
+    <label>Terrain shading <input type="checkbox" data-key="hillshade" /></label>
+    <label>Relief strength <input type="range" min="0" max="1" step="0.05" data-key="hillshadeStrength" /></label>
+    <label>Place names <input type="checkbox" data-key="mapLabels" /></label>
+
+    <h3>Overlays</h3>
+    <label>Range rings <input type="checkbox" data-key="rings" /></label>
+    <label>Threat rings
+      <select data-key="threats">
+        <option value="hostile">hostile only</option>
+        <option value="all">all</option>
+        <option value="none">off</option>
+      </select>
+    </label>
+    <label>Lat/Lon grid <input type="checkbox" data-key="graticule" /></label>
+    <label>Bullseye <input type="checkbox" data-key="bullseye" /></label>
+
+    <h3>Tactical</h3>
+    <label>Contacts
+      <select data-key="contacts">
+        <option value="all">all</option>
+        <option value="air">air only</option>
+        <option value="none">none</option>
+      </select>
+    </label>
+    <label>Contact labels <input type="checkbox" data-key="contactLabels" /></label>
+    <label>Bearings
+      <select data-key="bearingRef">
+        <option value="magnetic">magnetic</option>
+        <option value="true">true</option>
+      </select>
+    </label>
+
+    <h3>Theater</h3>
+    <label>Map
+      <select data-key="theater">
+        <option value="caucasus">Caucasus</option>
+        <option value="syria">Syria</option>
+        <option value="persiangulf">Persian Gulf</option>
+        <option value="sinai">Sinai</option>
+        <option value="normandy">Normandy</option>
+        <option value="marianas">Marianas</option>
+        <option value="kola">Kola</option>
+        <option value="iraq">Iraq</option>
+        <option value="afghanistan">Afghanistan</option>
+      </select>
+    </label>
+
+    <h3>Symbols</h3>
+    <label>Symbol set
+      <select data-key="symbolSet">
+        <option value="nato">NATO APP-6</option>
+        <option value="dcs">DCS style</option>
+      </select>
+    </label>
+    <div id="legend"></div>
+
+    <div id="status"></div>
+    <div id="hint">
+      Tap a contact for BRAA.<br />
+      Shift + click to set bullseye.<br />
+      Theaters need the matching tile file (<code>tools/fetch-tiles.sh</code>).
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="toggle-settings" title="Settings">⚙</button>
+    <div class="seg" role="group" aria-label="Range">
+      <button id="range-out" title="Range out">−</button>
+      <button id="range-5" class="preset" aria-pressed="false">5</button>
+      <button id="range-20" class="preset" aria-pressed="false">20</button>
+      <button id="range-50" class="preset" aria-pressed="false">50</button>
+      <button id="range-160" class="preset" aria-pressed="false">160</button>
+      <button id="range-in" title="Range in">+</button>
+    </div>
+    <span id="range-value">20 NM</span>
+    <div class="seg" role="group" aria-label="Map orientation">
+      <button id="mode-hdg" aria-pressed="true" title="Heading up">HDG</button>
+      <button id="mode-north" aria-pressed="false" title="North up">N</button>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+public/main.js
+public/main.js.map
+*.pmtiles
+fixtures/*.jsonl
+tiles/
+public/fonts/
+public/sprites/
+certs/

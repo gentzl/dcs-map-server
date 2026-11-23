@@ -1,0 +1,31 @@
+{
+  "name": "dcs-map-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build:client": "esbuild src/client/main.ts --bundle --format=esm --sourcemap --outfile=public/main.js",
+    "build:server": "tsc -p tsconfig.json",
+    "build": "npm run typecheck && npm run build:server && npm run build:client",
+    "dev": "npm run build && node dist/server/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json"
+  },
+  "dependencies": {
+    "@fastify/static": "^8.0.0",
+    "@protomaps/basemaps": "^5.7.2",
+    "fastify": "^5.0.0",
+    "maplibre-gl": "^5.0.0",
+    "pmtiles": "^4.5.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/geojson": "^7946.0.16",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}
