@@ -27,8 +27,9 @@ clients on the LAN. No per-client install, no API key.
   armour, unspecified ground, air defence, surface vessel, carrier, submarine and weapon are
   distinguished. A symbol legend sits in the settings panel.
 - A second symbol set following the in-game map presentation, switchable. Shape carries the
-  domain and the content carries the type: a shield with a role letter for air (`F`, `H`), a
-  rectangle with a pictogram for ground, a circle with a code for vessels (`CC`, `CV`, `SS`).
+  domain and the content carries the type: a shield with a role letter for air (`F` fighter,
+  `C` transport, `K` tanker, `W` AWACS, `H` rotary wing), a rectangle with a pictogram for ground,
+  a circle with a code for vessels (`CC`, `CV`, `SS`).
   Colour follows the coalition rather than the viewer's affiliation — blue stays blue even when
   flying red. Redrawn from screenshots of the F10 map; the original artwork ships as protected
   textures and is not redistributed here. The green condition bar above ground and naval markers
@@ -37,8 +38,8 @@ clients on the LAN. No per-client install, no API key.
 
 **Cockpit conventions**
 
-- MFD-style range steps: 5/10/20/40/50/80/160 nm, the scaling of the Hornet and Viper HSI/HSD
-  displays. The zoom level is derived from range, viewport size and latitude, so "40 NM" means the
+- MFD-style range steps: 1/5/10/20/50/80/160 nm, the scaling of the Hornet and Viper HSI/HSD
+  displays. The zoom level is derived from range, viewport size and latitude, so "20 NM" means the
   same distance on every device.
 - Coordinates in degrees and decimal minutes, altitude in feet or as a flight level, speed in
   knots, distance in nautical miles, bearings magnetic.
@@ -202,7 +203,7 @@ cases applies.
 
 | Input | Effect |
 |---|---|
-| `5` `10` `20` `40` `50` `80` `160` | Range scale in nautical miles |
+| `1` `5` `10` `20` `50` `80` `160` | Range scale in nautical miles |
 | Wheel, pinch | Step through range scales |
 | `CTR / FREE` | Follow the aircraft, or pan the map freely |
 | `HDG / N` | Heading up or north up (follow mode only) |

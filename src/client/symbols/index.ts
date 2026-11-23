@@ -17,7 +17,7 @@ export type { Affiliation, SymbolSetId } from './types.js';
 const SETS: Record<SymbolSetId, SymbolSet> = { nato: natoSet, dcs: dcsSet };
 
 const CATEGORIES: Category[] = [
-  'air', 'helo', 'armor', 'ground', 'sam', 'naval',
+  'air', 'cargo', 'tanker', 'awacs', 'helo', 'armor', 'ground', 'sam', 'naval',
   'carrier', 'submarine', 'weapon', 'static', 'destroyed', 'unknown',
 ];
 const AFFILIATIONS: Affiliation[] = ['friend', 'hostile', 'neutral', 'unknown'];

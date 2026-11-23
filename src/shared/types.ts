@@ -16,6 +16,9 @@ export type Coalition = 0 | 1 | 2; // 0 = neutral, 1 = rot, 2 = blau
  */
 export type Category =
   | 'air'
+  | 'cargo'
+  | 'tanker'
+  | 'awacs'
   | 'helo'
   | 'armor'
   | 'ground'

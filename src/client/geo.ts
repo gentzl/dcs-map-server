@@ -105,18 +105,18 @@ export function formatAltitude(meters: number): string {
 }
 
 /**
- * Entfernungsstufen wie auf einem MFD.
+ * Range steps like on an MFD.
  *
- * 5/10/20/40/80/160 nm ist die Staffelung der HSI- und HSD-Anzeigen in Hornet
- * und Viper. Stufenlos zu zoomen ist am Boden bequem, im Flug aber hinderlich:
- * Man will eine bekannte Entfernung auf Knopfdruck, nicht irgendeinen Maßstab.
+ * 5/10/20/80/160 nm is the scaling of the Hornet's and Viper's HSI/HSD
+ * displays. Stepless zoom is convenient on the ground but a hindrance in
+ * flight: you want a known distance at the press of a button, not just some
+ * scale. 1 nm and 50 nm aren't part of the classic staffing, but are wanted
+ * here as extra quick picks -- 1 nm for taxiing, 50 nm as a step between 20
+ * and 80.
  */
-export const RANGES_NM = [1, 5, 10, 20, 40, 50, 80, 160] as const;
+export const RANGES_NM = [1, 5, 10, 20, 50, 80, 160] as const;
 
-/**
- * Stufen mit Direkttaste -- alle. 50 nm gehört nicht zur klassischen
- * MFD-Staffelung (die geht 40 → 80), ist hier aber als Schnellwahl gewünscht.
- */
+/** Steps with a direct button -- all of them. */
 export const RANGE_PRESETS_NM = RANGES_NM;
 
 /** Auflösung des Web-Mercator bei Zoom 0, Meter je Pixel am Äquator. */
@@ -130,4 +130,11 @@ export function zoomForRange(rangeNm: number, lat: number, viewportShortPx: numb
   const halfPx = Math.max(viewportShortPx, 1) / 2;
   const metersPerPixel = (rangeNm * M_PER_NM) / halfPx;
   return Math.log2((MPP_ZOOM0 * Math.cos(toRad(lat))) / metersPerPixel);
+}
+
+/** Inverse of zoomForRange -- the actual range at a freely chosen zoom, e.g. after a pinch. */
+export function rangeForZoom(zoom: number, lat: number, viewportShortPx: number): number {
+  const halfPx = Math.max(viewportShortPx, 1) / 2;
+  const metersPerPixel = (MPP_ZOOM0 * Math.cos(toRad(lat))) / 2 ** zoom;
+  return (metersPerPixel * halfPx) / M_PER_NM;
 }

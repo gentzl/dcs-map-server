@@ -47,6 +47,43 @@ const hasArmorPattern = (name: string): boolean => {
 };
 
 /**
+ * Transport, Tanker und Frühwarnflugzeuge je eigene Kategorie. Ohne diese
+ * Trennung erschien ein C-130 wie der stets gleiche Jäger-Buchstabe --
+ * gerade in der Luft irreführend, weil Rolle und Bewaffnung dort anders als
+ * am Boden kaum über das Symbol hinaus erkennbar sind. Referenzaufnahmen der
+ * Spielkarte zeigen außerdem eigene Kürzel für Tanker (`K`) und AWACS (`W`),
+ * getrennt vom allgemeinen Transport-Kürzel (`C`).
+ */
+const TANKER_PATTERNS = ['kc-135', 'kc-10', 'kc135', 'kc10', 'il-78', 'tanker'];
+const AWACS_PATTERNS = ['e-2', 'e-3', 'a-50', 'awacs'];
+const CARGO_PATTERNS = [
+  'c-130', 'c-17', 'c-5', 'an-12', 'an-26', 'an-30', 'an-72', 'il-76',
+  'yak-40', 'tu-134',
+];
+
+const hasTankerPattern = (name: string): boolean => {
+  const n = name.toLowerCase();
+  return TANKER_PATTERNS.some((p) => n.includes(p));
+};
+
+const hasAwacsPattern = (name: string): boolean => {
+  const n = name.toLowerCase();
+  return AWACS_PATTERNS.some((p) => n.includes(p));
+};
+
+const hasCargoPattern = (name: string): boolean => {
+  const n = name.toLowerCase();
+  return CARGO_PATTERNS.some((p) => n.includes(p));
+};
+
+/** Rollenbestimmung für Starrflügler, die weder Hubschrauber noch Waffe sind. */
+const classifyFixedWing = (name: string): Category => {
+  if (hasTankerPattern(name)) return 'tanker';
+  if (hasAwacsPattern(name)) return 'awacs';
+  return hasCargoPattern(name) ? 'cargo' : 'air';
+};
+
+/**
  * Flugzeugträger und Landungsschiffe mit Flugbetrieb. Nach der Norm bekommen
  * sie als einzige Überwasserfahrzeuge eine eigene Kennzeichnung; ein
  * Kriegsschiff führt einen leeren Rahmen.
@@ -82,9 +119,8 @@ export function classify({ name, level1 = 0, level2 = 0, isWeapon }: ClassifyInp
     case 1:
       // level2 trennt Flugzeug von Hubschrauber. Die genaue Nummerierung ist
       // nicht dokumentiert, der Name ist hier eindeutiger.
-      return /ka-|mi-|uh-|ah-|oh-|sa342|ch-|hh-|helicopter/i.test(name) || level2 === 2
-        ? 'helo'
-        : 'air';
+      if (/ka-|mi-|uh-|ah-|oh-|sa342|ch-|hh-|helicopter/i.test(name) || level2 === 2) return 'helo';
+      return classifyFixedWing(name);
     case 2:
       if (hasAaPattern(name)) return 'sam';
       return hasArmorPattern(name) ? 'armor' : 'ground';
@@ -112,7 +148,7 @@ export function classifyAcmiTags(tags: string, name = ''): Category {
   if (t.includes('weapon') || t.includes('missile') || t.includes('shell') || t.includes('rocket')) return 'weapon';
   if (t.includes('decoy') || t.includes('flare') || t.includes('chaff') || t.includes('shrapnel')) return 'weapon';
   if (t.includes('rotorcraft')) return 'helo';
-  if (t.includes('fixedwing')) return 'air';
+  if (t.includes('fixedwing')) return classifyFixedWing(name);
   if (t.includes('aircraftcarrier')) return 'carrier';
   if (t.includes('submarine')) return 'submarine';
   if (t.includes('watercraft')) {

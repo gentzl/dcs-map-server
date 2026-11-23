@@ -15,7 +15,7 @@
     #hud { position: absolute; top: 0; left: 0; right: 0; padding: 8px 12px;
            padding-top: max(8px, env(safe-area-inset-top));
            background: var(--panel); backdrop-filter: blur(4px);
-           white-space: nowrap; overflow-x: auto; letter-spacing: .02em; }
+           white-space: normal; letter-spacing: .02em; line-height: 1.6; }
 
     /* Hinweis, wenn die Mission Fremdeinheiten zurueckhaelt. Auffaellig, aber
        nicht als Fehler gefaerbt -- die Anzeige arbeitet ja korrekt. */
@@ -28,6 +28,13 @@
     #braa { position: absolute; top: 44px; left: 12px; padding: 6px 10px;
             background: var(--panel); border: 1px solid #ffd166; border-radius: 6px;
             color: #ffd166; }
+
+    /* Auf Telefonbreite faellt die HUD-Leiste zweizeilig um (siehe #hud) und
+       braucht entsprechend mehr Platz, bevor Warnung und BRAA-Anzeige
+       beginnen -- sonst ueberlappen sie die zweite Zeile. */
+    @media (max-width: 480px) {
+      #warning, #braa { top: 78px; }
+    }
 
     /* Ownship stays fixed at screen centre while the map moves beneath it.
        As a DOM element rather than a map layer this avoids recomputing tile
@@ -202,7 +209,6 @@
       <button id="range-5" class="preset" aria-pressed="false">5</button>
       <button id="range-10" class="preset" aria-pressed="false">10</button>
       <button id="range-20" class="preset" aria-pressed="false">20</button>
-      <button id="range-40" class="preset" aria-pressed="false">40</button>
       <button id="range-50" class="preset" aria-pressed="false">50</button>
       <button id="range-80" class="preset" aria-pressed="false">80</button>
       <button id="range-160" class="preset" aria-pressed="false">160</button>

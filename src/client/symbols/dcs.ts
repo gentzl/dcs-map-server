@@ -9,7 +9,7 @@ import { type Draw, SIZE, type SymbolSet, newCanvas } from './types.js';
  * mitgeliefert; nachgezeichnet sind Form, Farbgebung und Aufbau.
  *
  * Aufbau: Die Form trägt die Domäne, der Inhalt den Typ.
- *   Luft   Schild mit Rollenbuchstabe (F Jäger, H Drehflügler, W Frühwarnung)
+ *   Luft   Schild mit Rollenbuchstabe (F Jäger, C Transport, K Tanker, W Frühwarnung, H Drehflügler)
  *   Boden  Rechteck mit Piktogramm
  *   See    Kreis mit Kürzel oder Piktogramm
  *
@@ -44,6 +44,9 @@ type Shape = 'shield' | 'rect' | 'circle';
 
 const SHAPES: Record<Category, Shape> = {
   air: 'shield',
+  cargo: 'shield',
+  tanker: 'shield',
+  awacs: 'shield',
   helo: 'shield',
   weapon: 'shield',
   armor: 'rect',
@@ -80,9 +83,18 @@ const circle: Draw = (c, s) => {
 
 const FRAME: Record<Shape, Draw> = { shield, rect, circle };
 
-/** Kürzel im Rahmen, wie sie auf der Karte des Spiels erscheinen. */
+/**
+ * Kürzel im Rahmen, wie sie auf der Karte des Spiels erscheinen.
+ *
+ * 'F' galt bisher für jedes Starrflügelflugzeug -- ein C-130 erschien damit
+ * genauso wie ein Jäger. Referenzaufnahme zeigt DCS trennt auch hier: ein
+ * C-130 führt ein eigenes Kürzel statt des Jäger-Buchstabens.
+ */
 const LETTERS: Partial<Record<Category, string>> = {
   air: 'F',
+  cargo: 'C',
+  tanker: 'K',
+  awacs: 'W',
   helo: 'H',
   naval: 'CC',
   carrier: 'CV',
@@ -91,12 +103,20 @@ const LETTERS: Partial<Record<Category, string>> = {
 
 /** Piktogramme für Bodenziele; der Rahmen ist bereits gezeichnet. */
 const GLYPHS: Partial<Record<Category, Draw>> = {
-  // Turm mit Rohr.
+  /**
+   * Ovaler Ring mit gefülltem Mittelpunkt: Fahrzeug mit Hauptwaffe.
+   *
+   * Referenzaufnahmen zu 2S1 und PLZ05 (beides Selbstfahrlafetten) zeigen
+   * genau dieses Symbol -- kein Turm-mit-Rohr wie zuvor angenommen. Der Punkt
+   * wird als eigener Teilpfad sofort gefüllt, der Ring bleibt als letzter
+   * offener Pfad stehen, damit ihn der gemeinsame Stroke-Aufruf danach trifft.
+   */
   armor: (c, s) => {
     c.beginPath();
-    c.arc(s * 0.46, s * 0.52, s * 0.07, 0, Math.PI * 2);
-    c.moveTo(s * 0.5, s * 0.5);
-    c.lineTo(s * 0.7, s * 0.44);
+    c.arc(s * 0.5, s * 0.5, s * 0.045, 0, Math.PI * 2);
+    c.fill();
+    c.beginPath();
+    c.ellipse(s * 0.5, s * 0.5, s * 0.22, s * 0.13, 0, 0, Math.PI * 2);
   },
   // Aufgerichtetes Rohr, wie bei Flugabwehrgeschützen.
   sam: (c, s) => {
@@ -107,12 +127,14 @@ const GLYPHS: Partial<Record<Category, Draw>> = {
     c.moveTo(s * 0.36, s * 0.64);
     c.lineTo(s * 0.5, s * 0.64);
   },
+  /**
+   * Derselbe ovale Ring wie bei Selbstfahrlafetten, aber ohne Punkt: Fahrzeug
+   * ohne eigene Hauptwaffe. Referenz: MT59, ein unbewaffneter Transporter, der
+   * auf der Karte des Spiels denselben Ring ohne Mittelpunkt führt.
+   */
   ground: (c, s) => {
     c.beginPath();
-    c.moveTo(s * 0.36, s * 0.4);
-    c.lineTo(s * 0.64, s * 0.6);
-    c.moveTo(s * 0.64, s * 0.4);
-    c.lineTo(s * 0.36, s * 0.6);
+    c.ellipse(s * 0.5, s * 0.5, s * 0.22, s * 0.13, 0, 0, Math.PI * 2);
   },
   static: (c, s) => {
     c.beginPath();
@@ -165,6 +187,9 @@ function render(category: Category, coalition: Coalition): ImageData {
 
   const glyph = GLYPHS[category];
   if (glyph) {
+    // Vorab gesetzt, falls ein Piktogramm (wie armor) einen eigenen Teilpfad
+    // sofort füllt, statt nur den gemeinsamen Stroke-Aufruf unten zu nutzen.
+    ctx.fillStyle = p.ink;
     glyph(ctx, SIZE);
     ctx.strokeStyle = p.ink;
     ctx.lineWidth = 1.8;

@@ -35,6 +35,9 @@ const COLORS: Record<Affiliation, string> = {
 
 const DIMENSION: Record<Category, Dimension> = {
   air: 'air',
+  cargo: 'air',
+  tanker: 'air',
+  awacs: 'air',
   helo: 'air',
   weapon: 'air',
   armor: 'land',
@@ -152,12 +155,19 @@ const LETTERS: Partial<Record<Category, string>> = {
 };
 
 /** Icons nach Objektart. Leer, wo die Norm "nicht näher bestimmt" vorsieht. */
+// Luftschraube: zwei gegenläufige Blätter. Gilt auch für Transport/Tanker/
+// AWACS -- die Norm sieht dafür kein eigenes Piktogramm vor, nur das Symbol
+// für Starrflügler allgemein.
+const fixedWingIcon: Draw = (c, s) => {
+  c.beginPath();
+  c.ellipse(s * 0.5, s * 0.47, s * 0.2, s * 0.07, 0, 0, Math.PI * 2);
+};
+
 const ICONS: Partial<Record<Category, Draw>> = {
-  // Luftschraube: zwei gegenläufige Blätter.
-  air: (c, s) => {
-    c.beginPath();
-    c.ellipse(s * 0.5, s * 0.47, s * 0.2, s * 0.07, 0, 0, Math.PI * 2);
-  },
+  air: fixedWingIcon,
+  cargo: fixedWingIcon,
+  tanker: fixedWingIcon,
+  awacs: fixedWingIcon,
   // Rotorblätter: gekreuzt, als Andeutung der Drehbewegung.
   // Gefuellte Rotorscheibe (wie beim Starrfluegler die Luftschraube), darauf
   // die Kreuzstriche als Rotorblaetter. Ohne die Flaeche blieb vom Symbol nur
@@ -211,7 +221,7 @@ const ICONS: Partial<Record<Category, Draw>> = {
 };
 
 /** Icons, die gefüllt werden; die übrigen bleiben Striche. */
-const FILLED = new Set<Category>(['armor', 'sam', 'weapon', 'air', 'naval', 'helo']);
+const FILLED = new Set<Category>(['armor', 'sam', 'weapon', 'air', 'cargo', 'tanker', 'awacs', 'naval', 'helo']);
 
 function render(category: Category, affiliation: Affiliation): ImageData {
   const { ctx, px } = newCanvas();
@@ -280,14 +290,16 @@ function render(category: Category, affiliation: Affiliation): ImageData {
  * der tatsächlichen Darstellung abweichen.
  */
 
-const AIR: ReadonlySet<Category> = new Set<Category>(['air', 'helo', 'weapon']);
+const AIR: ReadonlySet<Category> = new Set<Category>(['air', 'cargo', 'tanker', 'awacs', 'helo', 'weapon']);
 
 export const natoSet: SymbolSet = {
   id: 'nato',
   render: (category, affiliation) => render(category, affiliation),
   // Nur Luftfahrzeuge werden auf den Kurs gedreht; bei Bodenzielen ist die
   // Ausrichtung meist bedeutungslos und erzeugte nur Unruhe.
-  rotates: (category) => category === 'air' || category === 'helo',
+  rotates: (category) =>
+    category === 'air' || category === 'cargo' || category === 'tanker' ||
+    category === 'awacs' || category === 'helo',
   key: (category, affiliation) => `${category}-${affiliation}`,
 };
 

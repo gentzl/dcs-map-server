@@ -16,6 +16,7 @@ import {
   msToKnots,
   RANGES_NM,
   RANGE_PRESETS_NM,
+  rangeForZoom,
   zoomForRange,
   toDeg,
   toMagnetic,
@@ -165,18 +166,26 @@ const canvas = map.getCanvas();
 // zoomen -- sonst zeigte die Anzeige eine Entfernung, die nicht stimmt.
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); stepRange(Math.sign(e.deltaY)); }, { passive: false });
 
-let pinch: { dist: number; index: number } | null = null;
+// Pinch zooms steplessly, unlike the wheel and the buttons -- when nudging
+// your own position on the map you want to feel the actual finger movement,
+// not jump to the next MFD step. The buttons stay the quick pick for known
+// ranges, pinch the free fine-tuning.
+let pinch: { dist: number; zoom: number } | null = null;
 const touchDist = (t: TouchList) => Math.hypot(t[0]!.clientX - t[1]!.clientX, t[0]!.clientY - t[1]!.clientY);
 canvas.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 2) pinch = { dist: touchDist(e.touches), index: rangeIndex };
+  if (e.touches.length === 2) {
+    // Same as dragging: pinch is a free gesture, follow mode would just
+    // overwrite the zoom level every frame.
+    if (follow) setFollow(false);
+    pinch = { dist: touchDist(e.touches), zoom: map.getZoom() };
+  }
 });
 canvas.addEventListener('touchmove', (e) => {
   if (e.touches.length === 2 && pinch) {
     e.preventDefault();
-    // Eine Verdopplung des Fingerabstands entspricht einer Stufe.
-    const steps = Math.round(Math.log2(touchDist(e.touches) / pinch.dist));
-    rangeIndex = Math.max(0, Math.min(RANGES_NM.length - 1, pinch.index - steps));
-    updateRangeLabel();
+    // Doubling the finger distance is one zoom level.
+    const z = pinch.zoom + Math.log2(touchDist(e.touches) / pinch.dist);
+    map.jumpTo({ zoom: Math.max(0, Math.min(22, z)) });
   }
 }, { passive: false });
 canvas.addEventListener('touchend', () => { pinch = null; });
@@ -667,17 +676,39 @@ const refBearing = (trueRad: number) =>
   settings.bearingRef === 'magnetic' ? toMagnetic(trueRad, magVar()) : trueRad;
 const refSuffix = settings.bearingRef === 'magnetic' ? 'M' : 'T';
 
+/** Replaces regular spaces with non-breaking ones so a group stays together when wrapping. */
+const nbsp = (s: string): string => s.replace(/ /g, ' ');
+
+/**
+ * Actual range at the current zoom, not the last preset chosen.
+ *
+ * After a (stepless) pinch, currentRange() no longer matches the map view --
+ * the display should show what's actually visible, not which button was
+ * last pressed.
+ */
+function displayedRangeNm(): number {
+  const shortSide = Math.min(map.getCanvas().clientWidth, map.getCanvas().clientHeight);
+  const nm = rangeForZoom(map.getZoom(), map.getCenter().lat, shortSide);
+  return nm >= 10 ? Math.round(nm) : Math.round(nm * 10) / 10;
+}
+
 function updateHud(): void {
   const brgToUs = bearingTo(bullseye.lat, bullseye.lon, own.lat, own.lon);
   const bullRange = metersToNm(distanceTo(bullseye.lat, bullseye.lon, own.lat, own.lon));
 
-  hud.textContent =
-    `${connected ? '●' : '○'} ${lastSeq}   ` +
-    `${formatDDM(own.lat, 'NS')} ${formatDDM(own.lon, 'EW')}   ` +
-    `${formatAltitude(own.alt)}   ${Math.round(msToKnots(own.tas))} kt   ` +
-    `HDG ${bearing3(refBearing(own.hdg))}${refSuffix}   ` +
-    `BULLS ${bearing3(refBearing(brgToUs))}/${Math.round(bullRange)}   ` +
-    `${currentRange()} NM   ${units.meta.size} CONTACTS`;
+  // Each group has non-breaking spaces inside, regular ones in between -- so
+  // the bar wraps to two lines on phone width instead of tearing a group
+  // apart mid-way or scrolling sideways.
+  hud.textContent = [
+    nbsp(`${connected ? '●' : '○'} ${lastSeq}`),
+    nbsp(`${formatDDM(own.lat, 'NS')} ${formatDDM(own.lon, 'EW')}`),
+    nbsp(formatAltitude(own.alt)),
+    nbsp(`${Math.round(msToKnots(own.tas))} kt`),
+    nbsp(`HDG ${bearing3(refBearing(own.hdg))}${refSuffix}`),
+    nbsp(`BULLS ${bearing3(refBearing(brgToUs))}/${Math.round(bullRange)}`),
+    nbsp(`${displayedRangeNm()} NM`),
+    nbsp(`${units.meta.size} CONTACTS`),
+  ].join('   ');
 
   // Wenn die Mission Fremdeinheiten zurueckhaelt, muss das dastehen. Sonst
   // sucht man den Fehler bei sich, obwohl die Anzeige korrekt arbeitet.

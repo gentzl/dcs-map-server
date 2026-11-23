@@ -44,6 +44,9 @@ export function affiliationOf(coalition: Coalition, ownCoalition: Coalition): Af
 /** Beschriftung der Kategorien für die Legende. */
 export const CATEGORY_LABELS: Array<[Category, string]> = [
   ['air', 'Fixed wing'],
+  ['cargo', 'Transport'],
+  ['tanker', 'Tanker'],
+  ['awacs', 'AWACS / early warning'],
   ['helo', 'Rotary wing'],
   ['armor', 'Armour'],
   ['ground', 'Ground, unspecified'],
