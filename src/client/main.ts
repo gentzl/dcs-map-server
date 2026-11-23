@@ -151,13 +151,23 @@ function setRange(nm: number): void {
   applyFreeZoom();
 }
 
+// Close enough in zoom levels to count as "on" a preset -- accounts for
+// floating-point jitter, not for an intentional pinch/wheel away from it.
+const PRESET_ZOOM_EPS = 0.02;
+
+/**
+ * Highlights whichever preset button matches the actual current zoom, not
+ * whichever was last pressed. After a stepless pinch or wheel zoom the view
+ * usually sits between two presets, and then none should show as active --
+ * a highlighted button that doesn't match what's on screen is misleading.
+ */
 function updateRangeLabel(): void {
-  // Keine separate Zahlenanzeige mehr: Jede Stufe hat eine eigene Taste, die
-  // hervorgehobene zeigt den eingestellten Wert.
+  const shortSide = Math.min(map.getCanvas().clientWidth, map.getCanvas().clientHeight);
+  const z = map.getZoom();
+  const lat = map.getCenter().lat;
   for (const nm of RANGE_PRESETS_NM) {
-    document
-      .getElementById(`range-${nm}`)
-      ?.setAttribute('aria-pressed', String(currentRange() === nm));
+    const active = Math.abs(zoomForRange(nm, lat, shortSide) - z) < PRESET_ZOOM_EPS;
+    document.getElementById(`range-${nm}`)?.setAttribute('aria-pressed', String(active));
   }
 }
 
@@ -699,6 +709,11 @@ function displayedRangeNm(): number {
 }
 
 function updateHud(): void {
+  // Runs every frame so a preset button un-highlights immediately once a
+  // pinch or wheel zoom moves the view away from it, not just on the next
+  // button press.
+  updateRangeLabel();
+
   const brgToUs = bearingTo(bullseye.lat, bullseye.lon, own.lat, own.lon);
   const bullRange = metersToNm(distanceTo(bullseye.lat, bullseye.lon, own.lat, own.lon));
 
