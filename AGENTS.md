@@ -1,10 +1,10 @@
 # Agent notes
 
 Code language: English, everywhere in code -- comments, identifiers (variables,
-functions, classes, types), commit messages. Older parts of this codebase still
-carry German comments from before this rule was written down; don't let that
-stand as precedent, and prefer fixing a file's language to English while
-you're already touching it for an unrelated change, rather than leaving a
+functions, classes, types), commit messages. The codebase originally had
+German comments throughout; those have since been translated to English
+project-wide. Don't reintroduce German when writing or editing code -- if you
+find any left over, translate it while you're there instead of leaving a
 mixed-language file behind.
 
 User-facing text (the UI, README, docs) follows whatever the task at hand
