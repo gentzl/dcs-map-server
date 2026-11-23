@@ -75,8 +75,24 @@ export class World {
       case 'optview_allies':
       case 'optview_onlyallies':
         return this.own ? unit.coalition === this.own.coalition : false;
+      case 'optview_extended':
+        // DCS' "Fog Of War"-Ansicht: zeigt eigentlich nur tatsaechlich
+        // geortete Objekte zusaetzlich zu allen eigenen. Echte Ortung liefert
+        // LoGetWorldObjects() nicht -- es gibt keine Detection-Information.
+        // Bis dahin wie Allies-only behandelt: zeigt nie gegnerische
+        // Positionen, verletzt also die Fairness-Garantie nicht, auch wenn es
+        // weniger zeigt als DCS eigentlich vorsieht.
+        return this.own ? unit.coalition === this.own.coalition : false;
       case 'optview_all':
         return true;
+      default:
+        // Ein unbekannter Laufzeitwert faellt durch den Switch, weil der
+        // Parser optionsView per Typumwandlung uebernimmt, nicht geprueft.
+        // Ohne diesen Fallback liefe das still auf "alles unsichtbar" hinaus --
+        // genau der Fehler, den optview_extended vor dieser Aenderung ausloeste.
+        // Sicherster Default aus Sicht der Fairness-Garantie ist Allies-only,
+        // nicht "alles zeigen".
+        return this.own ? unit.coalition === this.own.coalition : false;
     }
   }
 

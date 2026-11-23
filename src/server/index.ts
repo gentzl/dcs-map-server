@@ -7,6 +7,7 @@ import fastifyStatic from '@fastify/static';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { World } from './world.js';
 import { startIngest } from './ingest.js';
+import { startRelay } from './relay.js';
 
 const HTTP_PORT = Number(process.env.MM_HTTP_PORT ?? 8080);
 const HTTPS_PORT = Number(process.env.MM_HTTPS_PORT ?? 8443);
@@ -110,12 +111,28 @@ setInterval(() => {
   }
 }, 1000 / TICK_HZ);
 
-startIngest(world, {
-  port: UDP_PORT,
-  host: UDP_HOST,
-  capture: process.env.MM_CAPTURE,
-  onError: (reason) => console.warn(`[ingest] verworfen: ${reason}`),
-});
+/**
+ * Alternative Quelle: statt vom eigenen DCS-Hook per UDP die Welt aus einem
+ * anderen laufenden Server per WebSocket spiegeln. Fuer eine zweite Instanz
+ * zum Entwickeln gegen echte Daten, ohne jeden Codestand auf den DCS-Rechner
+ * kopieren zu muessen -- siehe relay.ts fuer die Begruendung gegen UDP ueber LAN.
+ */
+const UPSTREAM = process.env.MM_UPSTREAM;
+
+if (UPSTREAM) {
+  startRelay(world, {
+    url: UPSTREAM,
+    insecure: process.env.MM_UPSTREAM_INSECURE === '1',
+    onStatus: (msg) => console.log(`[relay] ${msg}`),
+  });
+} else {
+  startIngest(world, {
+    port: UDP_PORT,
+    host: UDP_HOST,
+    capture: process.env.MM_CAPTURE,
+    onError: (reason) => console.warn(`[ingest] verworfen: ${reason}`),
+  });
+}
 
 const port = certs ? HTTPS_PORT : HTTP_PORT;
 await app.listen({ port, host: '0.0.0.0' });
@@ -136,6 +153,7 @@ const scheme = certs ? 'https' : 'http';
 console.log(`${scheme.toUpperCase().padEnd(5)} ${scheme}://localhost:${port}`);
 if (certs) console.log(`HTTP  http://localhost:${HTTP_PORT}  (Weiterleitung)`);
 else console.log('      kein Zertifikat -- Wake Lock bleibt aus, s. tools/make-cert.sh');
-console.log(`UDP   ${UDP_HOST}:${UDP_PORT}  (nur Loopback)`);
+if (UPSTREAM) console.log(`Relay <- ${UPSTREAM}`);
+else console.log(`UDP   ${UDP_HOST}:${UDP_PORT}  (nur Loopback)`);
 console.log(`Tick  ${TICK_HZ} Hz`);
 if (process.env.MM_CAPTURE) console.log(`Mitschnitt  ${process.env.MM_CAPTURE}`);

@@ -4,6 +4,7 @@ export type OptionsView =
   | 'optview_myaircraft'
   | 'optview_allies'
   | 'optview_onlyallies'
+  | 'optview_extended'
   | 'optview_all';
 
 export type Coalition = 0 | 1 | 2; // 0 = neutral, 1 = rot, 2 = blau
