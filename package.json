@@ -15,7 +15,8 @@
     "build:tools": "tsc -p tsconfig.tools.json",
     "telemetry": "npm run build:tools --silent && node dist-tools/tools/generate-telemetry.js",
     "acmi": "npm run build:tools --silent && node dist-tools/tools/acmi-to-telemetry.js",
-    "capture": "npm run build:tools --silent && node dist-tools/tools/inspect-capture.js"
+    "capture": "npm run build:tools --silent && node dist-tools/tools/inspect-capture.js",
+    "capture-ws": "npm run build:tools --silent && node dist-tools/tools/capture-ws.js"
   },
   "dependencies": {
     "@fastify/static": "^8.0.0",
