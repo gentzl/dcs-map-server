@@ -112,6 +112,42 @@ local function load_hook()
     sweep, seen, current = {}, {}, {}
     buffer, buffer_len = {}, 0
     log('Export gestartet -> ' .. HOST .. ':' .. PORT)
+
+    -- Sonde: Ohne sie ist nicht unterscheidbar, ob LoGetWorldObjects im
+    -- Hooks-Umfeld fehlt, leer zurueckkommt oder Objekte ohne GroupName
+    -- liefert. Alle drei sehen von aussen gleich aus.
+    log('LoGetWorldObjects ist ' .. type(Export.LoGetWorldObjects))
+    local ok_probe, probe = pcall(Export.LoGetWorldObjects)
+    if not ok_probe then
+      log('LoGetWorldObjects() wirft: ' .. tostring(probe))
+    elseif type(probe) ~= 'table' then
+      log('LoGetWorldObjects() liefert ' .. type(probe))
+    else
+      local total, with_group, with_pos, first = 0, 0, 0, nil
+      for id, v in pairs(probe) do
+        total = total + 1
+        if v.GroupName ~= nil then with_group = with_group + 1 end
+        if v.LatLongAlt ~= nil then with_pos = with_pos + 1 end
+        if first == nil then
+          first = string.format('id=%s Name=%s GroupName=%s UnitName=%s Coalition=%s level1=%s',
+            tostring(id), tostring(v.Name), tostring(v.GroupName), tostring(v.UnitName),
+            tostring(v.CoalitionID), tostring(v.Type and v.Type.level1))
+        end
+      end
+      log(string.format('LoGetWorldObjects(): %d Objekte, davon %d mit GroupName, %d mit Position',
+                        total, with_group, with_pos))
+      if first then log('erstes Objekt: ' .. first) end
+    end
+
+    -- Gegenprobe mit ausdruecklichem Argument; die Vorgabe ist "units".
+    local ok_units, units = pcall(Export.LoGetWorldObjects, 'units')
+    if ok_units and type(units) == 'table' then
+      local n = 0
+      for _ in pairs(units) do n = n + 1 end
+      log(string.format("LoGetWorldObjects('units'): %d Objekte", n))
+    else
+      log("LoGetWorldObjects('units') nicht nutzbar: " .. tostring(units))
+    end
   end
 
   function mm.onSimulationStop()
@@ -142,20 +178,6 @@ local function load_hook()
 
     -- Bei eingeschraenkter Sicht gar nicht erst senden, statt sich auf eine
     -- nachgelagerte Filterung zu verlassen.
-    -- Alle zehn Sekunden festhalten, was DCS hergibt. Ohne das ist nicht
-    -- erkennbar, ob Fremdeinheiten fehlen, weil die Missionseinstellung sie
-    -- zurueckhaelt oder weil der Export nichts liefert.
-    if now >= diag_at then
-      diag_at = now + 10
-      log(string.format('optionsView=%s  Objekte=%d  gesendet=%d',
-                        tostring(options_view), diag_objects, diag_sent))
-      if options_view == 'optview_onlymap' or options_view == 'optview_myaircraft' then
-        log('Mission haelt Fremdeinheiten zurueck (Karteneinstellung in den '
-            .. 'Missions- oder Serveroptionen)')
-      end
-      diag_sent = 0
-    end
-
     if options_view ~= 'optview_onlymap' and options_view ~= 'optview_myaircraft' then
       if next(sweep) == nil then
         -- Durchlauf abgeschlossen: Verschwundene melden und neu beginnen.
@@ -182,6 +204,20 @@ local function load_hook()
         end
         if budget <= 0 then break end
       end
+    end
+
+    -- Alle zehn Sekunden festhalten, was DCS hergibt. Ohne das ist nicht
+    -- erkennbar, ob Fremdeinheiten fehlen, weil die Missionseinstellung sie
+    -- zurueckhaelt oder weil der Export nichts liefert.
+    if now >= diag_at then
+      diag_at = now + 10
+      log(string.format('optionsView=%s  Objekte=%d  gesendet=%d',
+                        tostring(options_view), diag_objects, diag_sent))
+      if options_view == 'optview_onlymap' or options_view == 'optview_myaircraft' then
+        log('Mission haelt Fremdeinheiten zurueck (Karteneinstellung in den '
+            .. 'Missions- oder Serveroptionen)')
+      end
+      diag_sent = 0
     end
 
     flush()
