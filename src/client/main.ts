@@ -162,9 +162,15 @@ function updateRangeLabel(): void {
 }
 
 const canvas = map.getCanvas();
-// Mausrad und Pinch springen ebenfalls auf die Stufen, statt stufenlos zu
-// zoomen -- sonst zeigte die Anzeige eine Entfernung, die nicht stimmt.
-canvas.addEventListener('wheel', (e) => { e.preventDefault(); stepRange(Math.sign(e.deltaY)); }, { passive: false });
+// Wheel zooms steplessly, same as pinch -- see the pinch handler below for
+// why. The scale (deltaY unit is pixels in most browsers) roughly matches one
+// zoom level per wheel notch.
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  if (follow) setFollow(false);
+  const z = map.getZoom() - e.deltaY * 0.01;
+  map.jumpTo({ zoom: Math.max(0, Math.min(22, z)) });
+}, { passive: false });
 
 // Pinch zooms steplessly, unlike the wheel and the buttons -- when nudging
 // your own position on the map you want to feel the actual finger movement,
