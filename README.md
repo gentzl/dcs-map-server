@@ -29,11 +29,14 @@ centred, heading up, smooth motion, cockpit units throughout.
   Affiliation is relative to the viewer: your own coalition is friend. Fixed wing, rotary wing,
   armour, unspecified ground, air defence, surface vessel, carrier, submarine and weapon are
   distinguished. A symbol legend sits in the settings panel.
-- A second symbol set loosely following the in-game map presentation, switchable.
-  **This is an approximation.** The original artwork ships as protected textures inside the DCS
-  installation and no usable reference was obtainable from accessible sources. Only the confirmed
-  characteristics are implemented: filled compact shapes, colour by coalition rather than by
-  affiliation, and directional shapes for air and surface vessels.
+- A second symbol set following the in-game map presentation, switchable. Shape carries the
+  domain and the content carries the type: a shield with a role letter for air (`F`, `H`), a
+  rectangle with a pictogram for ground, a circle with a code for vessels (`CC`, `CV`, `SS`).
+  Colour follows the coalition rather than the viewer's affiliation — blue stays blue even when
+  flying red. Redrawn from screenshots of the F10 map; the original artwork ships as protected
+  textures and is not redistributed here. The green condition bar above ground and naval markers
+  is deliberately left out: the export hook carries no condition, and a permanently full bar would
+  claim "undamaged" without knowing it.
 
 **Cockpit conventions**
 
