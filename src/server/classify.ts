@@ -13,20 +13,46 @@ import type { Category } from '../shared/types.js';
  * sich, weil nur Flugabwehr einen Bedrohungsring bekommt.
  */
 
+/**
+ * Lowercases and drops hyphens so e.g. "T-90" and the unhyphenated "T90M"
+ * (seen on several modded/campaign unit sets) match the same pattern.
+ * Spaces and underscores are kept apart, deliberately -- see hasToken below.
+ */
+const normalize = (name: string): string => name.toLowerCase().replace(/-/g, '');
+
+/**
+ * Matches `token` as a standalone word in `name`, bounded by start/end or any
+ * non-alphanumeric character (space, underscore, hyphen -- all common DCS
+ * naming separators). A plain substring check on short abbreviations like
+ * "str" also matched inside unrelated words such as "Stryker", wrongly
+ * flagging M1126/M1128 Stryker variants as air defence.
+ */
+const hasToken = (name: string, token: string): boolean =>
+  new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`, 'i').test(name);
+
 /** Teilzeichenfolgen in DCS-Typnamen, die auf Flugabwehr hindeuten. */
 const AA_PATTERNS = [
   // Startgeräte und Systeme
   's-300', 's-200', 's-125', 's-75', 'buk', 'kub', 'osa', 'tor ', 'tunguska',
   'strela', 'igla', 'shilka', 'zsu', 'zu-23', 'gepard', 'roland', 'rapier',
   'patriot', 'hawk', 'nasams', 'avenger', 'chaparral', 'linebacker', 'stinger',
-  'sa-', 'hq-7', 'silkworm',
-  // Radargeräte: Such-, Feuerleit- und Zielfolgeradar
-  ' sr', ' tr', ' str', 'snr', 'radar',
+  'hq-7', 'silkworm', 'iris', 'pantsir', 'c-ram', 'phalanx', 'radar',
 ];
 
+/** Kurzkürzel für Radarrollen -- nur als eigenes Wort, siehe hasToken. */
+const AA_TOKENS = ['sr', 'tr', 'str', 'snr'];
+
 const hasAaPattern = (name: string): boolean => {
-  const n = name.toLowerCase();
-  return AA_PATTERNS.some((p) => n.includes(p));
+  const n = normalize(name);
+  return (
+    AA_PATTERNS.some((p) => n.includes(normalize(p))) ||
+    AA_TOKENS.some((t) => hasToken(name, t)) ||
+    // NATO reporting names (SA-2, SA-11, SA-18, ...) -- checked on the
+    // un-normalized name and anchored to a following digit. Stripping the
+    // hyphen like the other patterns above would shrink this to a bare "sa",
+    // which also matches "SAU" (a self-propelled gun, not air defence).
+    /\bsa-?\d/i.test(name)
+  );
 };
 
 /**
@@ -36,14 +62,14 @@ const hasAaPattern = (name: string): boolean => {
  * sonstige Fahrzeuge führen einen leeren Rahmen.
  */
 const ARMOR_PATTERNS = [
-  't-55', 't-62', 't-72', 't-80', 't-90', 'abrams', 'm-1 ', 'm1a',
-  'leopard', 'leclerc', 'challenger', 'merkava', 'ztz', 'type 59',
+  't-55', 't-62', 't-72', 't-80', 't-84', 't-90', 'abrams', 'm-1 ', 'm1a',
+  'leopard', 'leclerc', 'challenger', 'merkava', 'ztz', 'type-59',
   'm-60', 'm60', 'chieftain', 'centurion',
 ];
 
 const hasArmorPattern = (name: string): boolean => {
-  const n = name.toLowerCase();
-  return ARMOR_PATTERNS.some((p) => n.includes(p));
+  const n = normalize(name);
+  return ARMOR_PATTERNS.some((p) => n.includes(normalize(p)));
 };
 
 /**
@@ -90,8 +116,13 @@ const classifyFixedWing = (name: string): Category => {
  */
 const CARRIER_PATTERNS = [
   'cvn', 'cv-', 'cv_', 'stennis', 'roosevelt', 'forrestal', 'kuznetsov',
+  // Alternate transliteration seen on some asset packs -- same ship, DCS
+  // type name spells it differently from the class name used elsewhere.
+  'kuznecow',
   'nimitz', 'vinson', 'eisenhower', 'truman', 'washington', 'lincoln',
   'tarawa', 'lha', 'lhd',
+  // Wasp-class LHD carrying its own hull name rather than an LHA/LHD prefix.
+  'essex',
 ];
 
 /** U-Boote liegen in der Dimension unter Wasser und bekommen einen oben offenen Rahmen. */
