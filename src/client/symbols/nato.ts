@@ -166,7 +166,7 @@ const ICONS: Partial<Record<Category, Draw>> = {
   // Luftschraube, beim Hubschrauber fehlte das Gegenstueck.
   helo: (c, s) => {
     c.beginPath();
-    c.ellipse(s * 0.5, s * 0.47, s * 0.19, s * 0.19, 0, 0, Math.PI * 2);
+    c.ellipse(s * 0.5, s * 0.47, s * 0.25, s * 0.25, 0, 0, Math.PI * 2);
   },
   // Kettenandeutung: liegendes Oval. Steht nach der Norm allein Kampfpanzern
   // zu; sonstige Bodenziele führen einen leeren Rahmen, was "nicht näher
@@ -251,8 +251,12 @@ function render(category: Category, affiliation: Affiliation): ImageData {
   const icon = ICONS[category];
   if (icon) {
     icon(ctx, SIZE);
+    // Duenner als vorher (war 3.4): Bei kleinen Rendergroessen frass ein
+    // dicker Umriss die Fuellflaeche fast vollstaendig auf -- aus einer
+    // gefuellten Rotorscheibe wurde auf der Karte ein duenner Ring. Betrifft
+    // alle gefuellten Icons, nicht nur den Hubschrauber.
     ctx.strokeStyle = 'rgba(12,16,20,0.85)';
-    ctx.lineWidth = 3.4;
+    ctx.lineWidth = 2;
     ctx.stroke();
     if (FILLED.has(category)) {
       ctx.fillStyle = color;
