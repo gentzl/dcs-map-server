@@ -11,8 +11,8 @@ import {
  * Contact symbols based on NATO APP-6 / MIL-STD-2525.
  *
  * Based on, not conforming to: the frames are drawn as solid bodies here,
- * where the standard leaves them unfilled. On a moving map read at arm's
- * length over cluttered terrain, a tinted outline simply does not carry --
+ * where the standard leaves them unfilled. On a map read at arm's length
+ * over cluttered terrain, a tinted outline simply does not carry --
  * which is also why the game's own map fills its symbols. Everything else
  * follows the standard.
  *

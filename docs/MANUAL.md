@@ -1,6 +1,6 @@
 # Handbook
 
-Everything you can do with the moving map once it's running: what you're looking at, how to
+Everything you can do with the map once it's running: what you're looking at, how to
 control it, what every setting does, and what to try when something doesn't look right.
 
 Getting it installed and started in the first place is the [README](../README.md). If you want to
