@@ -11,7 +11,15 @@ export function gridStepDegrees(zoom: number): number {
   if (zoom >= 12) return 1 / 30; // 2'
   if (zoom >= 10) return 1 / 6; // 10'
   if (zoom >= 8) return 0.5; // 30'
-  return 1;
+  if (zoom >= 6) return 1; // 1 degree -- the widest range preset, 160 nm, sits here
+  // Below the widest preset there's still stepless wheel/pinch zoom, all the
+  // way out to zoom 0. Without these tiers the grid stayed at a flat 1
+  // degree no matter how far out that went -- fine at the 160 nm preset,
+  // packed solid a few pinch-outs further, since 1 degree covers fewer and
+  // fewer screen pixels the further out you go.
+  if (zoom >= 4) return 2;
+  if (zoom >= 2) return 5;
+  return 10;
 }
 
 export function formatGridLabel(value: number, axis: 'NS' | 'EW'): string {
