@@ -414,9 +414,22 @@ function addOverlayLayers(): void {
     // Straight line from the aircraft to a selected contact -- the BRAA
     // readout gives the numbers, this gives the direction at a glance.
     // Solid, unlike the dashed trail above, so the two don't read as the same thing.
+    //
+    // Dark casing under a full-strength core. The line crosses whatever the
+    // terrain happens to be, and a thin translucent yellow vanished against
+    // the pale elevation tints -- the casing is what keeps it readable there
+    // without having to pick a colour that fights the contact symbols.
+    map.addLayer({
+      id: 'braa-line-casing', type: 'line', source: 'braa-line',
+      paint: { 'line-color': 'rgba(0,0,0,0.45)', 'line-width': 5 },
+    });
+    // Dashed core on a solid casing, the way a measured bearing is drawn on a
+    // chart. The dashes are deliberately much coarser than the selected
+    // contact's trail above, which is fine-dashed in the same colour -- at the
+    // same pitch the two would read as one kind of line.
     map.addLayer({
       id: 'braa-line-line', type: 'line', source: 'braa-line',
-      paint: { 'line-color': '#ffd166', 'line-width': 1.3, 'line-opacity': 0.55 },
+      paint: { 'line-color': '#ffd166', 'line-width': 2.2, 'line-dasharray': [6, 3] },
     });
   }
 
@@ -508,6 +521,7 @@ function applyVisibility(): void {
   vis('rings-label', settings.rings);
   vis('bullseye-center', settings.bullseye);
   vis('selected-trail-line', settings.contacts !== 'none');
+  vis('braa-line-casing', settings.contacts !== 'none');
   vis('braa-line-line', settings.contacts !== 'none');
   vis('contacts-dot', settings.contacts !== 'none');
   vis('contacts-air', settings.contacts !== 'none');
