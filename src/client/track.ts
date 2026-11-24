@@ -111,8 +111,8 @@ export class UnitBuffer {
     this.meta.clear();
   }
 
-  /** Interpolated state at render time, plus age in ms. */
-  at(now: number): Array<{ unit: Unit; lat: number; lon: number; hdg: number; ageMs: number }> {
+  /** Interpolated state at render time, plus age in ms and ground speed in m/s. */
+  at(now: number): Array<{ unit: Unit; lat: number; lon: number; hdg: number; ageMs: number; spdMs: number }> {
     const target = now - UnitBuffer.DELAY_MS;
     const out = [];
 
@@ -130,14 +130,14 @@ export class UnitBuffer {
         // appearance), no direction can be derived -- then honestly stay at
         // the last position instead of guessing.
         if (!prevSample || gap <= 0 || overdue <= 0) {
-          out.push({ unit, lat: last.lat, lon: last.lon, hdg: last.hdg, ageMs: now - last.t });
+          out.push({ unit, lat: last.lat, lon: last.lon, hdg: last.hdg, ageMs: now - last.t, spdMs: 0 });
           continue;
         }
 
         const speed = distanceTo(prevSample.lat, prevSample.lon, last.lat, last.lon) / (gap / 1000);
         const heading = bearingTo(prevSample.lat, prevSample.lon, last.lat, last.lon);
         const [lat, lon] = destination(last.lat, last.lon, heading, speed * (overdue / 1000));
-        out.push({ unit, lat, lon, hdg: last.hdg, ageMs: now - last.t });
+        out.push({ unit, lat, lon, hdg: last.hdg, ageMs: now - last.t, spdMs: speed });
         continue;
       }
 
@@ -160,6 +160,7 @@ export class UnitBuffer {
         lon: a.lon + (b.lon - a.lon) * f,
         hdg: a.hdg + shortestAngle(a.hdg, b.hdg) * f,
         ageMs: now - last.t,
+        spdMs: span > 0 ? distanceTo(a.lat, a.lon, b.lat, b.lon) / (span / 1000) : 0,
       });
     }
     return out;

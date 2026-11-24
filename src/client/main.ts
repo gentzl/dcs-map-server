@@ -288,7 +288,7 @@ function addOverlayLayers(): void {
   const c = CHART_COLORS[settings.mode];
   const ink = c.ink;
 
-  for (const id of ['graticule', 'threats', 'rings', 'bullseye', 'track', 'selected-trail', 'contacts'] as const) {
+  for (const id of ['graticule', 'threats', 'rings', 'bullseye', 'track', 'selected-trail', 'braa-line', 'contacts'] as const) {
     if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY });
   }
 
@@ -409,6 +409,16 @@ function addOverlayLayers(): void {
     });
   }
 
+  if (!map.getLayer('braa-line-line')) {
+    // Straight line from the aircraft to a selected contact -- the BRAA
+    // readout gives the numbers, this gives the direction at a glance.
+    // Solid, unlike the dashed trail above, so the two don't read as the same thing.
+    map.addLayer({
+      id: 'braa-line-line', type: 'line', source: 'braa-line',
+      paint: { 'line-color': '#ffd166', 'line-width': 1.3, 'line-opacity': 0.55 },
+    });
+  }
+
   if (!map.getLayer('contacts-dot')) {
     // Selection ring under the symbol, so it doesn't cover it.
     map.addLayer({
@@ -497,6 +507,7 @@ function applyVisibility(): void {
   vis('rings-label', settings.rings);
   vis('bullseye-center', settings.bullseye);
   vis('selected-trail-line', settings.contacts !== 'none');
+  vis('braa-line-line', settings.contacts !== 'none');
   vis('contacts-dot', settings.contacts !== 'none');
   vis('contacts-air', settings.contacts !== 'none');
   vis('contacts-selected', settings.contacts !== 'none');
@@ -610,7 +621,7 @@ function frame(now: number): void {
       lastZoomForGrid = zoom;
       updateGraticule();
     }
-    updateHud();
+    updateHud(now);
   }
   requestAnimationFrame(frame);
 }
@@ -672,6 +683,7 @@ function updateSources(now: number): void {
     setData('track', { type: 'Feature', geometry: { type: 'LineString', coordinates: trackPoints }, properties: {} });
   }
 
+  let braaLine: [number, number][] = [];
   if (selectedId !== null) {
     const sel = contacts.find((c) => c.unit.id === selectedId);
     if (sel) {
@@ -680,6 +692,7 @@ function updateSources(now: number): void {
         selectedTrail.push([sel.lon, sel.lat]);
         if (selectedTrail.length > 3000) selectedTrail.shift();
       }
+      braaLine = [[own.lon, own.lat], [sel.lon, sel.lat]];
     }
   }
   setData('selected-trail', {
@@ -687,6 +700,7 @@ function updateSources(now: number): void {
     geometry: { type: 'LineString', coordinates: selectedId === null ? [] : selectedTrail },
     properties: {},
   });
+  setData('braa-line', { type: 'Feature', geometry: { type: 'LineString', coordinates: braaLine }, properties: {} });
 }
 
 function updateGraticule(): void {
@@ -698,7 +712,7 @@ function updateGraticule(): void {
   ));
 }
 
-// --- Anzeige ---------------------------------------------------------------
+// --- Display -----------------------------------------------------------------
 
 const hud = document.getElementById('hud')!;
 const braaBox = document.getElementById('braa')!;
@@ -787,7 +801,7 @@ function displayedRangeNm(): number {
   return nm >= 10 ? Math.round(nm) : Math.round(nm * 10) / 10;
 }
 
-function updateHud(): void {
+function updateHud(now: number): void {
   // Runs every frame so a preset button un-highlights immediately once a
   // pinch or wheel zoom moves the view away from it, not just on the next
   // button press.
@@ -816,30 +830,44 @@ function updateHud(): void {
   warnEl.hidden = !withheld;
   if (withheld) warnEl.textContent = `CONTACTS WITHHELD BY MISSION (${optionsView})`;
 
-  updateBraa();
+  updateBraa(now);
 }
 
-function updateBraa(): void {
+function updateBraa(now: number): void {
   if (selectedId === null) {
     braaBox.hidden = true;
     return;
   }
-  const u = units.meta.get(selectedId);
-  if (!u) {
+  // Not units.meta (the last raw sample) but the same interpolated position
+  // the symbol is actually drawn at, so the readout matches what's on
+  // screen, and so a speed is available at all -- units.meta has none.
+  const sel = units.at(now).find((c) => c.unit.id === selectedId);
+  if (!sel) {
     braaBox.hidden = true;
     return;
   }
-  const brg = bearingTo(own.lat, own.lon, u.lat, u.lon);
-  const rng = metersToNm(distanceTo(own.lat, own.lon, u.lat, u.lon));
-  const asp = aspect(u.hdg, bearingTo(u.lat, u.lon, own.lat, own.lon));
+  const u = sel.unit;
+  const brg = bearingTo(own.lat, own.lon, sel.lat, sel.lon);
+  const rng = metersToNm(distanceTo(own.lat, own.lon, sel.lat, sel.lon));
+  const asp = aspect(sel.hdg, bearingTo(sel.lat, sel.lon, own.lat, own.lon));
 
+  const roleLabel = CATEGORY_LABELS.find(([cat]) => cat === u.category)?.[1] ?? u.category;
+  const aff = affiliationOf(u.coalition, ownCoalition).toUpperCase();
+
+  // Each group non-breaking inside, regular spaces between -- same reason
+  // as the HUD bar: wraps to further lines on a narrow screen instead of
+  // either tearing a group apart or scrolling sideways.
   braaBox.hidden = false;
-  braaBox.textContent =
-    `${u.name}  —  BRAA ${bearing3(refBearing(brg))}${refSuffix} / ${rng.toFixed(1)} nm / ` +
-    `${Math.round(metersToFeet(u.alt) / 100) * 100} ft / ${aspectLabel(asp)} ${Math.round(asp)}°`;
+  braaBox.textContent = [
+    nbsp(`${u.name}  —  ${aff} ${roleLabel}`),
+    nbsp(`BRAA ${bearing3(refBearing(brg))}${refSuffix} / ${rng.toFixed(1)} nm`),
+    nbsp(`${Math.round(metersToFeet(u.alt) / 100) * 100} ft`),
+    nbsp(`${aspectLabel(asp)} ${Math.round(asp)}°`),
+    nbsp(`${Math.round(msToKnots(sel.spdMs))} kt`),
+  ].join('   ');
 }
 
-// --- Bedienung -------------------------------------------------------------
+// --- Controls ----------------------------------------------------------------
 
 canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
