@@ -86,8 +86,13 @@ export function buildRings(lat: number, lon: number, rangeNm: number): GeoJSON.F
 
   // Bearing ticks every 30°, the cardinal directions longer. They replace
   // the compass rose without cluttering the view. Always out to the edge of
-  // the current view, independent of which specific rings are shown above.
-  const outer = rangeNm;
+  // the current view, independent of which specific rings are shown above --
+  // except past the widest preset (160 nm), where there is no larger preset
+  // for ringStepFor to float up to: the rings freeze there, so the ticks
+  // have to as well, or stepless zoom-out drags them far outside the rings
+  // they are meant to sit on, reading as a handful of stray, oddly angled
+  // marks disconnected from anything.
+  const outer = Math.min(rangeNm, Math.max(...RANGES_NM));
   for (let deg = 0; deg < 360; deg += 30) {
     const major = deg % 90 === 0;
     const from = outer * (major ? 0.9 : 0.95);

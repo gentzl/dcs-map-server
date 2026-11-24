@@ -87,4 +87,33 @@ describe('ring geometry', () => {
       assert.equal(ticks.filter((f) => f.properties?.['major'] === true).length, 4); // cardinals
     }
   });
+
+  const tickOuterRadiusNm = (rangeNm: number): number => {
+    const tick = buildRings(LAT, LON, rangeNm).features.find((f) => f.properties?.['kind'] === 'tick');
+    assert.ok(tick && tick.geometry.type === 'LineString');
+    if (!tick || tick.geometry.type !== 'LineString') return NaN;
+    const far = tick.geometry.coordinates[1] as [number, number];
+    return distanceTo(LAT, LON, far[1], far[0]) / M_PER_NM;
+  };
+
+  // Reported as "weird direction arrows" in the range ring: zoomed out past
+  // the widest preset (stepless wheel/pinch), the ticks used to keep
+  // reaching the true view edge while the ring circles froze at 160 nm (the
+  // top preset, with nothing larger for ringStepFor to float up to) -- so
+  // the ticks ended up far outside the rings, looking like stray marks
+  // disconnected from anything.
+  test('ticks never reach past the widest preset, however far zoomed out', () => {
+    const widest = Math.max(...RANGES_NM);
+    for (const rangeNm of [161, 320, 497, 5000]) {
+      const r = tickOuterRadiusNm(rangeNm);
+      assert.ok(Math.abs(r - widest) < 0.1, `range ${rangeNm}: ticks reach ${r} nm, not ${widest}`);
+    }
+  });
+
+  test('within the preset range, ticks still reach the true view edge as before', () => {
+    for (const rangeNm of [1, 35, 145, 160]) {
+      const r = tickOuterRadiusNm(rangeNm);
+      assert.ok(Math.abs(r - rangeNm) < 0.1, `range ${rangeNm}: ticks reach ${r} nm, not ${rangeNm}`);
+    }
+  });
 });
