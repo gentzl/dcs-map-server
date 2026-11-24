@@ -112,14 +112,14 @@ level, speed in knots, coordinates in degrees and decimal minutes, bearings magn
 |---|---|
 | `1` `5` `10` `20` `50` `80` `160` | Range scale in nautical miles |
 | Wheel, pinch | Stepless zoom |
-| Click/touch and drag | Pan the map, switches to FREE |
+| Click/touch and drag, or arrow keys | Pan the map, switches to FREE |
 | `CTR / FREE` | Follow the aircraft, or pan the map freely |
 | `HDG / N` | Heading up or north up (follow mode only) |
 | `MEAS` | Measure between two points: tap the start, tap the end |
 | `⚙` | Settings |
 | Tap a contact | Line and readout to it |
 | `⚙` → Symbols | Legend of all contact symbols |
-| Shift + click | Place the bullseye |
+| Shift + click, or press and hold | Place the bullseye |
 
 `MEAS` is for the questions the contact readout can't answer — how far your ingress leg is, how
 wide you have to go round a SAM, whether a divert field is reachable. Tap it, tap two points, and

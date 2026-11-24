@@ -271,6 +271,35 @@ const activePointers = new Map<number, [number, number]>();
 let pan: { x: number; y: number; startX: number; startY: number } | null = null;
 let pinch: { dist: number; zoom: number } | null = null;
 
+/**
+ * Long-press sets the bullseye, the touch equivalent of shift-click: there is
+ * no shift key on a tablet. Guarded the same way a drag is told apart from a
+ * stationary tap -- any movement past the threshold, a second finger joining,
+ * or the gesture ending early all cancel it.
+ */
+const LONG_PRESS_MS = 550;
+let longPress: { timer: ReturnType<typeof setTimeout>; at: [number, number] } | null = null;
+let longPressFired = false;
+
+function cancelLongPress(): void {
+  if (longPress) clearTimeout(longPress.timer);
+  longPress = null;
+}
+
+function armLongPress(pt: [number, number]): void {
+  cancelLongPress();
+  longPress = {
+    at: pt,
+    timer: setTimeout(() => {
+      const ll = map.unproject(pt);
+      bullseye = { lat: ll.lat, lon: ll.lng };
+      try { localStorage.setItem('dcs-map-server.bullseye', JSON.stringify(bullseye)); } catch { /* doesn't matter */ }
+      longPressFired = true;
+      longPress = null;
+    }, LONG_PRESS_MS),
+  };
+}
+
 const pointerAt = (e: PointerEvent): [number, number] => {
   const rect = canvas.getBoundingClientRect();
   return [e.clientX - rect.left, e.clientY - rect.top];
@@ -289,9 +318,11 @@ canvas.addEventListener('pointerdown', (e) => {
     const [x, y] = pointerAt(e);
     pan = { x, y, startX: x, startY: y };
     pinch = null;
+    if (!ruler) armLongPress([x, y]);
   } else if (activePointers.size === 2) {
     pan = null;
     pinch = { dist: pinchDist(), zoom: manualZoom ?? map.getZoom() };
+    cancelLongPress();
   }
 });
 
@@ -304,6 +335,7 @@ canvas.addEventListener('pointermove', (e) => {
     // Against the gesture's start, to tell a drag apart from a stationary
     // click (contact selection) before committing to leaving follow mode.
     const fromStart = Math.hypot(x - pan.startX, y - pan.startY);
+    if (fromStart > 3) cancelLongPress();
     if (follow && fromStart > 3) setFollow(false);
 
     if (!follow) {
@@ -330,6 +362,7 @@ function endPointer(e: PointerEvent): void {
   activePointers.delete(e.pointerId);
   if (activePointers.size < 1) {
     pan = null;
+    cancelLongPress();
     // A pan changes latitude, and how much ground a preset covers depends on
     // it, so re-fit the preset now that the gesture is over. Only while the
     // view is actually on a preset: a stepless pinch or wheel zoom has to
@@ -1073,6 +1106,13 @@ function updateBraa(now: number): void {
 // --- Controls ----------------------------------------------------------------
 
 canvas.addEventListener('click', (e) => {
+  if (longPressFired) {
+    // The long press already set the bullseye; the click that follows
+    // releasing the finger is the same gesture, not a second tap.
+    longPressFired = false;
+    return;
+  }
+
   const rect = canvas.getBoundingClientRect();
   const pt: [number, number] = [e.clientX - rect.left, e.clientY - rect.top];
 
