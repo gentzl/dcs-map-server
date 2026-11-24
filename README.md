@@ -17,9 +17,21 @@ stays on your own home network.
 
 ## Setting it up
 
+### On Windows
+
+Download this project (the green **Code → Download ZIP** button on GitHub, or `git clone`), unzip
+it if needed, and double-click **`start.bat`**. It downloads its own copy of Node.js, installs
+everything, asks which theater you fly and downloads its map tiles, installs the DCS hook, and
+starts the server — nothing else to install, nothing to put on `PATH`, no terminal commands to
+type. It asks for the theater again on your next double-click too, but skips every download it's
+already done. (Nothing it downloads touches the rest of your system — it all stays inside this
+project's own folder.)
+
+### Everyone else, or if you'd rather run the steps yourself
+
 You'll need [Node.js](https://nodejs.org) installed on the DCS PC (version 22 or newer). Everything
 else below is copy-paste into a terminal, in the folder you downloaded this project into — the same
-commands work in PowerShell, cmd.exe, or a Unix shell, no Git Bash or WSL required.
+commands work in PowerShell, cmd.exe, or a Unix shell.
 
 1. Install and prepare the map data (one-time, a couple of minutes):
 
@@ -28,6 +40,7 @@ commands work in PowerShell, cmd.exe, or a Unix shell, no Git Bash or WSL requir
    cp node_modules/maplibre-gl/dist/maplibre-gl.css public/
    npm run fetch-assets        # map labels and symbols, ~2.3 MB
    npm run fetch-tiles -- caucasus  # the map itself, ~131 MB — swap in another theater if you fly elsewhere
+   npm run install-hook        # copies the DCS export hook into Saved Games, see below
    ```
 
    > In cmd.exe (not PowerShell), `cp` isn't a command — use
@@ -36,8 +49,12 @@ commands work in PowerShell, cmd.exe, or a Unix shell, no Git Bash or WSL requir
    `fetch-tiles` downloads the `pmtiles` tool it needs by itself the first time it runs, into this
    project's own `runtime/` folder — no Homebrew, no manual download, nothing to put on `PATH`.
 
-2. Copy `dcs/Scripts/Hooks/dcs-map-server.lua` into `Saved Games\DCS\Scripts\Hooks\` and (re)start DCS.
-   That's the only change made to your DCS install.
+   `install-hook` copies `dcs/Scripts/Hooks/dcs-map-server.lua` into every DCS installation it finds
+   under `Saved Games\` (stable and open beta). It never overwrites a hook file that's already
+   there, so it's always safe to re-run; if you'd rather do it by hand, or it doesn't find your DCS
+   install, just copy that file into `Saved Games\DCS\Scripts\Hooks\` yourself.
+
+2. (Re)start DCS, so it picks up the hook.
 
 3. Start the server:
 

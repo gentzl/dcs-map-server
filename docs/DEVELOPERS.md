@@ -63,7 +63,9 @@ tools/                   Telemetry generator and ACMI converter
 ## The DCS hook
 
 Copy `dcs/Scripts/Hooks/dcs-map-server.lua` into `Saved Games\DCS\Scripts\Hooks\` and restart DCS.
-That is all — **no `Export.lua` is needed and none is modified.**
+That is all — **no `Export.lua` is needed and none is modified.** `npm run install-hook`
+(`tools/install-hook.ts`) does this copy automatically for every DCS variant it finds, and never
+overwrites a hook file that's already there.
 
 This matters because the two mechanisms are easy to confuse:
 
@@ -329,15 +331,15 @@ hasn't changed, so the client doesn't dim it as stale.
   (Ticonderoga/Arleigh Burke-class, Aegis; Kirov/Slava-class, SA-N-6) -- see threats.ts. Frigates
   and corvettes with a shorter-range system are deliberately left out until someone can confirm
   the actual in-game numbers; adding a wrong range would be worse than no ring.
-- A zero-friction Windows installer: a `start.bat` that bootstraps a bundled/auto-downloaded
-  portable Node.js runtime (so Node itself isn't a separate prerequisite any more either), then
-  runs setup (`npm install`, the CSS copy, `fetch-assets`, `fetch-tiles`) and the server, opening
-  the browser automatically. `fetch-assets` and `fetch-tiles` are already ported to Node and
-  auto-download what they need (see tools/fetch-tiles.ts's `ensurePmtiles`); still missing is the
-  Node bootstrap and an automatic hook installer that copies
-  `dcs/Scripts/Hooks/dcs-map-server.lua` into `Saved Games\...\Scripts\Hooks\` -- which must never
-  overwrite a hook file that's already there, whatever its origin, since that could silently
-  destroy someone else's setup.
+- `start.bat`, the zero-friction Windows installer, is built (`tools/bootstrap-node.ps1` downloads
+  and checksum-verifies a portable Node into `runtime/node/`, `tools/bootstrap.js` then runs
+  `npm install`, the CSS copy, `fetch-assets`, `fetch-tiles`, `install-hook` and the server, opening
+  the browser at the address the server itself prints) but **not yet tried on an actual Windows
+  machine** -- only Node-for-Node testable pieces could be verified from this macOS dev machine:
+  the PowerShell download/checksum/extract logic ran for real under `pwsh`, and the spawn/tee/open
+  logic in bootstrap.js was exercised against the real dev server. The batch file itself
+  (`%PROCESSOR_ARCHITECTURE%` branch, `errorlevel` handling, the final `cmd /c start`) has only been
+  read, not run. Someone with a Windows PC should try a clean double-click before this is called done.
 
 ## Contributing
 
