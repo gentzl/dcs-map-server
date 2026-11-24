@@ -1,6 +1,7 @@
 import type { Unit } from '../shared/types.js';
 import { AIRBORNE } from '../shared/types.js';
-import { M_PER_NM, RANGES_NM, destination, metersToNm, toRad } from './geo.js';
+import { M_PER_NM, RANGES_NM, destination, metersPerPixel, metersToNm, toRad } from './geo.js';
+import { SIZE } from './symbols/types.js';
 
 /**
  * Tactical overlays: range rings and bearing ticks around the own aircraft.
@@ -138,12 +139,22 @@ export function buildBullseye(lat: number, lon: number): GeoJSON.FeatureCollecti
  * Airborne contacts only. A mission puts a few dozen aircraft on the map and
  * several hundred vehicles, and a stub on every parked truck would bury the
  * picture it is meant to clarify.
+ *
+ * The 60 seconds of travel is a real geographic distance, so at a close
+ * range step a fast jet's stub can stretch many times its own icon size --
+ * technically correct, but reads as a stray line rather than a contact.
+ * Capped at a few icon-widths on screen (LEADER_MAX_ICONS), independent of
+ * zoom: it needs the current zoom to convert a pixel cap into the matching
+ * real-world distance, the same conversion rangeForZoom already does for
+ * the range rings.
  */
 const LEADER_SECONDS = 60;
+const LEADER_MAX_ICONS = 3;
 
 export function buildLeaders(
   units: Array<{ unit: Unit; lat: number; lon: number; hdg: number; ageMs: number; spdMs: number }>,
   ownCoalition: number,
+  zoom: number,
 ): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
 
@@ -153,7 +164,9 @@ export function buildLeaders(
     // derived from, and the stub would point somewhere arbitrary.
     if (u.spdMs < 5) continue;
 
-    const [lat, lon] = destination(u.lat, u.lon, u.hdg, u.spdMs * LEADER_SECONDS);
+    const maxMetres = LEADER_MAX_ICONS * SIZE * metersPerPixel(zoom, u.lat);
+    const travelMetres = Math.min(u.spdMs * LEADER_SECONDS, maxMetres);
+    const [lat, lon] = destination(u.lat, u.lon, u.hdg, travelMetres);
     features.push({
       type: 'Feature',
       geometry: { type: 'LineString', coordinates: [[u.lon, u.lat], [lon, lat]] },

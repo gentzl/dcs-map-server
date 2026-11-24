@@ -840,7 +840,7 @@ function updateSources(now: number): void {
     })),
   });
 
-  setData('leaders', buildLeaders(contacts, ownCoalition));
+  setData('leaders', buildLeaders(contacts, ownCoalition, map.getZoom()));
   setData('threats', buildThreatRings(contacts, settings.threats, ownCoalition));
   // The actual displayed range, not the last-pressed preset -- otherwise a
   // pinch or wheel zoom away from a button leaves the rings frozen at

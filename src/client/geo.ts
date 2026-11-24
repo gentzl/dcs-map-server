@@ -219,18 +219,28 @@ export const RANGE_PRESETS_NM = RANGES_NM;
 const MPP_ZOOM0 = 40_075_016.686 / 512;
 
 /**
+ * Metres a single screen pixel covers at a given zoom and latitude --
+ * Mercator's own scale factor, which shrinks real ground distance per pixel
+ * as you go to the poles. Shared by the range/zoom conversion below and by
+ * anything else that needs to turn a pixel length into a real one, such as
+ * capping how long a drawn line is allowed to get on screen.
+ */
+export function metersPerPixel(zoom: number, lat: number): number {
+  return (MPP_ZOOM0 * Math.cos(toRad(lat))) / 2 ** zoom;
+}
+
+/**
  * Zoom level at which the given range reaches from the centre to the edge
  * of the shorter screen axis -- so "40" means the same thing on every device.
  */
 export function zoomForRange(rangeNm: number, lat: number, viewportShortPx: number): number {
   const halfPx = Math.max(viewportShortPx, 1) / 2;
-  const metersPerPixel = (rangeNm * M_PER_NM) / halfPx;
-  return Math.log2((MPP_ZOOM0 * Math.cos(toRad(lat))) / metersPerPixel);
+  const mpp = (rangeNm * M_PER_NM) / halfPx;
+  return Math.log2((MPP_ZOOM0 * Math.cos(toRad(lat))) / mpp);
 }
 
 /** Inverse of zoomForRange -- the actual range at a freely chosen zoom, e.g. after a pinch. */
 export function rangeForZoom(zoom: number, lat: number, viewportShortPx: number): number {
   const halfPx = Math.max(viewportShortPx, 1) / 2;
-  const metersPerPixel = (MPP_ZOOM0 * Math.cos(toRad(lat))) / 2 ** zoom;
-  return (metersPerPixel * halfPx) / M_PER_NM;
+  return (metersPerPixel(zoom, lat) * halfPx) / M_PER_NM;
 }
