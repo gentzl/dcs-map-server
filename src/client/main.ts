@@ -327,8 +327,16 @@ function addOverlayLayers(): void {
       paint: {
         'fill-color': ['case', ['==', ['get', 'affiliation'], 'hostile'], '#e63946', '#4895ef'],
         // Weak enough that overlapping areas can still be told apart -- a
-        // layered air-defence setup has many of these stacked on top of each other.
-        'fill-opacity': ['case', ['get', 'stale'], 0.04, 0.1],
+        // layered air-defence setup has many of these stacked on top of each
+        // other. Friend rings are the weaker of the two: "all" mode shows
+        // your own side's air defence too, and a mission usually fields far
+        // more of it than the enemy -- at matched opacity those stack up and
+        // the whole map reads blue.
+        'fill-opacity': [
+          'case', ['get', 'stale'], 0.025,
+          ['==', ['get', 'affiliation'], 'hostile'], 0.07,
+          0.035,
+        ],
       },
     });
     map.addLayer({
@@ -336,7 +344,11 @@ function addOverlayLayers(): void {
       paint: {
         'line-color': ['case', ['==', ['get', 'affiliation'], 'hostile'], '#e63946', '#4895ef'],
         'line-width': 1.2,
-        'line-opacity': ['case', ['get', 'stale'], 0.3, 0.8],
+        'line-opacity': [
+          'case', ['get', 'stale'], 0.2,
+          ['==', ['get', 'affiliation'], 'hostile'], 0.6,
+          0.45,
+        ],
         'line-dasharray': [3, 2],
       },
     });
