@@ -32,9 +32,12 @@ else below is copy-paste into a terminal, in the folder you downloaded this proj
    npm run dev
    ```
 
-4. Open the web address it prints. On the DCS PC itself that's `http://localhost:8080` — from a
-   phone or tablet on the same Wi-Fi, use the other address it prints instead, e.g.
-   `http://192.168.1.23:8080`. Start or join a flight in DCS and the map comes alive.
+4. Open the web address it prints. On the DCS PC itself that's `http://localhost:8080`. From a
+   phone or tablet on the same Wi-Fi, use one of the other two addresses instead — a number like
+   `http://192.168.1.23:8080`, or a name like `http://DESKTOP-ABC123.local:8080` (easier to type,
+   and keeps working even if the number changes later). Can't see the terminal window anymore? On
+   the DCS PC, run `ipconfig` (Windows) and look for "IPv4 Address" — that's the number. Start or
+   join a flight in DCS and the map comes alive.
 
 That's the whole setup. Want it reachable with a tablet's screen staying awake, a different map
 theater, what every setting does, or how to troubleshoot a blank map? → **[Full documentation](docs/REFERENCE.md)**
