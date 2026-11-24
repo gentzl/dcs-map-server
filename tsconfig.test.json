@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist-test",
+    "types": [
+      "node",
+      "geojson"
+    ]
+  },
+  "include": [
+    "test",
+    "src/server",
+    "src/shared",
+    "src/client/geo.ts",
+    "src/client/overlays.ts",
+    "tools/wire.ts"
+  ]
+}

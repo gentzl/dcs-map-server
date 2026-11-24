@@ -1,0 +1,791 @@
+[
+  {
+    "name": "1L13 EWR",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "2S6 Tunguska",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 8000,
+    "threatLabel": "SA-19"
+  },
+  {
+    "name": "55G6 EWR",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "5p73 s-125 ln",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 18000,
+    "threatLabel": "SA-3"
+  },
+  {
+    "name": "A-10A",
+    "level1": 1,
+    "category": "air"
+  },
+  {
+    "name": "ALBATROS",
+    "level1": 3,
+    "category": "naval"
+  },
+  {
+    "name": "ammo_cargo",
+    "level1": 0,
+    "category": "unknown"
+  },
+  {
+    "name": "ara_vdm",
+    "level1": 3,
+    "category": "naval"
+  },
+  {
+    "name": "ATZ-10",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "ATZ-5",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "BMD-1",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "BMP-1",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "BRDM-2",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "BTR_D",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "BTR-80",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "BTR-82A",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "C-130",
+    "level1": 1,
+    "category": "cargo"
+  },
+  {
+    "name": "CHAP_BMPT",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "CHAP_IRISTSLM_CP",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "CHAP_IRISTSLM_LN",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "CHAP_IRISTSLM_STR",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "CHAP_M1083",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "CHAP_PantsirS1",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "CHAP_T84OplotM",
+    "level1": 2,
+    "category": "armor"
+  },
+  {
+    "name": "CHAP_T90M",
+    "level1": 2,
+    "category": "armor"
+  },
+  {
+    "name": "CHAP_TOS1A",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "CV_1143_5",
+    "level1": 3,
+    "category": "carrier"
+  },
+  {
+    "name": "CVN_75",
+    "level1": 3,
+    "category": "carrier"
+  },
+  {
+    "name": "Dog Ear radar",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "E-3A",
+    "level1": 1,
+    "category": "awacs"
+  },
+  {
+    "name": "Essex",
+    "level1": 3,
+    "category": "carrier"
+  },
+  {
+    "name": "F15EX",
+    "level1": 1,
+    "category": "air"
+  },
+  {
+    "name": "FA-18C_hornet",
+    "level1": 1,
+    "category": "air"
+  },
+  {
+    "name": "FARP",
+    "level1": 5,
+    "category": "static"
+  },
+  {
+    "name": "FPS-117",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "FPS-117 Dome",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "FPS-117 ECS",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "GAZ-66",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "Gepard",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 3000,
+    "threatLabel": "GEPARD"
+  },
+  {
+    "name": "Grad-URAL",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "HarborTug",
+    "level1": 3,
+    "category": "naval"
+  },
+  {
+    "name": "Hawk cwar",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 40000,
+    "threatLabel": "HAWK"
+  },
+  {
+    "name": "Hawk ln",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 40000,
+    "threatLabel": "HAWK"
+  },
+  {
+    "name": "Hawk pcp",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 40000,
+    "threatLabel": "HAWK"
+  },
+  {
+    "name": "Hawk sr",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "Hawk tr",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "HEMTT_C-RAM_Phalanx",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "HL_KORD",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "HL_ZU-23",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 2500,
+    "threatLabel": "ZU-23"
+  },
+  {
+    "name": "HQ-7_LN_SP",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 12000,
+    "threatLabel": "HQ-7"
+  },
+  {
+    "name": "HQ-7_STR_SP",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 12000,
+    "threatLabel": "HQ-7"
+  },
+  {
+    "name": "Hummer",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "Infantry AK",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "Invisible FARP",
+    "level1": 5,
+    "category": "static"
+  },
+  {
+    "name": "J-11A",
+    "level1": 1,
+    "category": "air"
+  },
+  {
+    "name": "KC-135",
+    "level1": 1,
+    "category": "tanker"
+  },
+  {
+    "name": "KC135MPRS",
+    "level1": 1,
+    "category": "tanker"
+  },
+  {
+    "name": "Kub 1S91 str",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "Kub 2P25 ln",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 25000,
+    "threatLabel": "SA-6"
+  },
+  {
+    "name": "KUZNECOW",
+    "level1": 3,
+    "category": "carrier"
+  },
+  {
+    "name": "La_Combattante_II",
+    "level1": 3,
+    "category": "naval"
+  },
+  {
+    "name": "LHA_Tarawa",
+    "level1": 3,
+    "category": "carrier"
+  },
+  {
+    "name": "M 818",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "M-1 Abrams",
+    "level1": 2,
+    "category": "armor"
+  },
+  {
+    "name": "M-2 Bradley",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "M1045 HMMWV TOW",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "M1097 Avenger",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 4800,
+    "threatLabel": "AVENGER"
+  },
+  {
+    "name": "M1126 Stryker ICV",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "M1128 Stryker MGS",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "M6 Linebacker",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 4800,
+    "threatLabel": "LINEBACKER"
+  },
+  {
+    "name": "M978 HEMTT Tanker",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "Mi-24P",
+    "level1": 1,
+    "category": "helo"
+  },
+  {
+    "name": "MiG-21Bis",
+    "level1": 1,
+    "category": "air"
+  },
+  {
+    "name": "MiG-29 Fulcrum",
+    "level1": 1,
+    "category": "air"
+  },
+  {
+    "name": "MiG-29S",
+    "level1": 1,
+    "category": "air"
+  },
+  {
+    "name": "MOLNIYA",
+    "level1": 3,
+    "category": "naval"
+  },
+  {
+    "name": "MOSCOW",
+    "level1": 3,
+    "category": "naval"
+  },
+  {
+    "name": "NASAMS_Command_Post",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 25000,
+    "threatLabel": "NASAMS"
+  },
+  {
+    "name": "NASAMS_LN_B",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 25000,
+    "threatLabel": "NASAMS"
+  },
+  {
+    "name": "NASAMS_LN_C",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 25000,
+    "threatLabel": "NASAMS"
+  },
+  {
+    "name": "NASAMS_Radar_MPQ64F1",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "NEUSTRASH",
+    "level1": 3,
+    "category": "naval"
+  },
+  {
+    "name": "Osa 9A33 ln",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 10000,
+    "threatLabel": "SA-8"
+  },
+  {
+    "name": "p-19 s-125 sr",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "Paratrooper RPG-16",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "Patriot AMG",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 100000,
+    "threatLabel": "PATRIOT"
+  },
+  {
+    "name": "Patriot cp",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 100000,
+    "threatLabel": "PATRIOT"
+  },
+  {
+    "name": "Patriot ECS",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 100000,
+    "threatLabel": "PATRIOT"
+  },
+  {
+    "name": "Patriot EPP",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 100000,
+    "threatLabel": "PATRIOT"
+  },
+  {
+    "name": "Patriot ln",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 100000,
+    "threatLabel": "PATRIOT"
+  },
+  {
+    "name": "Patriot str",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "PLZ05",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "prmg_gp_beacon",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "prmg_loc_beacon",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "RD_75",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "REZKY",
+    "level1": 3,
+    "category": "naval"
+  },
+  {
+    "name": "Roland ADS",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 8000,
+    "threatLabel": "ROLAND"
+  },
+  {
+    "name": "Roland Radar",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "RQ-1A Predator",
+    "level1": 1,
+    "category": "air"
+  },
+  {
+    "name": "rsbn_beacon",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "S_75M_Volhov",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "S-300PS 40B6M tr",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "S-300PS 40B6MD sr",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "S-300PS 54K6 cp",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 75000,
+    "threatLabel": "SA-10"
+  },
+  {
+    "name": "S-300PS 5P85C ln",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 75000,
+    "threatLabel": "SA-10"
+  },
+  {
+    "name": "S-300PS 5P85D ln",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 75000,
+    "threatLabel": "SA-10"
+  },
+  {
+    "name": "S-300PS 64H6E sr",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "SA-11 Buk LN 9A310M1",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 35000,
+    "threatLabel": "SA-11"
+  },
+  {
+    "name": "SA-18 Igla manpad",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 5000,
+    "threatLabel": "SA-18"
+  },
+  {
+    "name": "SA-18 Igla-S manpad",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 5000,
+    "threatLabel": "SA-18"
+  },
+  {
+    "name": "SAU 2-C9",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "SAU Akatsia",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "SAU Gvozdika",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "SAU Msta",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "Smerch",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "SNR_75V",
+    "level1": 2,
+    "category": "sam"
+  },
+  {
+    "name": "Soldier stinger",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 4800,
+    "threatLabel": "STINGER"
+  },
+  {
+    "name": "Stennis",
+    "level1": 3,
+    "category": "carrier"
+  },
+  {
+    "name": "Stinger comm",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 4800,
+    "threatLabel": "STINGER"
+  },
+  {
+    "name": "Strela-1 9P31",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 4500,
+    "threatLabel": "SA-9"
+  },
+  {
+    "name": "Strela-10M3",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 5000,
+    "threatLabel": "SA-13"
+  },
+  {
+    "name": "T-55",
+    "level1": 2,
+    "category": "armor"
+  },
+  {
+    "name": "T-72B",
+    "level1": 2,
+    "category": "armor"
+  },
+  {
+    "name": "T-72B3",
+    "level1": 2,
+    "category": "armor"
+  },
+  {
+    "name": "T-80UD",
+    "level1": 2,
+    "category": "armor"
+  },
+  {
+    "name": "T-90",
+    "level1": 2,
+    "category": "armor"
+  },
+  {
+    "name": "TACAN_beacon",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "TICONDEROG",
+    "level1": 3,
+    "category": "naval"
+  },
+  {
+    "name": "Tigr_233036",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "Tor 9A331",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 12000,
+    "threatLabel": "SA-15"
+  },
+  {
+    "name": "tt_DSHK",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "tt_KORD",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "tt_ZU-23",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 2500,
+    "threatLabel": "ZU-23"
+  },
+  {
+    "name": "Type_021_1",
+    "level1": 3,
+    "category": "naval"
+  },
+  {
+    "name": "TYPE-59",
+    "level1": 2,
+    "category": "armor"
+  },
+  {
+    "name": "Ural-375",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "Ural-375 ZU-23",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 2500,
+    "threatLabel": "ZU-23"
+  },
+  {
+    "name": "USS_Arleigh_Burke_IIa",
+    "level1": 3,
+    "category": "naval"
+  },
+  {
+    "name": "ZBD04A",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "ZiL-131 APA-80",
+    "level1": 2,
+    "category": "ground"
+  },
+  {
+    "name": "ZSU-23-4 Shilka",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 2500,
+    "threatLabel": "ZSU-23-4"
+  },
+  {
+    "name": "ZTZ96B",
+    "level1": 2,
+    "category": "armor"
+  },
+  {
+    "name": "ZU-23 Emplacement Closed",
+    "level1": 2,
+    "category": "sam",
+    "threatM": 2500,
+    "threatLabel": "ZU-23"
+  }
+]
