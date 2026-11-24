@@ -546,7 +546,9 @@
   {
     "name": "S_75M_Volhov",
     "level1": 2,
-    "category": "ground"
+    "category": "sam",
+    "threatM": 34000,
+    "threatLabel": "SA-2"
   },
   {
     "name": "S-300PS 40B6M tr",

@@ -78,6 +78,13 @@ describe('air defence is told apart from everything else', () => {
 
   // Short radar-role abbreviations used to be matched as plain substrings,
   // which flagged every Stryker variant as air defence.
+  test('an underscore reads as a separator, the same as a hyphen', () => {
+    // DCS uses the two interchangeably: the SA-2 launcher is S_75M_Volhov
+    // where the pattern table spells it s-75. Read as a plain ground vehicle
+    // it drew no threat ring at all.
+    assert.equal(classify({ name: 'S_75M_Volhov', level1: 2 }), 'sam');
+  });
+
   const notSam = ['M1126 Stryker ICV', 'M1128 Stryker MGS', 'SAU Akatsia', 'BMP-1', 'Ural-375'];
   for (const name of notSam) {
     test(`${name} is not air defence`, () => {

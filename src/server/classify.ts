@@ -13,11 +13,17 @@ import type { Category } from '../shared/types.js';
  */
 
 /**
- * Lowercases and drops hyphens so e.g. "T-90" and the unhyphenated "T90M"
- * (seen on several modded/campaign unit sets) match the same pattern.
- * Spaces and underscores are kept apart, deliberately -- see hasToken below.
+ * Lowercases and drops hyphens and underscores, so "T-90", the unhyphenated
+ * "T90M" (seen on several modded/campaign unit sets) and "S_75M_Volhov" all
+ * match the same pattern. DCS uses the two interchangeably as joiners within
+ * a type name: the SA-2 launcher is "S_75M_Volhov" where the table spells it
+ * "s-75", and without this it was read as an ordinary ground vehicle and
+ * drew no threat ring at all.
+ *
+ * Spaces are kept, deliberately: several patterns end in one to anchor a
+ * short word, and hasToken below works on the raw name anyway.
  */
-const normalize = (name: string): string => name.toLowerCase().replace(/-/g, '');
+const normalize = (name: string): string => name.toLowerCase().replace(/[-_]/g, '');
 
 /**
  * Matches `token` as a standalone word in `name`, bounded by start/end or any
