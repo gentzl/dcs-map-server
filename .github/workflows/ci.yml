@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      # The oldest version package.json allows, and current. The project is
+      # run on whatever Node a flight simulator PC happens to have.
+      matrix:
+        node: ['22', '24']
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      # Typechecks all four TS projects, including the tests themselves.
+      - run: npm run typecheck
+
+      - run: npm test
+
+      # The client is bundled rather than typechecked into existence, so a
+      # broken import only shows up here.
+      - run: npm run build:client
