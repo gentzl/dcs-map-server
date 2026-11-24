@@ -11,10 +11,6 @@ stays on your own home network.
 
 ![The map in flight: NATO contact symbols, a BRA line and readout to a selected contact, range rings, and terrain shading](docs/screenshot.jpg)
 
-- **[Handbook](docs/MANUAL.md)** — what's on the map, the controls, the settings, troubleshooting.
-- **[Technical guide](docs/DEVELOPERS.md)** — architecture, wire protocol, running it without DCS,
-  changing the code.
-
 ## Setting it up
 
 1. Download this project — the green **Code → Download ZIP** button on GitHub — and unzip it.
@@ -30,10 +26,12 @@ Open the web address it prints — `http://localhost:8080` on the DCS PC itself,
 two from a phone or tablet on the same Wi-Fi. Start or join a flight in DCS and the map comes
 alive.
 
-From here, the [handbook](docs/MANUAL.md) covers using it — the controls, keeping a tablet's
-screen awake, other theaters, and what to try when the map stays blank. Want to run the steps by
-hand, or set this up for development instead? See the technical guide's
-[manual setup](docs/DEVELOPERS.md#manual-setup).
+## Documentation
+
+- **[Handbook](docs/MANUAL.md)** — using it: the controls, keeping a tablet's screen awake, other
+  theaters, troubleshooting a blank map.
+- **[Technical guide](docs/DEVELOPERS.md)** — architecture, wire protocol, running it without DCS,
+  the [manual setup](docs/DEVELOPERS.md#manual-setup) for development, changing the code.
 
 ## Contributing
 
