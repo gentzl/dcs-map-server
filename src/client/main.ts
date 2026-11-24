@@ -26,7 +26,7 @@ import {
   M_PER_NM,
 } from './geo.js';
 import { buildGraticule } from './graticule.js';
-import { buildBullseye, buildRings, buildThreatRings } from './overlays.js';
+import { buildBullseye, buildLeaders, buildRings, buildThreatRings } from './overlays.js';
 import * as cfg from './settings.js';
 import {
   CATEGORY_LABELS,
@@ -293,7 +293,7 @@ function addOverlayLayers(): void {
   const c = CHART_COLORS[settings.mode];
   const ink = c.ink;
 
-  for (const id of ['graticule', 'threats', 'rings', 'bullseye', 'track', 'selected-trail', 'braa-line', 'contacts'] as const) {
+  for (const id of ['graticule', 'threats', 'rings', 'bullseye', 'track', 'selected-trail', 'braa-line', 'leaders', 'contacts'] as const) {
     if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY });
   }
 
@@ -437,6 +437,18 @@ function addOverlayLayers(): void {
     });
   }
 
+  if (!map.getLayer('leaders-line')) {
+    // Under the symbols, so a stub never covers the contact it belongs to.
+    map.addLayer({
+      id: 'leaders-line', type: 'line', source: 'leaders',
+      paint: {
+        'line-color': ['case', ['==', ['get', 'affiliation'], 'hostile'], '#e63946', '#4895ef'],
+        'line-width': 1.4,
+        'line-opacity': ['case', ['get', 'stale'], 0.3, 0.9],
+      },
+    });
+  }
+
   if (!map.getLayer('contacts-dot')) {
     // Selection ring under the symbol, so it doesn't cover it.
     map.addLayer({
@@ -527,6 +539,7 @@ function applyVisibility(): void {
   vis('selected-trail-line', settings.contacts !== 'none');
   vis('braa-line-casing', settings.contacts !== 'none');
   vis('braa-line-line', settings.contacts !== 'none');
+  vis('leaders-line', settings.contacts !== 'none');
   vis('contacts-dot', settings.contacts !== 'none');
   vis('contacts-air', settings.contacts !== 'none');
   vis('contacts-selected', settings.contacts !== 'none');
@@ -691,6 +704,7 @@ function updateSources(now: number): void {
     })),
   });
 
+  setData('leaders', buildLeaders(contacts, ownCoalition));
   setData('threats', buildThreatRings(contacts, settings.threats, ownCoalition));
   // The actual displayed range, not the last-pressed preset -- otherwise a
   // pinch or wheel zoom away from a button leaves the rings frozen at

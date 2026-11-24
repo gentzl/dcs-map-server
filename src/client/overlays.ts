@@ -1,4 +1,5 @@
 import type { Unit } from '../shared/types.js';
+import { AIRBORNE } from '../shared/types.js';
 import { M_PER_NM, RANGES_NM, destination, metersToNm, toRad } from './geo.js';
 
 /**
@@ -113,6 +114,47 @@ export function buildBullseye(lat: number, lon: number): GeoJSON.FeatureCollecti
 }
 
 
+
+/**
+ * Velocity leader lines: a stub ahead of each airborne contact, as long as
+ * the ground it covers in LEADER_SECONDS.
+ *
+ * This is what every radar display draws, and the reason is geometry at a
+ * glance -- who is converging on whom, who is running, whether two tracks
+ * will meet. Reading that off static symbols means selecting them one at a
+ * time.
+ *
+ * Airborne contacts only. A mission puts a few dozen aircraft on the map and
+ * several hundred vehicles, and a stub on every parked truck would bury the
+ * picture it is meant to clarify.
+ */
+const LEADER_SECONDS = 60;
+
+export function buildLeaders(
+  units: Array<{ unit: Unit; lat: number; lon: number; hdg: number; ageMs: number; spdMs: number }>,
+  ownCoalition: number,
+): GeoJSON.FeatureCollection {
+  const features: GeoJSON.Feature[] = [];
+
+  for (const u of units) {
+    if (!AIRBORNE.has(u.unit.category)) continue;
+    // Below walking pace the heading is noise from the position deltas it is
+    // derived from, and the stub would point somewhere arbitrary.
+    if (u.spdMs < 5) continue;
+
+    const [lat, lon] = destination(u.lat, u.lon, u.hdg, u.spdMs * LEADER_SECONDS);
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: [[u.lon, u.lat], [lon, lat]] },
+      properties: {
+        affiliation: u.unit.coalition === ownCoalition ? 'friend' : 'hostile',
+        stale: u.ageMs > 5000,
+      },
+    });
+  }
+
+  return { type: 'FeatureCollection', features };
+}
 
 /**
  * Air defence engagement ranges, as filled areas.
