@@ -95,8 +95,9 @@ truck would bury what it's meant to show.
 
 **Tapping a contact** draws a line to it and shows the full readout: affiliation, category,
 coordinates, bearing and range from you, the contact's own bullseye position, altitude, aspect,
-ground speed, closure and the time that leaves. Tapping empty ground shows just the coordinates
-there, next to where you tapped. Aspect tells you where it's pointing relative to you — `HOT`
+ground speed, closure and the time that leaves. It stays up until you tap that same contact again
+— a stray tap anywhere else never drops it, and instead just shows the coordinates there, next to
+where you tapped, alongside it. Aspect tells you where it's pointing relative to you — `HOT`
 straight at you, `FLANK`, `BEAM`, `DRAG`, `COLD` straight away. Closure is how fast the gap is
 actually shutting, which is not the same as how fast either of you is flying: forty miles is two
 and a half minutes head-on and never at all behind someone faster than you.

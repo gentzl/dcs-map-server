@@ -1191,17 +1191,21 @@ canvas.addEventListener('click', (e) => {
 
   const hits = map.queryRenderedFeatures([[pt[0] - 12, pt[1] - 12], [pt[0] + 12, pt[1] + 12]], { layers: ['contacts-dot', 'contacts-air'] });
   const id = hits[0]?.properties?.['id'];
-  selectedId = typeof id === 'number' && id !== selectedId ? id : null;
-  selectedTrail = [];
 
-  // A contact selected takes the BRAA box, which gets its own coordinate
-  // line; anything else (empty ground, or deselecting by tapping the same
-  // contact again) gets a plain coordinate readout at the point itself.
-  if (selectedId === null) {
+  if (typeof id === 'number') {
+    // A contact: toggle it off if it's the one already selected, otherwise
+    // switch the readout to it. Either way the BRAA box gets its own
+    // coordinate line, so the floating one here would be redundant.
+    selectedId = id === selectedId ? null : id;
+    selectedTrail = [];
+    clickedPoint = null;
+  } else {
+    // Empty ground. A stray tap elsewhere must never silently drop the BRA
+    // line -- only clicking the selected contact again does that -- so the
+    // selection is left exactly as it was; this only adds the coordinate
+    // readout at the point itself.
     const ll = map.unproject(pt);
     clickedPoint = { lat: ll.lat, lon: ll.lng };
-  } else {
-    clickedPoint = null;
   }
 });
 
