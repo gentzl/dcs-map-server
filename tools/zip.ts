@@ -36,14 +36,8 @@ export function isZip(buf: Buffer): boolean {
   return buf.length > 4 && buf.readUInt16LE(0) === 0x4b50;
 }
 
-/** Reads the archive's first entry. A recording never needs more than that. */
-export function readFirstEntry(buf: Buffer): ZipEntry {
-  const eocd = findEocd(buf);
-  if (eocd < 0) throw new Error('no end-of-central-directory record found');
-
-  const entryCount = buf.readUInt16LE(eocd + 10);
-  if (entryCount === 0) throw new Error('archive is empty');
-  const centralOffset = buf.readUInt32LE(eocd + 16);
+/** Reads one entry from the central directory at the given offset. */
+function readEntryAt(buf: Buffer, centralOffset: number): ZipEntry {
   if (buf.readUInt32LE(centralOffset) !== CENTRAL_SIGNATURE) {
     throw new Error('central directory not readable');
   }
@@ -51,6 +45,8 @@ export function readFirstEntry(buf: Buffer): ZipEntry {
   const method = buf.readUInt16LE(centralOffset + 10);
   const compressedSize = buf.readUInt32LE(centralOffset + 20);
   const nameLength = buf.readUInt16LE(centralOffset + 28);
+  const extraLength = buf.readUInt16LE(centralOffset + 30);
+  const commentLength = buf.readUInt16LE(centralOffset + 32);
   const localOffset = buf.readUInt32LE(centralOffset + 42);
   const name = buf.toString('utf8', centralOffset + 46, centralOffset + 46 + nameLength);
 
@@ -63,7 +59,49 @@ export function readFirstEntry(buf: Buffer): ZipEntry {
     localOffset + 30 + buf.readUInt16LE(localOffset + 26) + buf.readUInt16LE(localOffset + 28);
   const raw = buf.subarray(dataStart, dataStart + compressedSize);
 
-  if (method === 0) return { name, data: raw };
-  if (method === 8) return { name, data: inflateRawSync(raw) };
-  throw new Error(`compression method ${method} is not supported`);
+  let data: Buffer;
+  if (method === 0) data = raw;
+  else if (method === 8) data = inflateRawSync(raw);
+  else throw new Error(`compression method ${method} is not supported`);
+
+  return {
+    name,
+    data,
+    // Fixed-size central directory record (46 bytes) plus its three
+    // variable-length fields -- the offset of whatever entry follows.
+    next: centralOffset + 46 + nameLength + extraLength + commentLength,
+  } as ZipEntry & { next: number };
+}
+
+/** Reads every entry in the archive, via the central directory. */
+export function readEntries(buf: Buffer): ZipEntry[] {
+  const eocd = findEocd(buf);
+  if (eocd < 0) throw new Error('no end-of-central-directory record found');
+
+  const entryCount = buf.readUInt16LE(eocd + 10);
+  const entries: ZipEntry[] = [];
+  let offset = buf.readUInt32LE(eocd + 16);
+  for (let i = 0; i < entryCount; i++) {
+    const { next, ...entry } = readEntryAt(buf, offset) as ZipEntry & { next: number };
+    entries.push(entry);
+    offset = next;
+  }
+  return entries;
+}
+
+/**
+ * Reads the archive's first entry only. A Tacview recording never needs
+ * more than that, and this way a problem with some later, irrelevant entry
+ * (readEntries would decode all of them) can never fail a read that was
+ * never going to look at it.
+ */
+export function readFirstEntry(buf: Buffer): ZipEntry {
+  const eocd = findEocd(buf);
+  if (eocd < 0) throw new Error('no end-of-central-directory record found');
+  if (buf.readUInt16LE(eocd + 10) === 0) throw new Error('archive is empty');
+
+  const { next: _next, ...entry } = readEntryAt(buf, buf.readUInt32LE(eocd + 16)) as ZipEntry & {
+    next: number;
+  };
+  return entry;
 }
