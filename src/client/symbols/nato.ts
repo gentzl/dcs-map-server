@@ -170,7 +170,19 @@ const FRAMES: Record<Affiliation, Record<Dimension, Draw>> = {
  * carriers because no reliable pictogram geometry could be sourced for one;
  * a made-up icon would be worse than the standard's own letter code.
  */
+/**
+ * Role letters, for types a drawn icon cannot separate at this size.
+ *
+ * Transport, tanker and AWACS are all fixed-wing and would otherwise share
+ * the plain wing icon, making the split classify.ts works out invisible in
+ * the default symbol set. The standard has its own modifiers for these; at
+ * 34 px a letter is what actually reads, which is also what the game's own
+ * map and an HSD do.
+ */
 const LETTERS: Partial<Record<Category, string>> = {
+  cargo: 'C',
+  tanker: 'K',
+  awacs: 'W',
   carrier: 'CV',
 };
 
@@ -184,10 +196,9 @@ const fixedWingIcon: Draw = (c, s) => {
 };
 
 const ICONS: Partial<Record<Category, Draw>> = {
+  // Plain fixed wing only -- the roles above carry a letter instead, and an
+  // icon drawn after it would paint straight over it.
   air: fixedWingIcon,
-  cargo: fixedWingIcon,
-  tanker: fixedWingIcon,
-  awacs: fixedWingIcon,
   // Rotor blades: crossed, to suggest the spinning motion.
   // A filled rotor disc (like the fixed-wing's propeller), with the crossed
   // strokes as rotor blades on top. Without the disc the helicopter was left
@@ -240,7 +251,7 @@ const ICONS: Partial<Record<Category, Draw>> = {
 };
 
 /** Icons that get filled; the rest stay strokes. */
-const FILLED = new Set<Category>(['armor', 'sam', 'weapon', 'air', 'cargo', 'tanker', 'awacs', 'naval', 'helo']);
+const FILLED = new Set<Category>(['armor', 'sam', 'weapon', 'air', 'naval', 'helo']);
 
 function render(category: Category, affiliation: Affiliation): ImageData {
   const { ctx, px } = newCanvas();
@@ -271,7 +282,10 @@ function render(category: Category, affiliation: Affiliation): ImageData {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = ink;
-    ctx.fillText(letter, SIZE * 0.5, SIZE * 0.52);
+    // Air frames taper towards the top, so the letter sits a little higher
+    // than in the straight-sided land and sea frames: at the same height it
+    // crowds the lower edge while the space under the apex goes unused.
+    ctx.fillText(letter, SIZE * 0.5, SIZE * (dim === 'air' ? 0.48 : 0.52));
   }
 
   const icon = ICONS[category];

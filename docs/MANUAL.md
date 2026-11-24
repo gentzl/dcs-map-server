@@ -67,8 +67,9 @@ a dimmed night presentation for flying after dark.
   outline is unreadable over cluttered terrain at arm's length. The frame tells you who and where:
   a rectangle is friendly, a diamond is hostile, a frame open at the bottom means airborne. The
   icon inside tells you what: an air screw, rotor blades, tank treads, a protective dome for air
-  defence, a hull for ships, `CV` for a carrier. Friend and hostile are relative to *you* — your
-  own coalition is always the friendly shape, whichever side you're flying.
+  defence, a hull for ships. Where the shape can't say it, a letter does — `C` transport,
+  `K` tanker, `W` AWACS, `CV` carrier. Friend and hostile are relative to *you* — your own
+  coalition is always the friendly shape, whichever side you're flying.
 - *DCS* approximates the game's own F10 map. Shape carries the domain, content carries the type: a
   shield with a role letter for aircraft (`F` fighter, `C` transport, `K` tanker, `W` AWACS,
   `H` helicopter), a rectangle with a pictogram for ground units, a circle with a code for vessels
