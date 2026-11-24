@@ -7,6 +7,7 @@ import {
   aspectLabel,
   bearing3,
   bearingTo,
+  closureMs,
   destination,
   distanceTo,
   formatAltitude,
@@ -85,6 +86,34 @@ describe('aspect', () => {
     assert.equal(aspectLabel(150), 'DRAG');
     assert.equal(aspectLabel(151), 'COLD');
     assert.equal(aspectLabel(180), 'COLD');
+  });
+});
+
+describe('closure', () => {
+  // Contact due north of us throughout, so the line of sight is bearing 000
+  // and the geometry is easy to read off the headings.
+  const N = toRad(0);
+
+  test('head-on adds both speeds', () => {
+    near(closureMs(toRad(0), 200, toRad(180), 150, N), 350, 1e-9);
+  });
+
+  test('a tail chase at matched speed closes on nothing', () => {
+    near(closureMs(toRad(0), 200, toRad(0), 200, N), 0, 1e-9);
+  });
+
+  test('a contact running faster than us opens the range', () => {
+    assert.ok(closureMs(toRad(0), 200, toRad(0), 300, N) < 0);
+  });
+
+  test('a contact crossing our nose neither closes nor opens on its own', () => {
+    // Beaming: all of its speed is across the line of sight, so only our own
+    // speed counts towards the range.
+    near(closureMs(toRad(0), 200, toRad(90), 250, N), 200, 1e-9);
+  });
+
+  test('turning away from a contact stops us closing on it', () => {
+    near(closureMs(toRad(90), 200, toRad(90), 0, N), 0, 1e-9);
   });
 });
 

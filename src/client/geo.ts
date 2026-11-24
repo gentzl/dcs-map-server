@@ -76,6 +76,24 @@ export function aspect(contactHdg: number, bearingFromContactToUs: number): numb
   return Math.abs(toDeg(shortestAngle(contactHdg, bearingFromContactToUs)));
 }
 
+/**
+ * Closing speed along the line of sight, in m/s: positive closing, negative
+ * opening. A radar display calls this Vc, and it is what the decision to
+ * commit or to turn away is actually made on -- a contact 40 nm out means
+ * something quite different at 900 knots of closure than at 100.
+ */
+export function closureMs(
+  ownHdg: number,
+  ownSpeed: number,
+  contactHdg: number,
+  contactSpeed: number,
+  bearingOwnToContact: number,
+): number {
+  const ownAlong = ownSpeed * Math.cos(ownHdg - bearingOwnToContact);
+  const contactAlong = contactSpeed * Math.cos(contactHdg - bearingOwnToContact);
+  return ownAlong - contactAlong;
+}
+
 export function aspectLabel(deg: number): string {
   if (deg <= 30) return 'HOT';
   if (deg <= 60) return 'FLANK';

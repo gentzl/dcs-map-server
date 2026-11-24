@@ -22,6 +22,8 @@ import {
   toDeg,
   toMagnetic,
   altitudeThousands,
+  closureMs,
+  M_PER_NM,
 } from './geo.js';
 import { buildGraticule } from './graticule.js';
 import { buildBullseye, buildRings, buildThreatRings } from './overlays.js';
@@ -888,6 +890,16 @@ function updateBraa(now: number): void {
   const bullBrg = bearingTo(bullseye.lat, bullseye.lon, sel.lat, sel.lon);
   const bullRng = metersToNm(distanceTo(bullseye.lat, bullseye.lon, sel.lat, sel.lon));
 
+  // Closure and the time it leaves. Range alone does not say whether there is
+  // time to think: 40 nm is two and a half minutes head-on and never at all
+  // behind a contact that is faster than you.
+  //
+  // Mixes true airspeed for us with the contact's ground speed, since that is
+  // all either side reports -- off by the wind, which is small against the
+  // hundreds of knots this is read at, and the same assumption the dead
+  // reckoning in track.ts already makes.
+  const vc = closureMs(own.hdg, own.tas, sel.hdg, sel.spdMs, brg);
+  const ttgMin = vc > 1 ? (rng * M_PER_NM) / vc / 60 : null;
 
   const roleLabel = CATEGORY_LABELS.find(([cat]) => cat === u.category)?.[1] ?? u.category;
   const aff = affiliationOf(u.coalition, ownCoalition).toUpperCase();
@@ -903,6 +915,8 @@ function updateBraa(now: number): void {
     nbsp(`${contactAltitude(u.category, u.alt)} ${AIRBORNE.has(u.category) ? 'thousand' : 'ft'}`),
     nbsp(`${aspectLabel(asp)} ${Math.round(asp)}°`),
     nbsp(`${Math.round(msToKnots(sel.spdMs))} kt`),
+    nbsp(`Vc ${Math.round(msToKnots(vc))}`),
+    nbsp(ttgMin !== null && ttgMin < 60 ? `T ${ttgMin.toFixed(1)} min` : 'T —'),
   ].join('   ');
 }
 
