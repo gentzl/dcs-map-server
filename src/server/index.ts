@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { readFile, readdir } from 'node:fs/promises';
+import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import Fastify from 'fastify';
@@ -150,8 +151,17 @@ if (certs) {
     .listen(HTTP_PORT, '0.0.0.0');
 }
 
+/** Non-internal IPv4 addresses -- what a phone or tablet on the same Wi-Fi reaches this PC by. */
+function lanAddresses(): string[] {
+  return Object.values(networkInterfaces())
+    .flat()
+    .filter((i) => i && i.family === 'IPv4' && !i.internal)
+    .map((i) => i!.address);
+}
+
 const scheme = certs ? 'https' : 'http';
 console.log(`${scheme.toUpperCase().padEnd(5)} ${scheme}://localhost:${port}`);
+for (const addr of lanAddresses()) console.log(`      ${scheme}://${addr}:${port}  (from another device)`);
 if (certs) console.log(`HTTP  http://localhost:${HTTP_PORT}  (redirect)`);
 else console.log('      no certificate -- Wake Lock stays off, see tools/make-cert.sh');
 if (UPSTREAM) console.log(`Relay <- ${UPSTREAM}`);

@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" font-family="ui-sans-serif, Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ffd166"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="960" height="340" rx="14" fill="#0d1b2a"/>
+
+  <!-- Step 1: the DCS PC -->
+  <g>
+    <rect x="30" y="70" width="230" height="200" rx="12" fill="#13233a" stroke="#415a77" stroke-width="1.5"/>
+    <text x="145" y="98" text-anchor="middle" fill="#e0e1dd" font-size="15" font-weight="600">Your DCS PC</text>
+
+    <!-- simple monitor glyph -->
+    <rect x="85" y="115" width="120" height="78" rx="4" fill="#0d1b2a" stroke="#4895ef" stroke-width="2"/>
+    <rect x="95" y="124" width="100" height="58" rx="2" fill="#1b3a5c"/>
+    <path d="M130 192 h40 M145 193 v10 h10 v-10" stroke="#4895ef" stroke-width="2" fill="none"/>
+    <!-- small aircraft glyph on the screen -->
+    <path d="M145 150 l9 24 l-9 -6 l-9 6 z" fill="#ffd166"/>
+
+    <text x="145" y="222" text-anchor="middle" fill="#9fb3c8" font-size="12">a small add-on (the "hook")</text>
+    <text x="145" y="240" text-anchor="middle" fill="#9fb3c8" font-size="12">reads your aircraft and</text>
+    <text x="145" y="258" text-anchor="middle" fill="#9fb3c8" font-size="12">everything around it</text>
+  </g>
+
+  <line x1="268" y1="170" x2="322" y2="170" stroke="#ffd166" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Step 2: the map server -->
+  <g>
+    <rect x="330" y="70" width="230" height="200" rx="12" fill="#13233a" stroke="#415a77" stroke-width="1.5"/>
+    <text x="445" y="98" text-anchor="middle" fill="#e0e1dd" font-size="15" font-weight="600">Map Server</text>
+
+    <!-- small box/server glyph -->
+    <rect x="390" y="118" width="110" height="72" rx="6" fill="#0d1b2a" stroke="#ffd166" stroke-width="2"/>
+    <circle cx="407" cy="134" r="4" fill="#ffd166"/>
+    <line x1="390" y1="146" x2="500" y2="146" stroke="#415a77" stroke-width="1.5"/>
+    <line x1="402" y1="162" x2="488" y2="162" stroke="#2a6b80" stroke-width="2"/>
+    <line x1="402" y1="174" x2="460" y2="174" stroke="#2a6b80" stroke-width="2"/>
+
+    <text x="445" y="212" text-anchor="middle" fill="#9fb3c8" font-size="12">turns that into a live map</text>
+    <text x="445" y="230" text-anchor="middle" fill="#9fb3c8" font-size="12">and serves it over your</text>
+    <text x="445" y="248" text-anchor="middle" fill="#9fb3c8" font-size="12">own Wi-Fi -- nothing leaves it</text>
+  </g>
+
+  <line x1="568" y1="170" x2="622" y2="170" stroke="#ffd166" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <!-- wifi glyph on the arrow -->
+  <g transform="translate(588,145)" stroke="#ffd166" stroke-width="2" fill="none" stroke-linecap="round">
+    <path d="M2 10 a14 14 0 0 1 20 0"/>
+    <path d="M6.5 14.5 a8 8 0 0 1 11 0"/>
+    <circle cx="12" cy="19" r="1.6" fill="#ffd166" stroke="none"/>
+  </g>
+
+  <!-- Step 3: any device -->
+  <g>
+    <rect x="630" y="70" width="300" height="200" rx="12" fill="#13233a" stroke="#415a77" stroke-width="1.5"/>
+    <text x="780" y="98" text-anchor="middle" fill="#e0e1dd" font-size="15" font-weight="600">Any screen in the house</text>
+
+    <!-- tablet -->
+    <g transform="translate(662,118)">
+      <rect x="0" y="0" width="70" height="92" rx="8" fill="#0d1b2a" stroke="#4895ef" stroke-width="2"/>
+      <rect x="7" y="9" width="56" height="66" rx="2" fill="#1b3a5c"/>
+      <circle cx="35" cy="83" r="2.4" fill="#4895ef"/>
+    </g>
+    <!-- phone -->
+    <g transform="translate(748,138)">
+      <rect x="0" y="0" width="34" height="62" rx="6" fill="#0d1b2a" stroke="#ffd166" stroke-width="2"/>
+      <rect x="4" y="7" width="26" height="44" rx="2" fill="#1b3a5c"/>
+      <circle cx="17" cy="55" r="1.8" fill="#ffd166"/>
+    </g>
+    <!-- laptop -->
+    <g transform="translate(796,150)">
+      <path d="M0 48 h96 l-10 14 h-76 z" fill="#0d1b2a" stroke="#93c4b4" stroke-width="2"/>
+      <rect x="10" y="0" width="76" height="48" rx="3" fill="#0d1b2a" stroke="#93c4b4" stroke-width="2"/>
+      <rect x="16" y="6" width="64" height="36" rx="2" fill="#1b3a5c"/>
+    </g>
+
+    <text x="780" y="232" text-anchor="middle" fill="#9fb3c8" font-size="12">tablet, phone, laptop --</text>
+    <text x="780" y="250" text-anchor="middle" fill="#9fb3c8" font-size="12">just open a web address,</text>
+    <text x="780" y="268" text-anchor="middle" fill="#9fb3c8" font-size="12">nothing to install</text>
+  </g>
+</svg>
