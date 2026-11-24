@@ -945,7 +945,8 @@ function updateRuler(): void {
     const nm = metersToNm(distanceTo(a.lat, a.lon, b.lat, b.lon));
     // Time to fly it at what we are doing now -- the number a leg is
     // actually planned on, and useless to work out in your head mid-flight.
-    const min = own.tas > 1 ? (nm * M_PER_NM) / own.tas / 60 : null;
+    // Over the ground, which is what a leg is flown in.
+    const min = own.groundSpeed > 1 ? (nm * M_PER_NM) / own.groundSpeed / 60 : null;
     rulerBox.textContent = [
       nbsp(`MEAS ${bearing3(refBearing(brg))}${refSuffix} / ${nm.toFixed(1)} nm`),
       nbsp(min !== null && min < 600 ? `${min.toFixed(1)} min` : '— min'),
@@ -984,11 +985,10 @@ function updateBraa(now: number): void {
   // time to think: 40 nm is two and a half minutes head-on and never at all
   // behind a contact that is faster than you.
   //
-  // Mixes true airspeed for us with the contact's ground speed, since that is
-  // all either side reports -- off by the wind, which is small against the
-  // hundreds of knots this is read at, and the same assumption the dead
-  // reckoning in track.ts already makes.
-  const vc = closureMs(own.hdg, own.tas, sel.hdg, sel.spdMs, brg);
+  // Both sides over the ground: the contact's speed comes from its position
+  // deltas, so ours has to be the wind-corrected one rather than airspeed,
+  // or the two would not be in the same frame.
+  const vc = closureMs(own.track, own.groundSpeed, sel.hdg, sel.spdMs, brg);
   const ttgMin = vc > 1 ? (rng * M_PER_NM) / vc / 60 : null;
 
   const roleLabel = CATEGORY_LABELS.find(([cat]) => cat === u.category)?.[1] ?? u.category;

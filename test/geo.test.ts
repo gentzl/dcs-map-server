@@ -10,6 +10,7 @@ import {
   closureMs,
   destination,
   distanceTo,
+  groundTrack,
   formatAltitude,
   formatDDM,
   metersToFeet,
@@ -86,6 +87,50 @@ describe('aspect', () => {
     assert.equal(aspectLabel(150), 'DRAG');
     assert.equal(aspectLabel(151), 'COLD');
     assert.equal(aspectLabel(180), 'COLD');
+  });
+});
+
+describe('ground track', () => {
+  test('with no wind the aircraft travels along its heading at airspeed', () => {
+    const g = groundTrack(toRad(90), 200, { x: 0, z: 0 });
+    near(toDeg(g.track), 90, 1e-9);
+    near(g.speed, 200, 1e-9);
+  });
+
+  test('a tailwind adds to the ground speed and leaves the track alone', () => {
+    // Heading north, wind blowing north (DCS x is north).
+    const g = groundTrack(toRad(0), 200, { x: 30, z: 0 });
+    near(toDeg(g.track), 0, 1e-9);
+    near(g.speed, 230, 1e-9);
+  });
+
+  test('a headwind takes from it', () => {
+    near(groundTrack(toRad(0), 200, { x: -30, z: 0 }).speed, 170, 1e-9);
+  });
+
+  test('a crosswind pushes the track off the heading', () => {
+    // Heading north, wind from the west (blowing east, DCS z is east):
+    // drifts right, and the ground speed is the hypotenuse.
+    const g = groundTrack(toRad(0), 200, { x: 0, z: 50 });
+    near(toDeg(g.track), toDeg(Math.atan2(50, 200)), 1e-9);
+    near(g.speed, Math.hypot(200, 50), 1e-9);
+    assert.ok(g.track > 0, 'a wind from the west should drift the track east');
+  });
+
+  test('stationary in still air keeps the heading rather than an arbitrary track', () => {
+    const g = groundTrack(toRad(123), 0, { x: 0, z: 0 });
+    near(toDeg(g.track), 123, 1e-9);
+    near(g.speed, 0, 1e-9);
+  });
+
+  test('with no airspeed the result is the wind itself', () => {
+    // The function knows nothing about wheels: it answers what a body moving
+    // with the air does. Whether that applies is the caller's business --
+    // track.ts withholds the wind while the aircraft is on the ground, or a
+    // parked one would drift across the apron.
+    const g = groundTrack(toRad(0), 0, { x: 0, z: 2 });
+    near(toDeg(g.track), 90, 1e-9);
+    near(g.speed, 2, 1e-9);
   });
 });
 

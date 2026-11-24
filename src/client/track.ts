@@ -1,5 +1,5 @@
 import type { Ownship, Unit } from '../shared/types.js';
-import { bearingTo, destination, distanceTo, shortestAngle } from './geo.js';
+import { bearingTo, destination, distanceTo, groundTrack, shortestAngle } from './geo.js';
 
 /**
  * Own aircraft: dead reckon forward instead of delaying.
@@ -15,6 +15,10 @@ export class OwnshipEstimator {
   alt = 0;
   hdg = 0;
   tas = 0;
+  /** Course and speed over the ground -- heading and TAS plus the wind. */
+  track = 0;
+  groundSpeed = 0;
+  private wind = { x: 0, z: 0 };
   private have = false;
   private correction = { lat: 0, lon: 0, hdg: 0 };
 
@@ -35,13 +39,25 @@ export class OwnshipEstimator {
     }
     this.alt = own.alt;
     this.tas = own.tas;
+    // Wind only moves an aircraft that is flying in it. On the ground the
+    // wheels hold it, and applying the wind would have a parked aircraft
+    // drift across the apron while the corrections fought to pull it back.
+    this.wind = own.wow === 0 ? { x: own.wind.x, z: own.wind.z } : { x: 0, z: 0 };
+    const g = groundTrack(this.hdg, this.tas, this.wind);
+    this.track = g.track;
+    this.groundSpeed = g.speed;
   }
 
   step(dtMs: number): void {
     if (!this.have) return;
     const dt = dtMs / 1000;
 
-    const [lat, lon] = destination(this.lat, this.lon, this.hdg, this.tas * dt);
+    // Over the ground, not through the air: the aircraft does not travel
+    // along its heading when there is wind.
+    const g = groundTrack(this.hdg, this.tas, this.wind);
+    this.track = g.track;
+    this.groundSpeed = g.speed;
+    const [lat, lon] = destination(this.lat, this.lon, g.track, g.speed * dt);
     this.lat = lat;
     this.lon = lon;
 

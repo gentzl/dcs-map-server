@@ -77,6 +77,37 @@ export function aspect(contactHdg: number, bearingFromContactToUs: number): numb
 }
 
 /**
+ * Track over the ground and ground speed, from heading, true airspeed and
+ * the wind.
+ *
+ * An aircraft points where its heading says and travels somewhere else: the
+ * air it is flying through is moving too. Without this the symbol creeps off
+ * the real position between updates, and a closing speed computed from
+ * airspeed is wrong by the wind along the line of sight.
+ *
+ * The one assumption here is the frame DCS reports wind in. Its world axes
+ * are x north, y up, z east, and LoGetVectorWindVelocity gives the velocity
+ * of the air, so the two vectors simply add. Neither recorded session can
+ * confirm that -- the aircraft is parked in both and there is no wind worth
+ * the name -- so it is taken from the export API and wants one flight in a
+ * strong crosswind to be sure of. If it is ever found to be wrong, it is
+ * wrong only here.
+ */
+export function groundTrack(
+  hdg: number,
+  tas: number,
+  wind: { x: number; z: number },
+): { track: number; speed: number } {
+  const north = tas * Math.cos(hdg) + wind.x;
+  const east = tas * Math.sin(hdg) + wind.z;
+  const speed = Math.hypot(north, east);
+  // Standing still over the ground has no track; keep the heading rather
+  // than let atan2(0, 0) decide.
+  const track = speed < 1e-9 ? hdg : (Math.atan2(east, north) + 2 * Math.PI) % (2 * Math.PI);
+  return { track, speed };
+}
+
+/**
  * Closing speed along the line of sight, in m/s: positive closing, negative
  * opening. A radar display calls this Vc, and it is what the decision to
  * commit or to turn away is actually made on -- a contact 40 nm out means
