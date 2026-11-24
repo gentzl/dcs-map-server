@@ -14,18 +14,27 @@ import { M_PER_NM, RANGES_NM, destination, metersToNm, toRad } from './geo.js';
  * Ring radii in nautical miles, tied to the distances a fighter pilot
  * actually uses them for: 2.5 nm close tactical/formation distance and
  * rejoin, 5 nm a typical IR Rmax and the rough BVR/WVR transition, 10/20 nm
- * standard BVR working ranges, 40 nm a CAP-station overview scale.
+ * standard BVR working ranges, 40 nm a CAP-station overview scale. 80 and
+ * 160 are past any employment range and serve navigation instead -- but the
+ * wide steps need a reference out there too, see RINGS_FOR_RANGE.
  */
-export const RING_RADII_NM = [2.5, 5, 10, 20, 40] as const;
+export const RING_RADII_NM = [2.5, 5, 10, 20, 40, 80, 160] as const;
 
 /**
- * Which of those rings are shown per selected MFD range step.
+ * Which of those rings are shown per selected MFD range step. The key maps
+ * 1:1 to RANGES_NM in geo.ts.
  *
- * Showing every ring up to the selected range (the old behaviour) crowded
- * the display at wide range steps -- seven overlapping rings near the
- * centre say nothing useful mid-fight. Capped at the one or two bands
- * actually relevant to that step instead; the key maps 1:1 to RANGES_NM
- * in geo.ts.
+ * The pattern is the half-range ring plus the step itself, the way an
+ * HSI/HSD scales -- the display edge already is the selected range, so the
+ * half-range ring is the reference you read against it. Two exceptions: the
+ * 1 nm step gets none, because half of it is finer than the symbols
+ * themselves, and the 50 nm step borrows 20/40 rather than inventing a 25 nm
+ * ring, since 50 is an extra quick pick here and not a classic MFD step
+ * anyway.
+ *
+ * Capped at two either way. Showing every ring up to the selected range (the
+ * old behaviour) crowded the display -- seven overlapping rings near the
+ * centre say nothing useful mid-fight.
  */
 const RINGS_FOR_RANGE: Record<number, readonly number[]> = {
   1: [],
@@ -33,8 +42,8 @@ const RINGS_FOR_RANGE: Record<number, readonly number[]> = {
   10: [5, 10],
   20: [10, 20],
   50: [20, 40],
-  80: [40],
-  160: [40],
+  80: [40, 80],
+  160: [80, 160],
 };
 
 /**
