@@ -94,8 +94,9 @@ glance: who's converging on whom, who's running. Only aircraft get one; a stub o
 truck would bury what it's meant to show.
 
 **Tapping a contact** draws a line to it and shows the full readout: affiliation, category,
-bearing and range from you, the contact's own bullseye position, altitude, aspect, ground speed,
-closure and the time that leaves. Aspect tells you where it's pointing relative to you — `HOT`
+coordinates, bearing and range from you, the contact's own bullseye position, altitude, aspect,
+ground speed, closure and the time that leaves. Tapping empty ground shows just the coordinates
+there, next to where you tapped. Aspect tells you where it's pointing relative to you — `HOT`
 straight at you, `FLANK`, `BEAM`, `DRAG`, `COLD` straight away. Closure is how fast the gap is
 actually shutting, which is not the same as how fast either of you is flying: forty miles is two
 and a half minutes head-on and never at all behind someone faster than you.
@@ -117,7 +118,8 @@ level, speed in knots, coordinates in degrees and decimal minutes, bearings magn
 | `HDG / N` | Heading up or north up (follow mode only) |
 | `MEAS` | Measure between two points: tap the start, tap the end |
 | `⚙` | Settings |
-| Tap a contact | Line and readout to it |
+| Tap empty ground | Coordinates at that point |
+| Tap a contact | Line and readout to it, coordinates included |
 | `⚙` → Symbols | Legend of all contact symbols |
 | Shift + click, or press and hold | Place the bullseye |
 

@@ -109,6 +109,15 @@ const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: 
  */
 let ruler: { a: { lat: number; lon: number } | null; b: { lat: number; lon: number } | null } | null = null;
 
+/**
+ * Coordinates of the last plain click on open map, shown right next to
+ * where you tapped. Cleared the moment a contact gets selected instead --
+ * the BRAA box takes over then, with the contact's own coordinates in it --
+ * and when MEAS is armed, since a stale coordinate label floating next to
+ * a fresh measurement would just be clutter.
+ */
+let clickedPoint: { lat: number; lon: number } | null = null;
+
 /** The user sets the bullseye themselves -- the export hook doesn't provide one. */
 let bullseye: { lat: number; lon: number } = (() => {
   try {
@@ -1015,24 +1024,25 @@ function updateHud(now: number): void {
 
   updateBraa(now);
   updateRuler();
+  updateClickInfo();
 }
 
 const rulerBox = document.getElementById('ruler')!;
+const clickInfoBox = document.getElementById('clickinfo')!;
 
 /**
  * Places the ruler readout at a point in the map, clamped to stay fully
  * inside the canvas -- a label that runs off the edge the moment you
  * measure towards a corner would be worse than a fixed one.
  */
-function placeRulerBox(lon: number, lat: number, offsetY: number): void {
+function placeFloatingBox(el: HTMLElement, lon: number, lat: number, offsetY: number, halfBox: number): void {
   const p = map.project([lon, lat]);
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
-  const halfBox = 150; // half of #ruler's max-width, a reasonable upper bound
   const x = Math.min(Math.max(p.x, halfBox + 4), w - halfBox - 4);
   const y = Math.min(Math.max(p.y + offsetY, 24), h - 24);
-  rulerBox.style.left = `${x}px`;
-  rulerBox.style.top = `${y}px`;
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
 }
 
 function updateRuler(): void {
@@ -1054,10 +1064,10 @@ function updateRuler(): void {
     // No point to anchor to yet -- the aircraft itself is as good a default
     // as any, since that is where the first tap usually lands anyway.
     rulerBox.textContent = 'MEAS  —  tap the start point';
-    placeRulerBox(own.lon, own.lat, -40);
+    placeFloatingBox(rulerBox, own.lon, own.lat, -40, 150);
   } else if (!ruler.b) {
     rulerBox.textContent = 'MEAS  —  tap the end point';
-    placeRulerBox(ruler.a.lon, ruler.a.lat, -24);
+    placeFloatingBox(rulerBox, ruler.a.lon, ruler.a.lat, -24, 150);
   } else {
     const { a, b } = ruler;
     features.push({
@@ -1078,10 +1088,20 @@ function updateRuler(): void {
     ].join('   ');
     // Next to the line's midpoint, the same spot regardless of which end
     // was tapped first or last.
-    placeRulerBox((a.lon + b.lon) / 2, (a.lat + b.lat) / 2, -24);
+    placeFloatingBox(rulerBox, (a.lon + b.lon) / 2, (a.lat + b.lat) / 2, -24, 150);
   }
 
   setData('ruler', { type: 'FeatureCollection', features });
+}
+
+function updateClickInfo(): void {
+  if (!clickedPoint) {
+    clickInfoBox.hidden = true;
+    return;
+  }
+  clickInfoBox.hidden = false;
+  clickInfoBox.textContent = `${formatDDM(clickedPoint.lat, 'NS')} ${formatDDM(clickedPoint.lon, 'EW')}`;
+  placeFloatingBox(clickInfoBox, clickedPoint.lon, clickedPoint.lat, -20, 130);
 }
 
 function updateBraa(now: number): void {
@@ -1128,6 +1148,7 @@ function updateBraa(now: number): void {
   braaBox.hidden = false;
   braaBox.textContent = [
     nbsp(`${u.name}  —  ${aff} ${roleLabel}`),
+    nbsp(`${formatDDM(sel.lat, 'NS')} ${formatDDM(sel.lon, 'EW')}`),
     nbsp(`BRAA ${bearing3(refBearing(brg))}${refSuffix} / ${rng.toFixed(1)} nm`),
     nbsp(`BULLS ${bearing3(refBearing(bullBrg))}${refSuffix}/${Math.round(bullRng)}`),
     nbsp(`${contactAltitude(u.category, u.alt)} ${AIRBORNE.has(u.category) ? 'thousand' : 'ft'}`),
@@ -1173,6 +1194,16 @@ canvas.addEventListener('click', (e) => {
   const id = hits[0]?.properties?.['id'];
   selectedId = typeof id === 'number' && id !== selectedId ? id : null;
   selectedTrail = [];
+
+  // A contact selected takes the BRAA box, which gets its own coordinate
+  // line; anything else (empty ground, or deselecting by tapping the same
+  // contact again) gets a plain coordinate readout at the point itself.
+  if (selectedId === null) {
+    const ll = map.unproject(pt);
+    clickedPoint = { lat: ll.lat, lon: ll.lng };
+  } else {
+    clickedPoint = null;
+  }
 });
 
 const btnCtr = document.getElementById('mode-centre')!;
@@ -1201,6 +1232,7 @@ const btnMeasure = document.getElementById('mode-measure')!;
 btnMeasure.addEventListener('click', () => {
   ruler = ruler ? null : { a: null, b: null };
   btnMeasure.setAttribute('aria-pressed', String(ruler !== null));
+  if (ruler) clickedPoint = null;
 });
 
 btnCtr.addEventListener('click', () => setFollow(true));

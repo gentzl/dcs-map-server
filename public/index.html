@@ -38,6 +38,14 @@
              line-height: 1.6; background: var(--panel); border: 1px solid #4cc9f0;
              border-radius: 6px; color: #4cc9f0; }
 
+    /* Coordinates at wherever you last tapped -- plain ink rather than any
+       of the mode colours (yellow selection, cyan ruler), since this isn't
+       tied to a particular mode, just a quick readout of where you pointed. */
+    #clickinfo { position: absolute; transform: translate(-50%, -100%); padding: 6px 10px;
+                  pointer-events: none; max-width: min(260px, calc(100vw - 24px));
+                  line-height: 1.6; background: var(--panel); border: 1px solid var(--line);
+                  border-radius: 6px; color: var(--ink); font-size: 12px; }
+
     #braa { position: absolute; top: 44px; left: 12px; padding: 6px 10px;
             max-width: min(360px, calc(100vw - 24px)); line-height: 1.6;
             background: var(--panel); border: 1px solid #ffd166; border-radius: 6px;
@@ -151,6 +159,7 @@
   <div id="hud">connecting…</div>
   <div id="braa" hidden></div>
   <div id="ruler" hidden></div>
+  <div id="clickinfo" hidden></div>
   <div id="warning" hidden></div>
 
   <div id="settings" hidden>
