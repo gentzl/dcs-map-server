@@ -1,10 +1,10 @@
 /**
- * Gradnetz über den sichtbaren Ausschnitt.
+ * Lat/lon graticule over the visible view.
  *
- * Auf gedruckten Luftfahrtkarten trägt das Netz die Koordinatenablesung. Die
- * Teilung richtet sich nach dem Maßstab: ganze Grad im Überblick, Zehntel- und
- * Zweiminutenschritte im Nahbereich – so bleibt der Abstand am Bildschirm
- * ungefähr gleich, statt bei weitem Zoom zuzulaufen.
+ * On printed aviation charts the grid carries the coordinate reading. The
+ * spacing follows the scale: whole degrees at overview zoom, tenth- and
+ * two-minute steps up close -- so the on-screen spacing stays roughly
+ * constant instead of collapsing at wide zoom.
  */
 
 export function gridStepDegrees(zoom: number): number {
@@ -29,16 +29,16 @@ export function buildGraticule(
   const step = gridStepDegrees(zoom);
   const features: GeoJSON.Feature[] = [];
 
-  // Etwas über den Rand hinaus ziehen, damit beim Drehen der Karte keine
-  // abgeschnittenen Linien ins Bild wandern.
+  // Extend a bit past the edge, so rotating the map doesn't bring cut-off
+  // lines into view.
   const pad = step * 2;
   const w = Math.floor((bounds.west - pad) / step) * step;
   const e = Math.ceil((bounds.east + pad) / step) * step;
   const sLat = Math.max(-85, Math.floor((bounds.south - pad) / step) * step);
   const nLat = Math.min(85, Math.ceil((bounds.north + pad) / step) * step);
 
-  // Obergrenze gegen Ausreißer: Bei unerwarteten Ausschnitten lieber kein Netz
-  // als zehntausend Linien, die den Renderer blockieren.
+  // Upper bound against outliers: for an unexpected view, better no grid at
+  // all than ten thousand lines that block the renderer.
   const maxLines = 400;
   if ((e - w) / step > maxLines || (nLat - sLat) / step > maxLines) {
     return { type: 'FeatureCollection', features };

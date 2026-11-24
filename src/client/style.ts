@@ -4,26 +4,26 @@ import { CHART_COLORS, aeroLayers, reliefLayers } from './chart.js';
 import type { Settings } from './settings.js';
 
 /**
- * Setzt den Kartenstil aus drei Teilen zusammen: der OSM-Geografie von
- * Protomaps, dem Relief darüber und den luftfahrtbezogenen Elementen zuoberst.
+ * Assembles the map style from three parts: Protomaps' OSM geography, the
+ * relief on top of it, and the aviation-related elements on top of that.
  *
- * Die Reihenfolge ist entscheidend. Das Relief gehört unmittelbar über die
- * Grundfläche, damit Gewässer, Straßen und Beschriftung lesbar darüber liegen;
- * Bahnen und Flugplätze gehören ganz nach oben, weil sie auf einer Fliegerkarte
- * das Wichtigste sind.
+ * The order is critical. The relief belongs immediately above the base fill,
+ * so water, roads and labels stay readable above it; runways and airfields
+ * belong right at the top, since they're the most important thing on an
+ * aeronautical chart.
  */
 
 const TERRAIN_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 
 export function buildStyle(s: Settings): StyleSpecification {
   const flavor = namedFlavor(s.mode === 'chart' ? 'light' : 'dark');
-  // Englische Ortsnamen: Luftfahrt arbeitet durchgaengig auf Englisch, und
-  // lateinische Umschrift ist im Cockpit lesbarer als Landesschrift.
+  // English place names: aviation operates in English throughout, and Latin
+  // script reads better in the cockpit than the local script.
   const base = layers('proto', flavor, { lang: 'en' });
   const c = CHART_COLORS[s.mode];
 
-  // Grundfläche und Wasser an den Modus anpassen. Auf nahezu Schwarz hat das
-  // Relief nichts zu schattieren, auf reinem Weiß verschwinden die Höhenstufen.
+  // Adjust the base fill and water to the mode. Against near-black the relief
+  // has nothing to shade, against pure white the elevation tints disappear.
   for (const [id, key] of [
     ['earth', 'earth'],
     ['water', 'water'],
@@ -35,8 +35,8 @@ export function buildStyle(s: Settings): StyleSpecification {
   }
 
   if (!s.mapLabels) {
-    // Beschriftung vollständig entfernen statt auszublenden: Auf dem Tablet
-    // spart das auch das Glyphen-Rendering.
+    // Remove labels entirely instead of hiding them: on a tablet this also
+    // saves the glyph rendering.
     for (let i = base.length - 1; i >= 0; i--) {
       if (base[i]!.type === 'symbol') base.splice(i, 1);
     }

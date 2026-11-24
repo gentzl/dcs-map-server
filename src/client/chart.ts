@@ -2,16 +2,16 @@ import type { LayerSpecification } from 'maplibre-gl';
 import type { Settings } from './settings.js';
 
 /**
- * Bestandteile der Fliegerkarten-Darstellung.
+ * Components of the aeronautical chart presentation.
  *
- * Ziel ist die Lesbarkeit einer gedruckten Luftfahrtkarte: Höhe über
- * Farbstufen, Gelände über Schummerung, Flugplätze und Gipfelhöhen
- * hervorgehoben, alles Übrige zurückgenommen.
+ * The goal is the readability of a printed aviation chart: elevation via
+ * colour tints, terrain via hillshading, airfields and spot elevations
+ * emphasised, everything else pulled back.
  */
 
 /**
- * Hypsometrische Stufen nach Kartenkonvention: Grün im Flachland über Gelb und
- * Braun bis Grau im Fels. Meter, weil das DEM in Metern liefert.
+ * Hypsometric tints following map convention: green in the lowlands through
+ * yellow and brown up to grey in the rock. Metres, since the DEM supplies metres.
  */
 const TINT_CHART: Array<[number, string]> = [
   [-200, '#b9ccae'],
@@ -28,7 +28,7 @@ const TINT_CHART: Array<[number, string]> = [
   [5000, '#f0f0ee'],
 ];
 
-/** Dieselbe Logik, auf Cockpit-Helligkeit abgedunkelt. */
+/** Same logic, dimmed down to cockpit brightness. */
 const TINT_NIGHT: Array<[number, string]> = [
   [-200, '#243029'],
   [0, '#35503c'],
@@ -71,9 +71,9 @@ export function reliefLayers(s: Settings): LayerSpecification[] {
       type: 'hillshade',
       source: 'terrain-dem',
       paint: {
-        // Halbtransparent, damit die Höhenstufen darunter lesbar bleiben. Ein
-        // deckendes helles Highlight macht die Berge weiß und löscht die
-        // Höheninformation aus.
+        // Semi-transparent, so the elevation tints underneath stay readable.
+        // An opaque bright highlight would turn the mountains white and
+        // erase the elevation information.
         'hillshade-exaggeration': 0.35 + a * 0.45,
         'hillshade-shadow-color': `rgba(8,12,8,${(0.45 + a * 0.4).toFixed(2)})`,
         'hillshade-highlight-color': `rgba(255,255,250,${(a * 0.45).toFixed(2)})`,
@@ -86,12 +86,12 @@ export function reliefLayers(s: Settings): LayerSpecification[] {
 }
 
 /**
- * Luftfahrtbezogene Kartenelemente aus den OSM-Tiles.
+ * Aviation-related map elements from the OSM tiles.
  *
- * Start- und Landebahnen liegen bei Protomaps im roads-Layer als
- * `kind: aeroway`; Flugplätze und Gipfel im pois-Layer, allerdings erst in
- * hohen Zoomstufen. Gipfelhöhen werden in Fuß beschriftet, weil Karten und
- * Höhenmesser im Cockpit in Fuß arbeiten.
+ * On Protomaps, runways sit in the roads layer as `kind: aeroway`;
+ * airfields and peaks sit in the pois layer, though only at high zoom
+ * levels. Spot elevations are labelled in feet, since cockpit charts and
+ * altimeters work in feet.
  */
 export function aeroLayers(s: Settings): LayerSpecification[] {
   const c = CHART_COLORS[s.mode];
@@ -131,8 +131,8 @@ export function aeroLayers(s: Settings): LayerSpecification[] {
       'source-layer': 'pois',
       filter: ['==', ['get', 'kind'], 'aerodrome'],
       layout: {
-        // Englischer Name mit Rückfall auf den Lokalnamen: Lateinische
-        // Umschrift ist im Cockpit lesbarer als Landesschrift.
+        // English name with a fallback to the local name: Latin script
+        // reads better in the cockpit than the local script.
         'text-field': [
           'case',
           ['has', 'iata'],
@@ -158,7 +158,7 @@ export function aeroLayers(s: Settings): LayerSpecification[] {
       'source-layer': 'pois',
       filter: ['all', ['==', ['get', 'kind'], 'peak'], ['has', 'elevation']],
       layout: {
-        // Punkt plus Höhe in Fuß -- die Schreibweise gedruckter Karten.
+        // Triangle plus elevation in feet -- the notation of printed charts.
         'text-field': [
           'concat',
           '▲ ',

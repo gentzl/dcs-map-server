@@ -1,15 +1,15 @@
-/** Geodätische Hilfsfunktionen. Winkel in Bogenmaß, Strecken in Metern. */
+/** Geodetic helper functions. Angles in radians, distances in metres. */
 
 export const R_EARTH = 6_371_000;
 export const M_PER_NM = 1852;
 
 /**
- * Missweisung für die Umrechnung rechtweisend → missweisend.
+ * Magnetic variation for converting true to magnetic.
  *
- * Kampfpiloten geben Peilungen missweisend durch, nicht rechtweisend – eine
- * Bullseye-Meldung in True wäre für die Zielgruppe schlicht falsch. Sauber wäre
- * das Weltmagnetfeldmodell; bis dahin ein Festwert je Theater, der für die
- * Kartenmitte stimmt und an den Rändern um Bruchteile eines Grads abweicht.
+ * Fighter pilots call out bearings magnetic, not true -- a bullseye call in
+ * true would simply be wrong for the intended audience. The proper fix
+ * would be the world magnetic model; until then, a fixed value per theater
+ * that's correct at the map centre and drifts by fractions of a degree at the edges.
  */
 export const MAG_VAR_DEG: Record<string, number> = {
   caucasus: 6.5,
@@ -26,7 +26,7 @@ export const MAG_VAR_DEG: Record<string, number> = {
 export const toRad = (deg: number): number => (deg * Math.PI) / 180;
 export const toDeg = (rad: number): number => (rad * 180) / Math.PI;
 
-/** Zielpunkt auf dem Großkreis. */
+/** Destination point along the great circle. */
 export function destination(lat: number, lon: number, bearing: number, dist: number): [number, number] {
   const p1 = toRad(lat);
   const l1 = toRad(lon);
@@ -36,7 +36,7 @@ export function destination(lat: number, lon: number, bearing: number, dist: num
   return [toDeg(p2), ((toDeg(l2) + 540) % 360) - 180];
 }
 
-/** Rechtweisende Anfangspeilung von 1 nach 2, in Bogenmaß. */
+/** True initial bearing from 1 to 2, in radians. */
 export function bearingTo(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const p1 = toRad(lat1);
   const p2 = toRad(lat2);
@@ -60,17 +60,17 @@ export function distanceTo(lat1: number, lon1: number, lat2: number, lon2: numbe
 export const shortestAngle = (a: number, b: number): number =>
   ((((b - a + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI;
 
-/** Dreistellige Gradzahl, wie im Funk gesprochen: 005, 090, 350. */
+/** Three-digit degree figure, as spoken on the radio: 005, 090, 350. */
 export const bearing3 = (rad: number): string =>
   String(Math.round(((toDeg(rad) % 360) + 360) % 360) % 360).padStart(3, '0');
 
-/** Rechtweisend nach missweisend. */
+/** True to magnetic. */
 export const toMagnetic = (trueRad: number, magVarDeg: number): number =>
   (trueRad - toRad(magVarDeg) + 2 * Math.PI) % (2 * Math.PI);
 
 /**
- * Aspektwinkel: Winkel zwischen Kurs des Kontakts und der Sichtlinie zu uns.
- * 0 = fliegt direkt auf uns zu (hot), 180 = weg (cold).
+ * Aspect angle: angle between the contact's heading and the line of sight to us.
+ * 0 = flying straight at us (hot), 180 = away (cold).
  */
 export function aspect(contactHdg: number, bearingFromContactToUs: number): number {
   return Math.abs(toDeg(shortestAngle(contactHdg, bearingFromContactToUs)));
@@ -88,7 +88,7 @@ export const metersToFeet = (m: number): number => m * 3.28084;
 export const metersToNm = (m: number): number => m / M_PER_NM;
 export const msToKnots = (ms: number): number => ms * 1.94384;
 
-/** Grad und Dezimalminuten – das Format der DCS-Cockpits und des Funkverkehrs. */
+/** Degrees and decimal minutes -- the format of DCS cockpits and radio traffic. */
 export function formatDDM(value: number, axis: 'NS' | 'EW'): string {
   const hemi = axis === 'NS' ? (value >= 0 ? 'N' : 'S') : value >= 0 ? 'E' : 'W';
   const abs = Math.abs(value);
@@ -97,7 +97,7 @@ export function formatDDM(value: number, axis: 'NS' | 'EW'): string {
   return `${hemi}${String(deg).padStart(axis === 'NS' ? 2 : 3, '0')}°${min.toFixed(3).padStart(6, '0')}'`;
 }
 
-/** Flugfläche, sonst Höhe in Fuß – wie auf dem Kniebrett notiert. */
+/** Flight level, otherwise altitude in feet -- as noted on a kneeboard. */
 export function formatAltitude(meters: number): string {
   const ft = metersToFeet(meters);
   if (ft >= 18_000) return `FL${String(Math.round(ft / 100)).padStart(3, '0')}`;
@@ -119,12 +119,12 @@ export const RANGES_NM = [1, 5, 10, 20, 50, 80, 160] as const;
 /** Steps with a direct button -- all of them. */
 export const RANGE_PRESETS_NM = RANGES_NM;
 
-/** Auflösung des Web-Mercator bei Zoom 0, Meter je Pixel am Äquator. */
+/** Web Mercator resolution at zoom 0, metres per pixel at the equator. */
 const MPP_ZOOM0 = 156_543.03392;
 
 /**
- * Zoomstufe, bei der die angegebene Entfernung vom Mittelpunkt bis zum Rand der
- * kürzeren Bildschirmachse reicht -- so bedeutet "40" auf jedem Gerät dasselbe.
+ * Zoom level at which the given range reaches from the centre to the edge
+ * of the shorter screen axis -- so "40" means the same thing on every device.
  */
 export function zoomForRange(rangeNm: number, lat: number, viewportShortPx: number): number {
   const halfPx = Math.max(viewportShortPx, 1) / 2;

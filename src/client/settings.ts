@@ -1,30 +1,30 @@
-/** Benutzereinstellungen, im Browser gespeichert. */
+/** User settings, stored in the browser. */
 
 export interface Settings {
   /**
-   * Symbolsatz. 'nato' folgt APP-6/MIL-STD-2525, 'dcs' lehnt sich an die
-   * Kartendarstellung des Spiels an (Annäherung, siehe symbols/dcs.ts).
+   * Symbol set. 'nato' follows APP-6/MIL-STD-2525, 'dcs' approximates the
+   * game's own map presentation (an approximation, see symbols/dcs.ts).
    */
   symbolSet: 'nato' | 'dcs';
-  /** Fliegerkarte (hell, Kartenkonvention) oder Nachtdarstellung (dunkel, blendarm). */
+  /** Aeronautical chart (light, map convention) or night presentation (dark, low-glare). */
   mode: 'chart' | 'night';
   elevationTint: boolean;
   hillshade: boolean;
-  /** 0 bis 1. Höher zeigt mehr Relief, überstrahlt aber die Höhenstufen. */
+  /** 0 to 1. Higher shows more relief, but washes out the elevation tints. */
   hillshadeStrength: number;
   rings: boolean;
   /**
-   * Wirkungsbereiche der Flugabwehr. Vorgabe ist nur die Gegenseite: Eine
-   * eigene PATRIOT-Stellung deckt mit 100 km die halbe Karte zu, ohne dass die
-   * Information im Flug gebraucht würde.
+   * Air defence engagement ranges. Default is the opposing side only: a
+   * friendly PATRIOT site covers half the map at 100 km, without that
+   * information being needed in flight.
    */
   threats: 'hostile' | 'all' | 'none';
   graticule: boolean;
   bullseye: boolean;
-  /** Kampfpiloten geben missweisend durch; rechtweisend nur für Kartenarbeit. */
+  /** Fighter pilots call out magnetic; true only for map work. */
   bearingRef: 'magnetic' | 'true';
   mapLabels: boolean;
-  /** Name und Höhe neben jedem Kontakt. Bei vielen Objekten schnell zu viel. */
+  /** Name and altitude next to every contact. Quickly too much with many objects. */
   contactLabels: boolean;
   contacts: 'all' | 'air' | 'none';
   theater: string;
@@ -53,8 +53,8 @@ export function load(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return { ...DEFAULTS };
-    // Unbekannte Felder aus älteren Ständen werden stillschweigend verworfen,
-    // fehlende aus den Vorgaben ergänzt -- sonst bricht ein Update die Ansicht.
+    // Unknown fields from older versions are silently discarded, missing
+    // ones filled in from the defaults -- otherwise an update would break the view.
     return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Settings>) };
   } catch {
     return { ...DEFAULTS };
@@ -65,6 +65,6 @@ export function save(s: Settings): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(s));
   } catch {
-    // Privater Modus o. ä. -- die Ansicht funktioniert auch ohne Speicherung.
+    // Private browsing or similar -- the view works fine without saving too.
   }
 }
