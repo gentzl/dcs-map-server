@@ -88,6 +88,15 @@ export const metersToFeet = (m: number): number => m * 3.28084;
 export const metersToNm = (m: number): number => m / M_PER_NM;
 export const msToKnots = (ms: number): number => ms * 1.94384;
 
+/**
+ * Altitude in thousands of feet, one decimal -- how a contact's altitude is
+ * called on the radio ("thirty-one thousand") and what the game's own map
+ * puts beside an air contact. Surface contacts keep plain feet: "0.6" for a
+ * vehicle on a hill tells you nothing.
+ */
+export const altitudeThousands = (meters: number): string =>
+  (metersToFeet(meters) / 1000).toFixed(1);
+
 /** Degrees and decimal minutes -- the format of DCS cockpits and radio traffic. */
 export function formatDDM(value: number, axis: 'NS' | 'EW'): string {
   const hemi = axis === 'NS' ? (value >= 0 ? 'N' : 'S') : value >= 0 ? 'E' : 'W';

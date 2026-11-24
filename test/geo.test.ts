@@ -3,6 +3,7 @@ import { test, describe } from 'node:test';
 import {
   M_PER_NM,
   aspect,
+  altitudeThousands,
   aspectLabel,
   bearing3,
   bearingTo,
@@ -103,6 +104,12 @@ describe('cockpit formatting', () => {
     assert.equal(formatAltitude(1000), '3300 ft');
     assert.equal(formatAltitude(18_000 / 3.28084), 'FL180');
     assert.equal(formatAltitude(30_000 / 3.28084), 'FL300');
+  });
+
+  test('a contact altitude reads as thousands of feet', () => {
+    // "thirty-one thousand nine hundred", the way it goes over the radio.
+    assert.equal(altitudeThousands(31_900 / 3.28084), '31.9');
+    assert.equal(altitudeThousands(0), '0.0');
   });
 
   test('unit conversions', () => {

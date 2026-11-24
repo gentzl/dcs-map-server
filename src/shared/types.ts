@@ -31,6 +31,14 @@ export type Category =
   | 'destroyed'
   | 'unknown';
 
+/**
+ * Categories that are airborne, and whose altitude is therefore worth calling.
+ * Weapons count: a missile's altitude is read the same way an aircraft's is.
+ */
+export const AIRBORNE: ReadonlySet<Category> = new Set<Category>([
+  'air', 'cargo', 'tanker', 'awacs', 'helo', 'weapon',
+]);
+
 export interface Unit {
   id: number;
   kind: 'unit' | 'weapon';

@@ -321,8 +321,6 @@ function render(category: Category, affiliation: Affiliation): ImageData {
  * the actual rendering.
  */
 
-const AIR: ReadonlySet<Category> = new Set<Category>(['air', 'cargo', 'tanker', 'awacs', 'helo', 'weapon']);
-
 export const natoSet: SymbolSet = {
   id: 'nato',
   render: (category, affiliation) => render(category, affiliation),
@@ -333,5 +331,3 @@ export const natoSet: SymbolSet = {
     category === 'awacs' || category === 'helo',
   key: (category, affiliation) => `${category}-${affiliation}`,
 };
-
-export const natoDimensionIsAir = (category: Category): boolean => AIR.has(category);

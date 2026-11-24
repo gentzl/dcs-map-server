@@ -1,6 +1,7 @@
 import maplibregl, { type Map as MLMap } from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
-import type { Coalition, OptionsView, ServerMessage, Unit } from '../shared/types.js';
+import type { Category, Coalition, OptionsView, ServerMessage, Unit } from '../shared/types.js';
+import { AIRBORNE } from '../shared/types.js';
 import { CHART_COLORS } from './chart.js';
 import {
   MAG_VAR_DEG,
@@ -20,6 +21,7 @@ import {
   zoomForRange,
   toDeg,
   toMagnetic,
+  altitudeThousands,
 } from './geo.js';
 import { buildGraticule } from './graticule.js';
 import { buildBullseye, buildRings, buildThreatRings } from './overlays.js';
@@ -680,7 +682,7 @@ function updateSources(now: number): void {
         // Degrees, not radians: icon-rotate expects degrees.
         hdgDeg: (u.hdg * 180) / Math.PI,
         rotates: symbolRotates(settings.symbolSet, u.unit.category),
-        label: `${u.unit.name}  ${Math.round(metersToFeet(u.unit.alt) / 100) * 100}`,
+        label: `${u.unit.name}  ${contactAltitude(u.unit.category, u.unit.alt)}`,
         stale: u.ageMs > 5000,
         selected: u.unit.id === selectedId,
       },
@@ -803,6 +805,16 @@ const refBearing = (trueRad: number) =>
   settings.bearingRef === 'magnetic' ? toMagnetic(trueRad, magVar()) : trueRad;
 const refSuffix = settings.bearingRef === 'magnetic' ? 'M' : 'T';
 
+/**
+ * Altitude as it would be called: thousands of feet for anything in the air,
+ * plain feet for anything on the surface, where a figure like "0.6" would
+ * say nothing.
+ */
+const contactAltitude = (category: Category, meters: number): string =>
+  AIRBORNE.has(category)
+    ? altitudeThousands(meters)
+    : String(Math.round(metersToFeet(meters) / 100) * 100);
+
 /** Replaces regular spaces with non-breaking ones so a group stays together when wrapping. */
 const nbsp = (s: string): string => s.replace(/ /g, ' ');
 
@@ -876,6 +888,7 @@ function updateBraa(now: number): void {
   const bullBrg = bearingTo(bullseye.lat, bullseye.lon, sel.lat, sel.lon);
   const bullRng = metersToNm(distanceTo(bullseye.lat, bullseye.lon, sel.lat, sel.lon));
 
+
   const roleLabel = CATEGORY_LABELS.find(([cat]) => cat === u.category)?.[1] ?? u.category;
   const aff = affiliationOf(u.coalition, ownCoalition).toUpperCase();
 
@@ -887,7 +900,7 @@ function updateBraa(now: number): void {
     nbsp(`${u.name}  —  ${aff} ${roleLabel}`),
     nbsp(`BRAA ${bearing3(refBearing(brg))}${refSuffix} / ${rng.toFixed(1)} nm`),
     nbsp(`BULLS ${bearing3(refBearing(bullBrg))}${refSuffix}/${Math.round(bullRng)}`),
-    nbsp(`${Math.round(metersToFeet(u.alt) / 100) * 100} ft`),
+    nbsp(`${contactAltitude(u.category, u.alt)} ${AIRBORNE.has(u.category) ? 'thousand' : 'ft'}`),
     nbsp(`${aspectLabel(asp)} ${Math.round(asp)}°`),
     nbsp(`${Math.round(msToKnots(sel.spdMs))} kt`),
   ].join('   ');
