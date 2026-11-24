@@ -24,7 +24,7 @@ else below is copy-paste into a terminal, in the folder you downloaded this proj
 
    ```bash
    npm install
-   cp node_modules/maplibre-gl/dist/maplibre-gl.css public/
+   cp node_modules/maplibre-gl/dist/maplibre-gl.css public/  # Windows: run this line in PowerShell, not cmd.exe
    ./tools/fetch-map-assets.sh      # map labels and symbols, ~2.3 MB
    ./tools/fetch-tiles.sh caucasus  # the map itself, ~131 MB — swap in another theater if you fly elsewhere
    ```
