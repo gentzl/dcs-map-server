@@ -16,11 +16,8 @@ stays on your own home network.
 1. Download this project — the green **Code → Download ZIP** button on GitHub — and unzip it.
 2. **Double-click `start.bat`.**
 
-That's it. It downloads its own copy of Node.js, installs everything, asks which DCS maps you own
-and downloads their tiles, installs the DCS hook, and starts the server — nothing else to install,
-nothing to put on `PATH`, no terminal commands to type. (Nothing it downloads touches the rest of
-your system — it all stays inside this project's own folder.) It only asks the maps question once;
-every double-click after that just starts the server. Bought a new map since? Double-click
+That's it. The first time, it asks which DCS maps you own and sets everything up; after that,
+every double-click just starts the server. Bought a new map since? Double-click
 **`configure-maps.bat`** to add it.
 
 **Open the web address it prints:** `http://localhost:8080` on the DCS PC itself. From a phone or
