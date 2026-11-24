@@ -20,8 +20,10 @@ exposes. If you just want to fly with it, the [handbook](MANUAL.md) is the one y
 
 ## Manual setup
 
-The [README](../README.md) points players at `start.bat`, a one-click installer. For development,
-or if you'd rather run the steps yourself:
+The [README](../README.md) points players at `start.bat`, a one-click installer that asks which
+maps they own on first run, saves the answer to `theaters.json`, and skips the question on every
+run after that (`configure-maps.bat` re-asks it, for a map bought later). For development, or if
+you'd rather run the steps yourself:
 
 Clone the repo (`git clone`). You'll need [Node.js](https://nodejs.org) installed (version 22 or
 newer). Everything below is copy-paste into a terminal, in the project folder — the same commands
@@ -56,8 +58,11 @@ work in PowerShell or cmd.exe.
    npm run dev
    ```
 
-4. Open the web address it prints — `http://localhost:8080` on the DCS PC itself, one of the
-   other two from a phone or tablet on the same Wi-Fi.
+4. Open the web address it prints — `http://localhost:8080` on the DCS PC itself, or one of the
+   other addresses it lists from a phone or tablet on the same Wi-Fi.
+
+This path doesn't touch `theaters.json` -- `fetch-tiles` just downloads whatever theater you pass
+it, as many times as you like.
 
 ## How it fits together
 

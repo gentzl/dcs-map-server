@@ -1,8 +1,9 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
-import readline from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
+import { npmCliPath, npmEnv, runNpm } from './npm-runtime.js';
+import { promptTheaters, readOwnedTheaters, saveOwnedTheaters } from './theater-config.js';
 
 /**
  * Runs the whole setup and starts the server, via the portable Node
@@ -13,49 +14,6 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(root);
-
-function npmCliPath() {
-  const nodeDir = path.dirname(process.execPath);
-  const candidate = path.join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js');
-  if (!existsSync(candidate)) throw new Error(`npm not found next to node at ${candidate}`);
-  return candidate;
-}
-
-// npm's own lifecycle scripts (e.g. esbuild's install.js) are run in a child
-// shell that resolves `node` via PATH, not via our process.execPath — so the
-// portable runtime's node dir has to be on PATH too, or those scripts fail
-// with "'node' is not recognized" on machines without a system-wide Node.
-function npmEnv() {
-  const nodeDir = path.dirname(process.execPath);
-  return { ...process.env, PATH: `${nodeDir}${path.delimiter}${process.env.PATH ?? ''}` };
-}
-
-function runNpm(args) {
-  execFileSync(process.execPath, [npmCliPath(), ...args], { stdio: 'inherit', env: npmEnv() });
-}
-
-const THEATERS = [
-  'caucasus',
-  'syria',
-  'persiangulf',
-  'sinai',
-  'normandy',
-  'marianas',
-  'kola',
-  'iraq',
-  'afghanistan',
-];
-
-async function pickTheater() {
-  const fromArgs = process.argv[2];
-  if (fromArgs) return fromArgs;
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const answer = (
-    await rl.question(`Which DCS theater do you fly? [${THEATERS.join(', ')}] (Enter = caucasus): `)
-  ).trim();
-  rl.close();
-  return answer || 'caucasus';
-}
 
 async function main() {
   console.log('Installing dependencies (first run only, a couple of minutes)...');
@@ -70,15 +28,17 @@ async function main() {
   console.log('Fetching map labels and symbols...');
   runNpm(['run', 'fetch-assets']);
 
-  let theater = await pickTheater();
-  if (!THEATERS.includes(theater)) {
-    console.log(`Unknown theater "${theater}", using caucasus instead.`);
-    theater = 'caucasus';
+  let theaters = readOwnedTheaters(root);
+  if (!theaters) {
+    theaters = await promptTheaters();
+    saveOwnedTheaters(root, theaters);
   }
 
-  if (!existsSync(path.join(root, 'tiles', `${theater}.pmtiles`))) {
-    console.log(`Downloading map tiles for ${theater} (one-time, roughly 100-150 MB)...`);
-    runNpm(['run', 'fetch-tiles', '--', theater]);
+  for (const theater of theaters) {
+    if (!existsSync(path.join(root, 'tiles', `${theater}.pmtiles`))) {
+      console.log(`Downloading map tiles for ${theater} (one-time, roughly 100-150 MB)...`);
+      runNpm(['run', 'fetch-tiles', '--', theater]);
+    }
   }
 
   console.log('Installing the DCS export hook...');

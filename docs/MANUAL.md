@@ -17,7 +17,8 @@ know how it works inside, change the code, or run it without DCS, that's the
 ## Opening the map on a tablet or phone
 
 The server runs on the DCS PC and prints its web addresses when it starts. On the DCS PC itself,
-open `http://localhost:8080`. From any other device on the same Wi-Fi, use one of the other two:
+open `http://localhost:8080`. From any other device on the same Wi-Fi, use one of the other
+addresses it lists instead:
 
 - a number like `http://192.168.1.23:8080` — always works, but can change when your router hands
   out new addresses
@@ -38,16 +39,17 @@ Without a certificate everything else still works; only the stay-awake feature i
 
 The map itself is ordinary OpenStreetMap material — the same roads, towns and rivers any map of
 that part of the world shows. A "theater" here is just the patch of the world the DCS map of that
-name sits on, and you download that patch once so the rest of the planet doesn't land on your
-disk:
+name sits on.
 
-```bash
-npm run fetch-tiles -- syria
-```
+`start.bat` asks which DCS maps you own the first time you run it, and downloads tiles for each
+one — that only happens once; every run after that skips straight to starting the server.
+
+Bought a new map since? Double-click **`configure-maps.bat`** to add it without redoing the whole
+setup.
 
 Available: `caucasus`, `syria`, `persiangulf`, `sinai`, `normandy`, `marianas`, `kola`, `iraq`,
-`afghanistan`. You can fetch several and switch between them in the settings panel — each one is
-roughly 100–150 MB on disk.
+`afghanistan` — each one roughly 100–150 MB on disk. If you own more than one, switch between the
+ones you've downloaded in the settings panel.
 
 If the map is blank but your aircraft symbol moves correctly, the tiles for the theater you're
 flying in haven't been fetched yet, or the settings panel is pointed at a different one.
