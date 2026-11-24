@@ -296,8 +296,14 @@ hasn't changed, so the client doesn't dim it as stale.
 
 ## Still open
 
-MGRS grid, declutter levels, DEM held locally instead of fetched from AWS, contour lines, further
-theaters.
+- Panning the map with the arrow keys, as an alternative to dragging — a second screen is often
+  driven from a keyboard rather than a touchscreen.
+- Declutter levels. Several hundred ground units at a wide range step are noise, and the velocity
+  leaders add to it; a rule such as "surface contacts only below a given range" would make the
+  wide steps usable.
+- MGRS grid, DEM held locally instead of fetched from AWS, contour lines, further theaters.
+- Whether the mission's own bullseye can be read from the hook, which would remove the one manual
+  step in setting the display up.
 
 ## Contributing
 

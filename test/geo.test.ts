@@ -168,6 +168,23 @@ describe('range and zoom', () => {
     near(large - small, 2, 1e-9); // four times the pixels is two zoom levels
   });
 
+  // Pins the convention the range steps rest on, which a round trip between
+  // the two functions cannot: they agreed with each other while both were
+  // one zoom level out, and the view showed half the range it claimed.
+  test('zoom 0 fits the whole world across 512 pixels, the way MapLibre scales it', () => {
+    const halfWorldNm = 40_075_016.686 / 2 / M_PER_NM;
+    near(rangeForZoom(0, 0, 512), halfWorldNm, 1);
+  });
+
+  test('a range step reaches the edge of the shorter screen axis', () => {
+    // 20 nm on a 707 pixel tall viewport: the top of the screen is 20 nm
+    // away, not 10.
+    const zoom = zoomForRange(20, 43.78, 707);
+    near(rangeForZoom(zoom, 43.78, 707), 20, 1e-9);
+    // And one zoom level further in is half of it -- the error that was here.
+    near(rangeForZoom(zoom + 1, 43.78, 707), 10, 1e-9);
+  });
+
   test('a zero-width viewport does not produce a non-finite zoom', () => {
     assert.ok(Number.isFinite(zoomForRange(40, 45, 0)));
   });

@@ -146,8 +146,16 @@ export const RANGES_NM = [1, 5, 10, 20, 50, 80, 160] as const;
 /** Steps with a direct button -- all of them. */
 export const RANGE_PRESETS_NM = RANGES_NM;
 
-/** Web Mercator resolution at zoom 0, metres per pixel at the equator. */
-const MPP_ZOOM0 = 156_543.03392;
+/**
+ * Web Mercator resolution at zoom 0: metres per pixel at the equator.
+ *
+ * MapLibre scales its zoom to 512 pixel tiles, so at zoom 0 the whole world
+ * spans 512 pixels and this is the equatorial circumference divided by that.
+ * The widely quoted 156_543.034 is the same figure for 256 pixel tiles; used
+ * here it made every range step come out one zoom level too close, so the
+ * view showed half the distance the button and the readout claimed.
+ */
+const MPP_ZOOM0 = 40_075_016.686 / 512;
 
 /**
  * Zoom level at which the given range reaches from the centre to the edge
