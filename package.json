@@ -21,7 +21,8 @@
     "capture-ws": "npm run build:tools --silent && node dist-tools/tools/capture-ws.js",
     "replay-ws": "npm run build:tools --silent && node dist-tools/tools/replay-ws.js",
     "fetch-assets": "npm run build:tools --silent && node dist-tools/tools/fetch-map-assets.js",
-    "fetch-tiles": "npm run build:tools --silent && node dist-tools/tools/fetch-tiles.js"
+    "fetch-tiles": "npm run build:tools --silent && node dist-tools/tools/fetch-tiles.js",
+    "install-hook": "npm run build:tools --silent && node dist-tools/tools/install-hook.js"
   },
   "dependencies": {
     "@fastify/static": "^8.0.0",
