@@ -304,8 +304,6 @@ hasn't changed, so the client doesn't dim it as stale.
 
 ## Still open
 
-- Panning the map with the arrow keys, as an alternative to dragging — a second screen is often
-  driven from a keyboard rather than a touchscreen.
 - Declutter levels. Several hundred ground units at a wide range step are noise, and the velocity
   leaders add to it; a rule such as "surface contacts only below a given range" would make the
   wide steps usable.
@@ -318,6 +316,23 @@ hasn't changed, so the client doesn't dim it as stale.
   mission environment lives on the server, and this runs on the player's PC, so it is likely to
   work single-player and when hosting and to come back empty as a client. Worth probing from the
   hook and logging the result before building anything on it.
+- The active waypoint/flight plan on the map. Unlikely to be generally possible: the export API's
+  `LoGet*` functions expose aircraft state (position, fuel, sensors) but nothing documented gives
+  the route a player set up in the mission planner, and what partial access exists is tucked away
+  per aircraft module rather than a stable, documented, cross-module call. Someone who knows a
+  specific module's export quirks would have to confirm this one way or the other; absent that, it
+  stays unbuilt rather than guessed at.
+- Odd-looking bearing ticks on the range rings reported while zoomed off a range preset (stepless
+  pinch/wheel zoom). Not reproduced yet -- needs a screenshot or the exact zoom/pan steps that
+  trigger it, since the tick geometry (`buildRings` in `src/client/overlays.ts`) looks correct on
+  inspection and a blind change here risks trading one subtle bug for another.
+- Checking this project's feature set against user wishes on the DCS forum thread "DCS Moving
+  Map" (forum.dcs.world/topic/259831). The forum blocks automated fetches (403), so this needs a
+  manual read -- paste the relevant posts in and it can be done in one pass.
+- A small number of ship classes with a genuine area air-defence system have a threat ring
+  (Ticonderoga/Arleigh Burke-class, Aegis; Kirov/Slava-class, SA-N-6) -- see threats.ts. Frigates
+  and corvettes with a shorter-range system are deliberately left out until someone can confirm
+  the actual in-game numbers; adding a wrong range would be worse than no ring.
 
 ## Contributing
 
