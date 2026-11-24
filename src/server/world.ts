@@ -78,6 +78,13 @@ export class World {
 
   /** Fog of war is applied here, not on the client -- there it would be pointless. */
   private visible(unit: Unit): boolean {
+    // LoGetWorldObjects() includes the player's own aircraft too. It already
+    // has its own dedicated ownship marker; showing it again as an ordinary
+    // contact would draw the same aircraft twice at the same spot. The hook
+    // skips it on its own now, but this also covers any upstream source
+    // (a relay, an older recording) that still sends it.
+    if (this.own && unit.id === this.own.id) return false;
+
     switch (this.optionsView) {
       case 'optview_onlymap':
         return false;

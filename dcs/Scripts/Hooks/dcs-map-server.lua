@@ -180,7 +180,8 @@ local function load_hook()
     buffer = { string.format('MM\t%d\t%.3f\t%s\n', SCHEMA, now, options_view) }
     buffer_len = #buffer[1]
 
-    emit(ownship_line(Export.LoGetPlayerPlaneId() or 0, self_data))
+    local own_id = Export.LoGetPlayerPlaneId() or 0
+    emit(ownship_line(own_id, self_data))
 
     -- Under a restricted view, don't even send -- rather than relying on
     -- filtering further down the line.
@@ -199,7 +200,11 @@ local function load_hook()
       local budget = SWEEP_BUDGET
       for id, v in pairs(sweep) do
         sweep[id] = nil
-        if v.LatLongAlt then
+        -- LoGetWorldObjects() includes the player's own aircraft too -- it
+        -- already went out above as the dedicated O line, so skip it here,
+        -- otherwise the client draws a second, ordinary contact symbol right
+        -- on top of its own ownship marker.
+        if v.LatLongAlt and id ~= own_id then
           local line = object_line(id, v)
           if line then
             emit(line)
