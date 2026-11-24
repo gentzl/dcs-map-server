@@ -42,7 +42,7 @@ name sits on, and you download that patch once so the rest of the planet doesn't
 disk:
 
 ```bash
-./tools/fetch-tiles.sh syria
+npm run fetch-tiles -- syria
 ```
 
 Available: `caucasus`, `syria`, `persiangulf`, `sinai`, `normandy`, `marianas`, `kola`, `iraq`,

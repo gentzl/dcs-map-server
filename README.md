@@ -18,24 +18,23 @@ stays on your own home network.
 ## Setting it up
 
 You'll need [Node.js](https://nodejs.org) installed on the DCS PC (version 22 or newer). Everything
-else below is copy-paste into a terminal, in the folder you downloaded this project into. **On
-Windows, use Git Bash** (installed alongside [Git for Windows](https://gitforwindows.org), which
-you need anyway to get this project) — PowerShell and cmd.exe can't run the `.sh` steps below, and
-double-clicking one just opens a "how do you want to open this file" dialog instead.
+else below is copy-paste into a terminal, in the folder you downloaded this project into — the same
+commands work in PowerShell, cmd.exe, or a Unix shell, no Git Bash or WSL required.
 
 1. Install and prepare the map data (one-time, a couple of minutes):
 
    ```bash
    npm install
    cp node_modules/maplibre-gl/dist/maplibre-gl.css public/
-   ./tools/fetch-map-assets.sh      # map labels and symbols, ~2.3 MB
-   ./tools/fetch-tiles.sh caucasus  # the map itself, ~131 MB — swap in another theater if you fly elsewhere
+   npm run fetch-assets        # map labels and symbols, ~2.3 MB
+   npm run fetch-tiles -- caucasus  # the map itself, ~131 MB — swap in another theater if you fly elsewhere
    ```
 
-   On Windows, `fetch-tiles.sh` also wants the `pmtiles` binary; its own error message says
-   `brew install pmtiles`, which is macOS-only -- get a Windows build from
-   [protomaps/go-pmtiles](https://github.com/protomaps/go-pmtiles/releases) instead and put it
-   somewhere on your `PATH`.
+   > In cmd.exe (not PowerShell), `cp` isn't a command — use
+   > `copy node_modules\maplibre-gl\dist\maplibre-gl.css public\` instead.
+
+   `fetch-tiles` downloads the `pmtiles` tool it needs by itself the first time it runs, into this
+   project's own `runtime/` folder — no Homebrew, no manual download, nothing to put on `PATH`.
 
 2. Copy `dcs/Scripts/Hooks/dcs-map-server.lua` into `Saved Games\DCS\Scripts\Hooks\` and (re)start DCS.
    That's the only change made to your DCS install.

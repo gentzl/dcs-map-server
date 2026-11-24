@@ -322,10 +322,6 @@ hasn't changed, so the client doesn't dim it as stale.
   per aircraft module rather than a stable, documented, cross-module call. Someone who knows a
   specific module's export quirks would have to confirm this one way or the other; absent that, it
   stays unbuilt rather than guessed at.
-- Odd-looking bearing ticks on the range rings reported while zoomed off a range preset (stepless
-  pinch/wheel zoom). Not reproduced yet -- needs a screenshot or the exact zoom/pan steps that
-  trigger it, since the tick geometry (`buildRings` in `src/client/overlays.ts`) looks correct on
-  inspection and a blind change here risks trading one subtle bug for another.
 - Checking this project's feature set against user wishes on the DCS forum thread "DCS Moving
   Map" (forum.dcs.world/topic/259831). The forum blocks automated fetches (403), so this needs a
   manual read -- paste the relevant posts in and it can be done in one pass.
@@ -333,6 +329,15 @@ hasn't changed, so the client doesn't dim it as stale.
   (Ticonderoga/Arleigh Burke-class, Aegis; Kirov/Slava-class, SA-N-6) -- see threats.ts. Frigates
   and corvettes with a shorter-range system are deliberately left out until someone can confirm
   the actual in-game numbers; adding a wrong range would be worse than no ring.
+- A zero-friction Windows installer: a `start.bat` that bootstraps a bundled/auto-downloaded
+  portable Node.js runtime (so Node itself isn't a separate prerequisite any more either), then
+  runs setup (`npm install`, the CSS copy, `fetch-assets`, `fetch-tiles`) and the server, opening
+  the browser automatically. `fetch-assets` and `fetch-tiles` are already ported to Node and
+  auto-download what they need (see tools/fetch-tiles.ts's `ensurePmtiles`); still missing is the
+  Node bootstrap and an automatic hook installer that copies
+  `dcs/Scripts/Hooks/dcs-map-server.lua` into `Saved Games\...\Scripts\Hooks\` -- which must never
+  overwrite a hook file that's already there, whatever its origin, since that could silently
+  destroy someone else's setup.
 
 ## Contributing
 
