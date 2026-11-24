@@ -121,6 +121,15 @@ setInterval(() => {
  */
 const UPSTREAM = process.env.MM_UPSTREAM;
 
+/**
+ * Whether the hook is still actually talking, not just whether DCS once
+ * sent a packet -- a crashed DCS or an unloaded hook looks silent from here,
+ * same as one that never started. Only meaningful for a direct UDP ingest;
+ * a relay reports its own status via onStatus above.
+ */
+let lastPacketAt = 0;
+const HOOK_TIMEOUT_MS = 3000; // generous next to the hook's own 10 Hz send rate
+
 if (UPSTREAM) {
   startRelay(world, {
     url: UPSTREAM,
@@ -133,7 +142,23 @@ if (UPSTREAM) {
     host: UDP_HOST,
     capture: process.env.MM_CAPTURE,
     onError: (reason) => console.warn(`[ingest] dropped: ${reason}`),
+    onPacket: () => {
+      lastPacketAt = Date.now();
+    },
   });
+
+  let hookConnected = false;
+  console.log('\x1b[33m⚠ Hook not connected\x1b[0m -- waiting for DCS (start or join a flight)');
+  setInterval(() => {
+    const connected = Date.now() - lastPacketAt < HOOK_TIMEOUT_MS;
+    if (connected === hookConnected) return;
+    hookConnected = connected;
+    console.log(
+      connected
+        ? '\x1b[32m✓ Hook connected\x1b[0m -- receiving data from DCS'
+        : '\x1b[33m⚠ Hook not connected\x1b[0m -- waiting for DCS (start or join a flight)',
+    );
+  }, 1000);
 }
 
 const port = certs ? HTTPS_PORT : HTTP_PORT;
@@ -172,3 +197,8 @@ if (UPSTREAM) console.log(`Relay <- ${UPSTREAM}`);
 else console.log(`UDP   ${UDP_HOST}:${UDP_PORT}  (loopback only)`);
 console.log(`Tick  ${TICK_HZ} Hz`);
 if (process.env.MM_CAPTURE) console.log(`Capture  ${process.env.MM_CAPTURE}`);
+
+// A plain status dump above doesn't tell a non-technical user that setup
+// actually worked -- this is the one line meant to be read, not just logged.
+console.log();
+console.log(`\x1b[32m✓ Ready\x1b[0m -- start or join a flight in DCS, then open ${scheme}://localhost:${port}`);

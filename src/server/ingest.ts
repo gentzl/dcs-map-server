@@ -16,6 +16,8 @@ export interface IngestOptions {
    */
   capture?: string;
   onError?: (reason: string) => void;
+  /** Called for every datagram received, parseable or not -- proof the hook is actually talking. */
+  onPacket?: () => void;
 }
 
 export function startIngest(world: World, opts: IngestOptions): dgram.Socket {
@@ -24,6 +26,7 @@ export function startIngest(world: World, opts: IngestOptions): dgram.Socket {
   const capture = opts.capture ? createWriteStream(opts.capture, { flags: 'a' }) : null;
 
   sock.on('message', (buf) => {
+    opts.onPacket?.();
     capture?.write(`${JSON.stringify({ t: Date.now(), p: buf.toString('utf8') })}\n`);
     const { optionsView, items } = parseDatagram(buf.toString('utf8'));
 
