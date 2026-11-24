@@ -1,7 +1,7 @@
 # dcs-map-server
 
 A live map for DCS World — see your aircraft and everything around it on your phone,
-tablet, or a second screen while you fly, the same way a car GPS shows where you are.
+tablet, or a second screen while you fly.
 
 It runs once, on the same PC where DCS is installed. Every other device just opens a web page —
 nothing to install on the tablet, no app store, no account, no internet connection needed. It all
