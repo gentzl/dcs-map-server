@@ -108,6 +108,20 @@ export function groundTrack(
 }
 
 /**
+ * Wind speed and the direction it is blowing FROM, in metres per second and
+ * radians -- the convention a METAR or a radio call uses ("270 at 15"), not
+ * the direction the air itself is moving toward, which is what the raw
+ * vector gives you.
+ */
+export function windFrom(x: number, z: number): { bearing: number; speedMs: number } {
+  const speedMs = Math.hypot(x, z);
+  // Reversed: a vector pointing where the air moves TO becomes the bearing
+  // it moves FROM once you negate it.
+  const bearing = speedMs < 1e-9 ? 0 : (Math.atan2(-z, -x) + 2 * Math.PI) % (2 * Math.PI);
+  return { bearing, speedMs };
+}
+
+/**
  * Closing speed along the line of sight, in m/s: positive closing, negative
  * opening. A radar display calls this Vc, and it is what the decision to
  * commit or to turn away is actually made on -- a contact 40 nm out means

@@ -20,7 +20,7 @@ export class OwnshipEstimator {
   /** Course and speed over the ground -- heading and TAS plus the wind. */
   track = 0;
   groundSpeed = 0;
-  private wind = { x: 0, z: 0 };
+  wind = { x: 0, z: 0 };
   private have = false;
   private correction = { lat: 0, lon: 0, hdg: 0 };
 

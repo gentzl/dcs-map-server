@@ -24,6 +24,7 @@ import {
   toMagnetic,
   altitudeThousands,
   closureMs,
+  windFrom,
   M_PER_NM,
 } from './geo.js';
 import { buildGraticule } from './graticule.js';
@@ -981,6 +982,7 @@ function updateHud(now: number): void {
 
   const brgToUs = bearingTo(bullseye.lat, bullseye.lon, own.lat, own.lon);
   const bullRange = metersToNm(distanceTo(bullseye.lat, bullseye.lon, own.lat, own.lon));
+  const wind = windFrom(own.wind.x, own.wind.z);
 
   // Each group has non-breaking spaces inside, regular ones in between -- so
   // the bar wraps to two lines on phone width instead of tearing a group
@@ -994,6 +996,12 @@ function updateHud(now: number): void {
     nbsp(formatAltitude(own.alt)),
     nbsp(`${Math.round(msToKnots(own.tas))} kt`),
     nbsp(`HDG ${bearing3(refBearing(own.hdg))}${refSuffix}`),
+    // Below 3 kt the direction is noise off a near-zero vector, not signal
+    // -- a METAR calls this "variable" rather than print a precise-looking
+    // bearing nobody could act on.
+    nbsp(msToKnots(wind.speedMs) < 3
+      ? `WIND VRB/${Math.round(msToKnots(wind.speedMs))}`
+      : `WIND ${bearing3(refBearing(wind.bearing))}${refSuffix}/${Math.round(msToKnots(wind.speedMs))}`),
     nbsp(`BULLS ${bearing3(refBearing(brgToUs))}/${Math.round(bullRange)}`),
     nbsp(`${displayedRangeNm()} NM`),
     nbsp(`${units.meta.size} CONTACTS`),

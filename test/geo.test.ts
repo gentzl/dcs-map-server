@@ -11,6 +11,7 @@ import {
   destination,
   distanceTo,
   groundTrack,
+  windFrom,
   formatAltitude,
   formatMissionTime,
   formatDDM,
@@ -132,6 +133,29 @@ describe('ground track', () => {
     const g = groundTrack(toRad(0), 0, { x: 0, z: 2 });
     near(toDeg(g.track), 90, 1e-9);
     near(g.speed, 2, 1e-9);
+  });
+});
+
+describe('wind', () => {
+  // Reported as the direction it blows FROM, same as a METAR or a radio
+  // call ("270 at 15") -- the opposite of the direction the air itself
+  // moves toward, which is what groundTrack's raw vector already is.
+  test('a wind blowing toward the east is reported as blowing from the west', () => {
+    const w = windFrom(0, 10); // DCS z is east
+    near(toDeg(w.bearing), 270, 1e-9);
+    near(w.speedMs, 10, 1e-9);
+  });
+
+  test('a wind blowing toward the north is reported as blowing from the south', () => {
+    const w = windFrom(10, 0); // DCS x is north
+    near(toDeg(w.bearing), 180, 1e-9);
+    near(w.speedMs, 10, 1e-9);
+  });
+
+  test('calm air reports zero speed rather than an arbitrary bearing', () => {
+    const w = windFrom(0, 0);
+    assert.equal(w.speedMs, 0);
+    assert.equal(w.bearing, 0);
   });
 });
 
