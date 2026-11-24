@@ -310,8 +310,14 @@ hasn't changed, so the client doesn't dim it as stale.
   leaders add to it; a rule such as "surface contacts only below a given range" would make the
   wide steps usable.
 - MGRS grid, DEM held locally instead of fetched from AWS, contour lines, further theaters.
-- Whether the mission's own bullseye can be read from the hook, which would remove the one manual
-  step in setting the display up.
+- Reading the mission's own bullseye, which would remove the one manual step in setting the
+  display up. There is a route: `coalition.getMainRefPoint(side)` returns it, but only in the
+  mission scripting environment, which a hook reaches through
+  `net.dostring_in('mission', ...)` -- converting to lat/lon with `coord.LOtoLL` inside that call,
+  since the reference point comes back in map coordinates. The open question is multiplayer: the
+  mission environment lives on the server, and this runs on the player's PC, so it is likely to
+  work single-player and when hosting and to come back empty as a client. Worth probing from the
+  hook and logging the result before building anything on it.
 
 ## Contributing
 
