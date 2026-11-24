@@ -7,9 +7,9 @@ It runs once, on the same PC where DCS is installed. Every other device just ope
 nothing to install on the tablet, no app store, no account, no internet connection needed. It all
 stays on your own home network.
 
-![How it works: the DCS PC reads your flight, the map server turns it into a live map, any screen on your Wi-Fi can open it](docs/overview.svg)
-
 ![The map in flight: NATO contact symbols, a BRA line and readout to a selected contact, range rings, and terrain shading](docs/screenshot.jpg)
+
+![How it works: the DCS PC reads your flight, the map server turns it into a live map, any screen on your Wi-Fi can open it](docs/overview.svg)
 
 ## Setting it up
 
