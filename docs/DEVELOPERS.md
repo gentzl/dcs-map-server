@@ -375,7 +375,20 @@ Code is MIT licensed, see [LICENSE](../LICENSE).
 
 Map data © OpenStreetMap contributors (ODbL). Terrain from the AWS Terrain Tiles
 (SRTM/GMTED, public domain). Glyphs and sprites from
-[protomaps/basemaps-assets](https://github.com/protomaps/basemaps-assets).
+[protomaps/basemaps-assets](https://github.com/protomaps/basemaps-assets), which in turn uses the
+[Noto Sans](https://fonts.google.com/noto/specimen/Noto+Sans) family (SIL Open Font License).
+
+Built on, and grateful to:
+
+- [MapLibre GL JS](https://maplibre.org/) — the map renderer the client runs on.
+- [Protomaps](https://protomaps.com/) — the [PMTiles](https://github.com/protomaps/PMTiles) format,
+  the daily OpenStreetMap-based planet builds `fetch-tiles` pulls each theater's tiles from, and
+  [go-pmtiles](https://github.com/protomaps/go-pmtiles), the tool that extracts them
+  (`ensurePmtiles` in `tools/fetch-tiles.ts` downloads it automatically).
+- [Fastify](https://fastify.dev/) and [ws](https://github.com/websockets/ws) — the server and its
+  WebSocket layer.
+- [Eagle Dynamics](https://www.digitalcombatsimulator.com/) — DCS World's own export API, without
+  which none of this would have anything to show.
 
 Fetched tiles and glyphs are deliberately kept out of version control: vector tiles are a
 derivative database in the sense of the ODbL, so they are fetched by script rather than

@@ -77,6 +77,16 @@ Contacts drawn with the wrong symbol are worth reporting in particular: the map 
 by their DCS type name, and nobody flies every asset pack there is. The
 [technical guide](docs/DEVELOPERS.md#contributing) has what to know before sending a change.
 
+## Credits
+
+Built on [MapLibre GL JS](https://maplibre.org/) for the map, [Protomaps](https://protomaps.com/)'
+[PMTiles](https://github.com/protomaps/PMTiles) format, planet builds and
+[go-pmtiles](https://github.com/protomaps/go-pmtiles) for the tiles themselves, and
+[Fastify](https://fastify.dev/)/[ws](https://github.com/websockets/ws) for the server. Map data is
+© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL); terrain is
+public-domain SRTM/GMTED. Full attribution and licenses in the
+[technical guide](docs/DEVELOPERS.md#license-and-data-sources).
+
 ## License
 
 Code is MIT licensed, see [LICENSE](LICENSE). Map and terrain data are open (OpenStreetMap/ODbL,
