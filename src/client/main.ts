@@ -36,15 +36,16 @@ import {
 import { buildStyle } from './style.js';
 import { OwnshipEstimator, UnitBuffer } from './track.js';
 
-// PMTiles als Protokoll registrieren: MapLibre liest die Kacheln per
-// HTTP-Range direkt aus dem Archiv, es braucht keinen Tile-Server.
+// Register PMTiles as a protocol: MapLibre reads the tiles directly out of
+// the archive via HTTP range requests, no tile server needed.
 maplibregl.addProtocol('pmtiles', new Protocol().tile);
 
 let settings = cfg.load();
 
 /**
- * Welche Theater der Server ausliefern kann. Wird vor dem Kartenaufbau geholt;
- * ein Theater ohne Archiv ergaebe sonst eine leere Karte ohne Hinweis darauf.
+ * Which theaters the server can serve. Fetched before the map is built; a
+ * theater without an archive would otherwise just produce a blank map with
+ * no indication why.
  */
 const available: string[] = await fetch('/api/theaters')
   .then((r) => r.json() as Promise<{ theaters: string[] }>)
@@ -61,10 +62,10 @@ const units = new UnitBuffer();
 let headingUp = true;
 
 /**
- * Verfolgen oder frei bewegen.
+ * Follow the aircraft, or pan freely.
  *
- * Bewusst nicht gespeichert: Beim naechsten Oeffnen in einem freien Ausschnitt
- * irgendwo auf der Karte zu landen waere die falsche Vorgabe.
+ * Deliberately not persisted: landing in some random free-panned view on the
+ * next open would be the wrong default.
  */
 let follow = true;
 /**
@@ -78,22 +79,22 @@ let follow = true;
 let manualZoom: number | null = null;
 let connected = false;
 let lastSeq = 0;
-/** Sichtbarkeitsregel, wie DCS sie meldet. Entscheidet, ob Kontakte kommen. */
+/** Visibility rule as DCS reports it. Decides whether contacts come through at all. */
 let optionsView: OptionsView = 'optview_all';
 /**
- * Entfernungsstufe statt freiem Zoom. Der Index zeigt in RANGES_NM; die
- * Zoomstufe wird daraus je Frame berechnet, damit "40 nm" unabhängig von
- * Fenstergröße und Breitengrad dieselbe Entfernung bedeutet.
+ * Range step rather than free zoom. The index points into RANGES_NM; the
+ * zoom level is computed from it every frame, so "40 nm" means the same
+ * distance regardless of window size or latitude.
  */
 let rangeIndex = 2;
 let zoom = 9;
 let selectedId: number | null = null;
-/** Bezugsgröße für die Zugehörigkeit: eigene Koalition ist Freund. */
+/** Reference for affiliation: your own coalition is friend. */
 let ownCoalition: Coalition = 2;
 
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
-/** Bullseye setzt der Nutzer selbst – der Export-Hook liefert es nicht mit. */
+/** The user sets the bullseye themselves -- the export hook doesn't provide one. */
 let bullseye: { lat: number; lon: number } = (() => {
   try {
     const raw = localStorage.getItem('dcs-map-server.bullseye');
@@ -115,21 +116,21 @@ const map: MLMap = new maplibregl.Map({
 map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
 (window as unknown as { __map: MLMap }).__map = map;
 
-// --- Kamera ----------------------------------------------------------------
+// --- Camera ------------------------------------------------------------------
 //
-// Die Render-Schleife setzt die Kamera pro Frame; jumpTo bricht dabei laufende
-// Animationen ab, womit MapLibres eigener Scroll-Zoom wirkungslos wäre. Statt
-// dagegen zu arbeiten, gehört die Kamera vollständig uns.
+// The render loop sets the camera every frame; jumpTo cancels any running
+// animation while doing so, which would make MapLibre's own scroll zoom
+// ineffective. Rather than work against that, the camera is entirely ours.
 
 map.scrollZoom.disable();
 map.touchZoomRotate.disable();
-// interactive: false schaltet beim Aufbau alle Handler ab, dragPan muss daher
-// ausdruecklich eingeschaltet werden.
+// interactive: false disables every handler at construction, so dragPan has
+// to be switched back on explicitly.
 map.dragPan.enable();
-// dragPan bleibt in beiden Modi aktiv. Im Verfolgen-Modus ueberschreibt die
-// Render-Schleife die Mitte zwar jeden Frame, aber MapLibres eigenes
-// dragstart-Ereignis schaltet vorher auf frei um -- so greift schon der erste
-// Zug, statt erst nach einem Knopfdruck.
+// dragPan stays active in both modes. In follow mode the render loop
+// overwrites the centre every frame, but MapLibre's own dragstart event
+// switches to free beforehand -- so the very first drag takes effect,
+// instead of only after a button press.
 map.on('dragstart', () => {
   if (follow) setFollow(false);
 });
@@ -141,12 +142,12 @@ function stepRange(delta: number): void {
 }
 
 /**
- * Im freien Modus ruehrt die Render-Schleife die Kamera nicht an, damit sie
- * nicht gegen das Ziehen arbeitet. Eine Massstabsaenderung muss deshalb hier
- * angewandt werden -- um die aktuelle Mitte, nicht um das Flugzeug.
+ * In free mode the render loop leaves the camera alone, so it doesn't fight
+ * the drag. A scale change therefore has to be applied here instead -- around
+ * the current centre, not the aircraft.
  *
- * Eine Preset-Taste ist die ausdrueckliche Rueckkehr zu einer bekannten
- * Entfernung, loescht also einen vorherigen Pinch-/Mausrad-Zoom.
+ * A preset button is the explicit return to a known distance, so it clears
+ * any previous pinch/wheel zoom.
  */
 function applyFreeZoom(): void {
   manualZoom = null;
@@ -251,8 +252,8 @@ function addOverlayLayers(): void {
       id: 'threats-fill', type: 'fill', source: 'threats',
       paint: {
         'fill-color': ['case', ['==', ['get', 'affiliation'], 'hostile'], '#e63946', '#4895ef'],
-        // Schwach genug, dass sich überlappende Bereiche noch unterscheiden
-        // lassen -- bei einer gestaffelten Flugabwehr liegen viele übereinander.
+        // Weak enough that overlapping areas can still be told apart -- a
+        // layered air-defence setup has many of these stacked on top of each other.
         'fill-opacity': ['case', ['get', 'stale'], 0.04, 0.1],
       },
     });
@@ -337,12 +338,11 @@ function addOverlayLayers(): void {
   }
 
   if (!map.getLayer('selected-trail-line')) {
-    // Spur eines angewaehlten Kontakts -- aus echten Positionen ueber Zeit
-    // angesammelt, nicht aus einer Missionsvorgabe gelesen. Ein Tanker im
-    // Orbit zeichnet so nach ein, zwei Runden sein Rennbahnmuster von selbst
-    // nach, ohne dass DCS' eigenes Scripting-Markup (das die F10-Karte fuer
-    // Tankerrouten zeigt) ausgelesen werden muesste -- das waere aus der
-    // Export-API ohnehin nicht erreichbar.
+    // Trail of a selected contact -- accumulated from real positions over
+    // time, not read from a mission waypoint. A tanker orbiting traces out
+    // its own racetrack pattern after a lap or two this way, without having
+    // to read DCS' own scripting markup (the one the F10 map uses for tanker
+    // routes) -- which wouldn't be reachable from the export API anyway.
     map.addLayer({
       id: 'selected-trail-line', type: 'line', source: 'selected-trail',
       paint: { 'line-color': '#ffd166', 'line-width': 1.5, 'line-opacity': 0.75, 'line-dasharray': [2, 2] },
@@ -350,7 +350,7 @@ function addOverlayLayers(): void {
   }
 
   if (!map.getLayer('contacts-dot')) {
-    // Auswahlring unter dem Symbol, damit er es nicht überdeckt.
+    // Selection ring under the symbol, so it doesn't cover it.
     map.addLayer({
       id: 'contacts-selected', type: 'circle', source: 'contacts',
       filter: ['==', ['get', 'selected'], true],
@@ -361,16 +361,16 @@ function addOverlayLayers(): void {
         'circle-stroke-color': '#ffd166',
       },
     });
-    // Zwei Layer, weil sich die Ausrichtung nicht in einem ausdrücken lässt:
-    // Luftfahrzeuge werden kartenbezogen auf den Kurs gedreht, alle übrigen
-    // Symbole müssen bildschirmbezogen aufrecht stehen. Mit einheitlich
-    // kartenbezogener Ausrichtung kippen sie mit, sobald die Karte gedreht ist --
-    // ein schiefer Normrahmen ist schlicht falsch.
+    // Two layers, because the orientation can't be expressed in one: aircraft
+    // are rotated to heading relative to the map, all other symbols must
+    // stand upright relative to the screen. With uniformly map-relative
+    // orientation they'd tilt along as soon as the map rotates -- a tilted
+    // standard frame is simply wrong.
     const iconSize: maplibregl.DataDrivenPropertyValueSpecification<number> = [
       'interpolate', ['linear'], ['zoom'], 6, 0.55, 11, 0.9,
     ];
-    // Veraltete Kontakte werden abgeblendet statt entfernt -- eine erfundene
-    // Position wäre schlimmer als eine sichtbar alte.
+    // Stale contacts are dimmed instead of removed -- a made-up position
+    // would be worse than a visibly old one.
     const iconOpacity: maplibregl.DataDrivenPropertyValueSpecification<number> = [
       'case', ['get', 'stale'], 0.35, 1,
     ];
@@ -446,13 +446,13 @@ function applyVisibility(): void {
 map.on('load', addOverlayLayers);
 
 /**
- * Stilwechsel: setStyle verwirft alle eigenen Quellen und Layer, sie müssen
- * danach neu angelegt werden.
+ * Style switch: setStyle discards all our own sources and layers, they have
+ * to be recreated afterwards.
  *
- * Bewusst per Abfrage statt über ein Ereignis. `idle` feuert hier nie, weil die
- * Render-Schleife die Karte jeden Frame neu zeichnet, und `styledata` feuert
- * mehrfach, teils bevor der Stil benutzbar ist. Gepollt wird nur für wenige
- * hundert Millisekunden nach einem Wechsel.
+ * Deliberately by polling rather than an event. `idle` never fires here,
+ * since the render loop redraws the map every frame, and `styledata` fires
+ * multiple times, some before the style is usable. Polling only runs for a
+ * few hundred milliseconds after a switch.
  */
 function restyle(): void {
   map.setStyle(buildStyle(settings));
@@ -519,18 +519,19 @@ function frame(now: number): void {
     own.step(dt);
 
     if (follow) {
-      // Die Zoomstufe folgt der gewählten Entfernung und der Fenstergröße, damit
-      // die Angabe auf jedem Gerät dieselbe Strecke bedeutet -- es sei denn,
-      // Pinch oder Mausrad haben gerade einen eigenen Zoom gesetzt: Zoomen
-      // waehrend des Verfolgens ist kein Verlassen des Modus, nur Schwenken ist das.
+      // The zoom level follows the selected range and the window size, so
+      // the value means the same distance on every device -- unless pinch or
+      // wheel have just set their own zoom: zooming while following is not
+      // leaving the mode, only panning is.
       const shortSide = Math.min(map.getCanvas().clientWidth, map.getCanvas().clientHeight);
       zoom = manualZoom ?? zoomForRange(currentRange(), own.lat, shortSide);
       map.jumpTo({ center: [own.lon, own.lat], bearing: headingUp ? -toDeg(own.hdg) : 0, zoom });
     }
 
-    // Verfolgend steht das Symbol fest in der Bildmitte: In Heading-up dreht
-    // sich die Karte darunter, genordet muss das Symbol selbst den Kurs zeigen.
-    // Frei bewegt wandert es mit der Karte und zeigt immer den Kurs.
+    // While following, the symbol stays fixed at screen centre: in
+    // heading-up the map rotates underneath it, in north-up the symbol
+    // itself must show the heading. Free-moving, it travels with the map and
+    // always shows the heading.
     const symbolRotation = follow && headingUp ? 0 : toDeg(own.hdg);
     ownshipEl.style.transform = `translate(-50%, -55%) rotate(${symbolRotation.toFixed(1)}deg)`;
     placeOwnship();
@@ -539,8 +540,8 @@ function frame(now: number): void {
       lastSources = now;
       updateSources(now);
     }
-    // Das Gradnetz hängt am Ausschnitt, nicht an der Zeit; einmal pro Sekunde
-    // oder bei Zoomwechsel genügt.
+    // The graticule depends on the view, not on time; once a second or on a
+    // zoom change is enough.
     if (now - lastGrid > 1000 || Math.abs(zoom - lastZoomForGrid) > 0.01) {
       lastGrid = now;
       lastZoomForGrid = zoom;
@@ -562,8 +563,8 @@ function visibleContacts(now: number) {
 function updateSources(now: number): void {
   if (!map.getSource('contacts')) return;
 
-  // Einmal auswerten und weiterreichen: Die Interpolation ist der teuerste
-  // Teil des Ticks, zweimal pro Frame wäre reine Verschwendung.
+  // Evaluate once and pass it on: interpolation is the most expensive part
+  // of the tick, doing it twice per frame would be pure waste.
   const contacts = visibleContacts(now);
 
   setData('contacts', {
@@ -577,9 +578,9 @@ function updateSources(now: number): void {
         category: u.unit.category,
         coalition: u.unit.coalition,
         name: u.unit.name,
-        // Zugehörigkeit ist relativ: die eigene Koalition ist Freund, die andere
-        // Feind. Rot und Blau absolut zu setzen wäre in der Norm falsch -- der
-        // DCS-Satz tut genau das und bekommt deshalb beides übergeben.
+        // Affiliation is relative: your own coalition is friend, the other
+        // hostile. Setting red and blue absolutely would be wrong under the
+        // standard -- the DCS set does exactly that, so it gets both passed in.
         symbol: symbolId(
           settings.symbolSet,
           u.unit.category,
@@ -643,19 +644,18 @@ const edgeEl = document.getElementById('offscreen')!;
 const warnEl = document.getElementById('warning')!;
 
 /**
- * Abstaende der Randmarke zu den Bildkanten, je Kante verschieden: Oben liegt
- * die HUD-Leiste, unten die Bedienleiste -- mit einem einheitlichen Abstand
- * verschwindet die Marke genau dort darunter.
+ * Edge marker's margin to the screen edges, different per edge: the HUD bar
+ * sits at the top, the control bar at the bottom -- with a uniform margin
+ * the marker would disappear right underneath them.
  */
 const EDGE_MARGIN = { top: 58, right: 36, bottom: 82, left: 36 };
 
 /**
- * Setzt das Ownship-Symbol und, falls es aus dem Bild gewandert ist, eine
- * Randmarke mit Peilung und Entfernung.
+ * Places the ownship symbol and, if it has wandered out of view, an edge
+ * marker with bearing and range.
  *
- * Die eigene Position auf einer Navigationsanzeige zu verlieren ist der
- * schlimmste Fehlerfall eines freien Modus -- deshalb zeigt der Rand immer an,
- * wo das Flugzeug steht.
+ * Losing your own position on a navigation display is the worst failure
+ * mode of a free mode -- so the edge marker always shows where the aircraft is.
  */
 function placeOwnship(): void {
   const canvasEl = map.getCanvas();
@@ -680,7 +680,7 @@ function placeOwnship(): void {
     return;
   }
 
-  // Auf den Bildrand entlang der Linie von der Mitte zum Flugzeug klemmen.
+  // Clamp to the screen edge along the line from centre to the aircraft.
   const cx = w / 2;
   const cy = h / 2;
   const dx = p.x - cx;
@@ -747,8 +747,8 @@ function updateHud(): void {
     nbsp(`${units.meta.size} CONTACTS`),
   ].join('   ');
 
-  // Wenn die Mission Fremdeinheiten zurueckhaelt, muss das dastehen. Sonst
-  // sucht man den Fehler bei sich, obwohl die Anzeige korrekt arbeitet.
+  // If the mission withholds other units, this needs to be shown. Otherwise
+  // you'd look for the fault in yourself, even though the display is working correctly.
   const withheld = optionsView === 'optview_onlymap' || optionsView === 'optview_myaircraft';
   warnEl.hidden = !withheld;
   if (withheld) warnEl.textContent = `CONTACTS WITHHELD BY MISSION (${optionsView})`;
@@ -783,10 +783,10 @@ canvas.addEventListener('click', (e) => {
   const pt: [number, number] = [e.clientX - rect.left, e.clientY - rect.top];
 
   if (e.shiftKey) {
-    // Umschalt-Klick setzt das Bullseye -- der Hook liefert es nicht.
+    // Shift-click sets the bullseye -- the hook doesn't provide it.
     const ll = map.unproject(pt);
     bullseye = { lat: ll.lat, lon: ll.lng };
-    try { localStorage.setItem('dcs-map-server.bullseye', JSON.stringify(bullseye)); } catch { /* egal */ }
+    try { localStorage.setItem('dcs-map-server.bullseye', JSON.stringify(bullseye)); } catch { /* doesn't matter */ }
     return;
   }
 
@@ -800,11 +800,11 @@ const btnCtr = document.getElementById('mode-centre')!;
 const btnFree = document.getElementById('mode-free')!;
 
 /**
- * Frei bewegt wird immer genordet dargestellt.
+ * Free-moving is always shown north-up.
  *
- * Eine Karte zu schieben, die sich gleichzeitig unter der Hand dreht, ist
- * unbrauchbar, und die Gitterbeschriftung liest sich nur genordet richtig. Die
- * Einstellung HDG/N bleibt erhalten und gilt beim Zurueckschalten wieder.
+ * Panning a map that's also rotating under your hand is unusable, and the
+ * graticule labels only read correctly north-up. The HDG/N setting is kept
+ * and applies again when switching back.
  */
 function setFollow(on: boolean): void {
   follow = on;
@@ -834,8 +834,8 @@ setOrientation(headingUp);
 btnCtr.addEventListener('click', () => setFollow(true));
 btnFree.addEventListener('click', () => setFollow(false));
 setFollow(true);
-// Schrittasten zusätzlich zu den Direkttasten: Auf dem Tablet sind die großen
-// Flächen leichter zu treffen als eine bestimmte Zahl.
+// Step buttons in addition to the direct-pick buttons: on a tablet, the
+// large tap targets are easier to hit than a specific number.
 document.getElementById('range-out')!.addEventListener('click', () => stepRange(1));
 document.getElementById('range-in')!.addEventListener('click', () => stepRange(-1));
 for (const nm of RANGE_PRESETS_NM) {
@@ -865,7 +865,7 @@ function updateStatus(): void {
     `Screen lock: ${lock} · ${secure ? 'secure context' : 'insecure context'}`;
 }
 
-/** Modus und Beschriftung erfordern einen neuen Stil, alles andere nur Sichtbarkeit. */
+/** Mode and labelling require a new style, everything else just visibility. */
 const NEEDS_RESTYLE = new Set(['mode', 'mapLabels', 'elevationTint', 'hillshade', 'hillshadeStrength', 'theater']);
 
 function markTheaterAvailability(): void {
@@ -879,8 +879,8 @@ function markTheaterAvailability(): void {
 }
 
 /**
- * Symbollegende. Beantwortet die Frage, was ein Symbol bedeutet, dort wo sie
- * aufkommt -- Normsymbolik ist nur dann im Vorteil, wenn man sie nachschlagen kann.
+ * Symbol legend. Answers the question of what a symbol means right where it
+ * comes up -- standard symbology is only an advantage if you can look it up.
  */
 function buildLegend(): void {
   const host = document.getElementById('legend');
@@ -931,20 +931,20 @@ function bindControls(): void {
       if (NEEDS_RESTYLE.has(key)) restyle();
       else applyVisibility();
 
-      // Die Legende zeichnet aus dem gewählten Satz und muss beim Wechsel neu
-      // aufgebaut werden -- sonst zeigte sie den vorigen Satz weiter.
+      // The legend draws from the selected set and has to be rebuilt on a
+      // switch -- otherwise it kept showing the previous set.
       if (key === 'symbolSet') buildLegend();
     });
   }
 }
 bindControls();
 
-// --- Display wachhalten ----------------------------------------------------
+// --- Keeping the display awake ----------------------------------------------
 //
-// Ohne Wake Lock geht dem Tablet mitten im Flug das Display aus. Die API gibt
-// es nur im Secure Context -- über http://<LAN-IP> also nicht, siehe
-// tools/make-cert.sh. Das Sperrobjekt wird beim Wegblenden vom Browser
-// freigegeben und muss danach neu angefordert werden.
+// Without a wake lock the tablet's display turns off mid-flight. The API is
+// only available in a secure context -- so not over http://<LAN-IP>, see
+// tools/make-cert.sh. The lock object is released by the browser on
+// backgrounding and has to be re-requested afterwards.
 
 let wakeLock: WakeLockSentinel | null = null;
 
@@ -954,19 +954,19 @@ async function acquireWakeLock(): Promise<void> {
     wakeLock = await navigator.wakeLock.request('screen');
     wakeLock.addEventListener('release', () => { wakeLock = null; });
   } catch {
-    // Verweigert oder nicht erlaubt -- die Karte funktioniert trotzdem.
+    // Refused or not permitted -- the map still works regardless.
     wakeLock = null;
   }
 }
 
-export function wakeLockState(): 'aktiv' | 'nicht verfügbar' | 'aus' {
-  if (!('wakeLock' in navigator)) return 'nicht verfügbar';
-  return wakeLock ? 'aktiv' : 'aus';
+export function wakeLockState(): 'active' | 'unavailable' | 'off' {
+  if (!('wakeLock' in navigator)) return 'unavailable';
+  return wakeLock ? 'active' : 'off';
 }
 
 void acquireWakeLock();
 
-// Beim Zurückkommen neu synchronisieren statt alte Frames abzuspielen.
+// Re-sync on return instead of playing back stale frames.
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     units.clear();
