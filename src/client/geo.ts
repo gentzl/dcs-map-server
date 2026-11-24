@@ -163,6 +163,22 @@ export function formatAltitude(meters: number): string {
 }
 
 /**
+ * Mission elapsed time as HH:MM:SS, from DCS' own model time -- not the
+ * wall clock, which every device already shows on its own and which has no
+ * relationship to the mission. A bare sequence counter sat here before and
+ * meant nothing to look at; this is what a mission clock actually is, and it
+ * still reveals a stalled feed the same way a counter would: if it stops
+ * advancing, nothing more is coming in.
+ */
+export function formatMissionTime(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const hh = Math.floor(s / 3600);
+  const mm = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+}
+
+/**
  * Range steps like on an MFD.
  *
  * 5/10/20/80/160 nm is the scaling of the Hornet's and Viper's HSI/HSD

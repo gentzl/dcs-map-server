@@ -12,6 +12,7 @@ import {
   distanceTo,
   groundTrack,
   formatAltitude,
+  formatMissionTime,
   formatDDM,
   metersToFeet,
   metersToNm,
@@ -178,6 +179,18 @@ describe('cockpit formatting', () => {
     assert.equal(formatAltitude(1000), '3300 ft');
     assert.equal(formatAltitude(18_000 / 3.28084), 'FL180');
     assert.equal(formatAltitude(30_000 / 3.28084), 'FL300');
+  });
+
+  test('mission time reads as a clock, from DCS model time', () => {
+    assert.equal(formatMissionTime(0), '00:00:00');
+    assert.equal(formatMissionTime(59), '00:00:59');
+    assert.equal(formatMissionTime(61), '00:01:01');
+    assert.equal(formatMissionTime(3_661), '01:01:01');
+    assert.equal(formatMissionTime(7_325), '02:02:05');
+  });
+
+  test('mission time never goes negative, even from a stray bad sample', () => {
+    assert.equal(formatMissionTime(-5), '00:00:00');
   });
 
   test('a contact altitude reads as thousands of feet', () => {

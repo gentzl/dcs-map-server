@@ -15,6 +15,8 @@ export class OwnshipEstimator {
   alt = 0;
   hdg = 0;
   tas = 0;
+  /** Mission elapsed time from DCS -- a simple pass-through, like alt/tas. */
+  modelTime = 0;
   /** Course and speed over the ground -- heading and TAS plus the wind. */
   track = 0;
   groundSpeed = 0;
@@ -39,6 +41,7 @@ export class OwnshipEstimator {
     }
     this.alt = own.alt;
     this.tas = own.tas;
+    this.modelTime = own.modelTime;
     // Wind only moves an aircraft that is flying in it. On the ground the
     // wheels hold it, and applying the wind would have a parked aircraft
     // drift across the apron while the corrections fought to pull it back.

@@ -11,6 +11,7 @@ import {
   bearingTo,
   distanceTo,
   formatAltitude,
+  formatMissionTime,
   formatDDM,
   metersToFeet,
   metersToNm,
@@ -985,9 +986,10 @@ function updateHud(now: number): void {
   // the bar wraps to two lines on phone width instead of tearing a group
   // apart mid-way or scrolling sideways.
   hud.textContent = [
-    // Just a delta sequence counter, but unlabelled it reads as a clock --
-    // SEQ makes clear it's not one.
-    nbsp(`${connected ? '●' : '○'} SEQ ${lastSeq}`),
+    // Mission elapsed time, from DCS' own model time -- not the wall clock,
+    // which every device already shows. Doubles as a feed-health check: if
+    // it stops advancing, so has everything else.
+    nbsp(`${connected ? '●' : '○'} ${formatMissionTime(own.modelTime)}`),
     nbsp(`${formatDDM(own.lat, 'NS')} ${formatDDM(own.lon, 'EW')}`),
     nbsp(formatAltitude(own.alt)),
     nbsp(`${Math.round(msToKnots(own.tas))} kt`),
