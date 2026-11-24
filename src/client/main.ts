@@ -243,6 +243,23 @@ window.addEventListener('keydown', (e) => {
 canvas.style.touchAction = 'none';
 
 /**
+ * The attribution control's compact toggle is a native <details>/<summary>,
+ * which browsers never auto-close on an outside click or tap -- the only way
+ * to dismiss one is clicking the summary again. On a small screen the
+ * expanded panel can end up covering or crowding that same summary, which
+ * makes it awkward or impossible to hit a second time. A tap anywhere else
+ * closes it explicitly instead of relying on that.
+ */
+document.addEventListener(
+  'pointerdown',
+  (e) => {
+    const attrib = document.querySelector('details.maplibregl-ctrl-attrib[open]');
+    if (attrib && !attrib.contains(e.target as Node)) attrib.removeAttribute('open');
+  },
+  { capture: true },
+);
+
+/**
  * Panning and pinch-zoom, built directly on pointer events rather than
  * MapLibre's own dragPan/touchZoomRotate (both disabled above). One pointer
  * down drags the map -- the point under the cursor at the start stays under
