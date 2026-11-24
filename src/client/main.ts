@@ -673,7 +673,10 @@ function updateSources(now: number): void {
   });
 
   setData('threats', buildThreatRings(contacts, settings.threats, ownCoalition));
-  if (settings.rings) setData('rings', buildRings(own.lat, own.lon, currentRange()));
+  // The actual displayed range, not the last-pressed preset -- otherwise a
+  // pinch or wheel zoom away from a button leaves the rings frozen at
+  // whichever step was last clicked.
+  if (settings.rings) setData('rings', buildRings(own.lat, own.lon, displayedRangeNm()));
   if (settings.bullseye) setData('bullseye', buildBullseye(bullseye.lat, bullseye.lon));
 
   const last = trackPoints[trackPoints.length - 1];

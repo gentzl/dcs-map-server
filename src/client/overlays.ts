@@ -1,5 +1,5 @@
 import type { Unit } from '../shared/types.js';
-import { M_PER_NM, destination, metersToNm, toRad } from './geo.js';
+import { M_PER_NM, RANGES_NM, destination, metersToNm, toRad } from './geo.js';
 
 /**
  * Tactical overlays: range rings and bearing ticks around the own aircraft.
@@ -37,6 +37,20 @@ const RINGS_FOR_RANGE: Record<number, readonly number[]> = {
   160: [40],
 };
 
+/**
+ * Floors an arbitrary displayed range (e.g. mid-pinch, between presets) to
+ * the largest preset step at or below it -- so which rings are shown
+ * tracks what's actually visible, not just whichever range button was last
+ * pressed.
+ */
+function ringStepFor(nm: number): number {
+  let step: number = RANGES_NM[0];
+  for (const r of RANGES_NM) {
+    if (r <= nm + 1e-4) step = r;
+  }
+  return step;
+}
+
 const CIRCLE_SEGMENTS = 128;
 
 function geodesicRing(lat: number, lon: number, radiusM: number): [number, number][] {
@@ -52,7 +66,7 @@ function geodesicRing(lat: number, lon: number, radiusM: number): [number, numbe
 export function buildRings(lat: number, lon: number, rangeNm: number): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
 
-  for (const nm of RINGS_FOR_RANGE[rangeNm] ?? []) {
+  for (const nm of RINGS_FOR_RANGE[ringStepFor(rangeNm)] ?? []) {
     features.push({
       type: 'Feature',
       geometry: { type: 'LineString', coordinates: geodesicRing(lat, lon, nm * M_PER_NM) },
