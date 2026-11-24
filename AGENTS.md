@@ -41,6 +41,13 @@ sessions. When a change makes that test fail, read the diff: it is the list of u
 just changed on the map. Regenerate only after accepting it — the command is in
 [docs/DEVELOPERS.md](docs/DEVELOPERS.md#the-classification-baseline).
 
+## Platform
+
+DCS itself only runs on Windows, so that's the only platform any tool or script here needs to
+work on -- no cross-platform branching, fallback paths, or error messages for Linux/macOS. If
+you find one (e.g. a `process.platform` check for a non-Windows case), simplify it away rather
+than maintaining it.
+
 ## Language
 
 Code language: English, everywhere in code -- comments, identifiers (variables, functions,

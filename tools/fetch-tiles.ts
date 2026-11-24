@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { chmod, mkdir, stat, writeFile } from 'node:fs/promises';
+import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readEntries } from './zip.js';
@@ -13,6 +13,9 @@ import { readEntries } from './zip.js';
  * also needs the `pmtiles` binary itself, which most Windows users won't
  * have and have no `brew` to get -- ensurePmtiles() below downloads the
  * right one automatically instead of requiring it on PATH.
+ *
+ * DCS only runs on Windows, so this (like every tool and script here) only
+ * needs to run there -- no cross-platform fallback.
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -56,28 +59,16 @@ async function findPlanet(): Promise<string> {
   throw new Error('no reachable planet build found');
 }
 
-/** Platform/arch-specific download: where go-pmtiles publishes each binary. */
-function releaseAsset(): { url: string; archive: 'zip' | 'tar.gz' } {
+/** Where go-pmtiles publishes the Windows binary for this arch. */
+function releaseAsset(): { url: string } {
   const arch = process.arch === 'arm64' ? 'arm64' : 'x86_64';
   const base = `https://github.com/protomaps/go-pmtiles/releases/download/v${PMTILES_VERSION}`;
-  if (process.platform === 'darwin') {
-    return { url: `${base}/go-pmtiles-${PMTILES_VERSION}_Darwin_${arch}.zip`, archive: 'zip' };
-  }
-  if (process.platform === 'win32') {
-    return { url: `${base}/go-pmtiles_${PMTILES_VERSION}_Windows_${arch}.zip`, archive: 'zip' };
-  }
-  // Linux releases ship as .tar.gz, which the project's own zip reader can't
-  // open, and Linux users running this are rarely the "no terminal
-  // experience at all" audience the auto-download exists for.
-  throw new Error(
-    `no automatic download for this platform (${process.platform}). ` +
-      `Install pmtiles yourself: https://github.com/protomaps/go-pmtiles/releases/tag/v${PMTILES_VERSION}`,
-  );
+  return { url: `${base}/go-pmtiles_${PMTILES_VERSION}_Windows_${arch}.zip` };
 }
 
 /** Downloads and caches the go-pmtiles binary, returning its local path. */
 async function ensurePmtiles(): Promise<string> {
-  const binName = process.platform === 'win32' ? 'pmtiles.exe' : 'pmtiles';
+  const binName = 'pmtiles.exe';
   const runtimeDir = path.join(root, 'runtime');
   const binPath = path.join(runtimeDir, binName);
 
@@ -100,7 +91,6 @@ async function ensurePmtiles(): Promise<string> {
 
   await mkdir(runtimeDir, { recursive: true });
   await writeFile(binPath, entry.data);
-  if (process.platform !== 'win32') await chmod(binPath, 0o755);
   return binPath;
 }
 

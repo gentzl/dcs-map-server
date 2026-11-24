@@ -27,11 +27,11 @@ type. It asks for the theater again on your next double-click too, but skips eve
 already done. (Nothing it downloads touches the rest of your system — it all stays inside this
 project's own folder.)
 
-### Everyone else, or if you'd rather run the steps yourself
+### Or, if you'd rather run the steps yourself
 
 You'll need [Node.js](https://nodejs.org) installed on the DCS PC (version 22 or newer). Everything
 else below is copy-paste into a terminal, in the folder you downloaded this project into — the same
-commands work in PowerShell, cmd.exe, or a Unix shell.
+commands work in PowerShell or cmd.exe.
 
 1. Install and prepare the map data (one-time, a couple of minutes):
 
