@@ -15,10 +15,12 @@ Each line is `{"t": <ms since capture start>, "msg": <ServerMessage>}` --
 the same `Snapshot`/`Delta` shape (`src/shared/types.ts`) a browser client
 receives, not the hook's raw UDP wire format. That makes it the wrong input
 for `tools/inspect-capture.ts` (which reads `{"t", "p"}` raw-datagram
-captures written by `MM_CAPTURE`) -- there is currently no replay tool for
-this JSONL shape; one would need to open a WebSocket, send each `msg` in
-order spaced by its `t`, to feed it back through a server for a from-scratch
-regression test.
+captures written by `MM_CAPTURE`); `tools/replay-ws.ts` is the one that reads
+this shape, and feeds it back through a server as a relay source.
+
+Both files are also read directly by the tests (`test/fixtures.ts`): the
+fog-of-war matrix is checked against them, and every distinct unit name in
+them forms the classification baseline.
 
 Checked for anything identifying before this was committed: unit names are
 vehicle/ship types (BMP-1, Mi-24P, CVN-75 Harry S. Truman, ...) or
