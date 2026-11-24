@@ -124,7 +124,7 @@ let bullseye: { lat: number; lon: number } = (() => {
     const raw = localStorage.getItem('dcs-map-server.bullseye');
     if (raw) return JSON.parse(raw) as { lat: number; lon: number };
   } catch {
-    /* ohne gespeicherten Wert weiter */
+    /* no stored value, fall through to the default */
   }
   return { lat: 42.18, lon: 42.48 };
 })();
