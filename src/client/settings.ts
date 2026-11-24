@@ -2,8 +2,9 @@
 
 export interface Settings {
   /**
-   * Symbol set. 'nato' follows APP-6/MIL-STD-2525, 'dcs' approximates the
-   * game's own map presentation (an approximation, see symbols/dcs.ts).
+   * Symbol set. 'nato' is based on APP-6/MIL-STD-2525 (see symbols/nato.ts
+   * for where it departs), 'dcs' approximates the game's own map
+   * presentation (an approximation, see symbols/dcs.ts).
    */
   symbolSet: 'nato' | 'dcs';
   /** Aeronautical chart (light, map convention) or night presentation (dark, low-glare). */

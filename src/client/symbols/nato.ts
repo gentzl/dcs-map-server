@@ -8,7 +8,13 @@ import {
 } from './types.js';
 
 /**
- * Contact symbols following NATO APP-6 / MIL-STD-2525.
+ * Contact symbols based on NATO APP-6 / MIL-STD-2525.
+ *
+ * Based on, not conforming to: the frames are drawn as solid bodies here,
+ * where the standard leaves them unfilled. On a moving map read at arm's
+ * length over cluttered terrain, a tinted outline simply does not carry --
+ * which is also why the game's own map fills its symbols. Everything else
+ * follows the standard.
  *
  * Structure of the standard: the frame carries affiliation and dimension,
  * the icon inside it the object type.
@@ -26,11 +32,25 @@ import {
 
 type Dimension = 'air' | 'land' | 'sea' | 'sub';
 
-const COLORS: Record<Affiliation, string> = {
-  friend: '#4895ef',
-  hostile: '#e63946',
-  neutral: '#52b788',
-  unknown: '#e9c46a',
+interface Palette {
+  /** Body of the frame. */
+  fill: string;
+  /** Outline around the body. */
+  edge: string;
+  /** Letters and icons, drawn on top of the fill. */
+  ink: string;
+}
+
+/**
+ * One palette per affiliation. Dark ink on a saturated body, the same way
+ * the game's own map does it -- a glyph in the frame's own colour would
+ * vanish the moment the frame stopped being mostly transparent.
+ */
+const COLORS: Record<Affiliation, Palette> = {
+  friend: { fill: '#5bb0f2', edge: '#10395f', ink: '#06182b' },
+  hostile: { fill: '#ec4a42', edge: '#5d1512', ink: '#280705' },
+  neutral: { fill: '#5cc595', edge: '#14472f', ink: '#05231a' },
+  unknown: { fill: '#edc860', edge: '#5a4410', ink: '#2a1f05' },
 };
 
 const DIMENSION: Record<Category, Dimension> = {
@@ -170,10 +190,9 @@ const ICONS: Partial<Record<Category, Draw>> = {
   awacs: fixedWingIcon,
   // Rotor blades: crossed, to suggest the spinning motion.
   // A filled rotor disc (like the fixed-wing's propeller), with the crossed
-  // strokes as rotor blades on top. Without the fill the symbol was left
-  // with only a thin line, since the air frame itself is open at the bottom
-  // under APP-6 and therefore unfilled -- for fixed-wing the filled
-  // propeller compensates, the helicopter had no equivalent.
+  // strokes as rotor blades on top. Without the disc the helicopter was left
+  // with only thin crossed lines, where fixed-wing already had its filled
+  // propeller to carry the symbol.
   helo: (c, s) => {
     c.beginPath();
     c.ellipse(s * 0.5, s * 0.47, s * 0.25, s * 0.25, 0, 0, Math.PI * 2);
@@ -226,7 +245,7 @@ const FILLED = new Set<Category>(['armor', 'sam', 'weapon', 'air', 'cargo', 'tan
 function render(category: Category, affiliation: Affiliation): ImageData {
   const { ctx, px } = newCanvas();
 
-  const color = COLORS[affiliation];
+  const { fill, edge, ink } = COLORS[affiliation];
   const dim = DIMENSION[category];
 
   // Dark backing first, so the frame carries equally on the light
@@ -236,42 +255,35 @@ function render(category: Category, affiliation: Affiliation): ImageData {
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  // Lightly tinted fill: lifts the symbol off the terrain without covering
-  // it. Air frames are open and therefore never filled.
-  if (dim !== 'air') {
-    ctx.fillStyle = `${color}33`;
-    ctx.fill();
-  }
-  ctx.strokeStyle = color;
+  // Solid body. A 20 % tint used to leave only the 2 px outline carrying any
+  // colour at all, which disappeared against anything but plain terrain.
+  // Air frames are filled too: the path closes along the bottom while the
+  // outline stays open there, so the dimension cue survives.
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.strokeStyle = edge;
   ctx.lineWidth = 2;
   ctx.stroke();
 
   const letter = LETTERS[category];
   if (letter) {
-    ctx.font = `600 ${Math.round(SIZE * 0.3)}px ui-monospace, Menlo, monospace`;
+    ctx.font = `700 ${Math.round(SIZE * 0.3)}px ui-monospace, Menlo, monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(12,16,20,0.85)';
-    ctx.strokeText(letter, SIZE * 0.5, SIZE * 0.52);
-    ctx.fillStyle = color;
+    ctx.fillStyle = ink;
     ctx.fillText(letter, SIZE * 0.5, SIZE * 0.52);
   }
 
   const icon = ICONS[category];
   if (icon) {
     icon(ctx, SIZE);
-    // Thinner than before (was 3.4): at small render sizes a thick outline
-    // ate up almost the entire fill area -- a filled rotor disc turned into
-    // a thin ring on the map. Affects every filled icon, not just the helo.
-    ctx.strokeStyle = 'rgba(12,16,20,0.85)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
     if (FILLED.has(category)) {
-      ctx.fillStyle = color;
+      ctx.fillStyle = ink;
       ctx.fill();
     }
-    ctx.strokeStyle = color;
+    // Thin: at small render sizes a thick outline ate up almost the entire
+    // fill area -- a filled rotor disc turned into a thin ring on the map.
+    ctx.strokeStyle = ink;
     ctx.lineWidth = 1.6;
     ctx.stroke();
   }

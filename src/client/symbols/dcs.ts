@@ -30,14 +30,14 @@ interface Palette {
 
 const PALETTE: Record<Coalition, Palette> = {
   0: { fill: '#c9c9c4', edge: '#55564f', ink: '#23241f' },
-  1: { fill: '#e8706b', edge: '#8d2b27', ink: '#2a0f0e' },
+  1: { fill: '#e0453e', edge: '#7a201c', ink: '#2a0f0e' },
   2: { fill: '#8ad2e6', edge: '#2a6b80', ink: '#0f2a33' },
 };
 
 /** Ground vehicles get a more muted fill than air and sea. */
 const GROUND_FILL: Record<Coalition, string> = {
   0: '#b8bab2',
-  1: '#e8706b',
+  1: '#e0453e',
   2: '#93c4b4',
 };
 
