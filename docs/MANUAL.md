@@ -102,6 +102,12 @@ straight at you, `FLANK`, `BEAM`, `DRAG`, `COLD` straight away. Closure is how f
 actually shutting, which is not the same as how fast either of you is flying: forty miles is two
 and a half minutes head-on and never at all behind someone faster than you.
 
+**Double-tapping open ground** draws the same line and readout to that fixed point instead of a
+contact — for a rally point, a run-in heading, or anywhere you just want bearing, range, bullseye
+position and time to get there without waiting for something to fly past it. It has no altitude,
+aspect or speed of its own, since it isn't moving. Tapping a contact afterward replaces it, the
+same as switching between two contacts.
+
 Altitudes for aircraft are in thousands of feet — `31.9` is thirty-one thousand nine hundred, the
 way it goes over the radio. Things on the ground keep plain feet.
 
@@ -121,6 +127,7 @@ level, speed in knots, coordinates in degrees and decimal minutes, bearings magn
 | `⚙` | Settings |
 | Tap empty ground | Coordinates at that point |
 | Tap a contact | Line and readout to it, coordinates included |
+| Double-tap empty ground | Line and readout (bearing, range, bullseye, time) to that fixed point |
 | `⚙` → Symbols | Legend of all contact symbols |
 | Shift + click, or press and hold | Place the bullseye |
 

@@ -118,6 +118,29 @@ let ruler: { a: { lat: number; lon: number } | null; b: { lat: number; lon: numb
  */
 let clickedPoint: { lat: number; lon: number } | null = null;
 
+/**
+ * A fixed ground reference, set by double-clicking open ground: the BRAA
+ * box's bearing/range/bullseye/closure, but to a point rather than a
+ * contact -- useful for a rally point, a run-in heading, or anywhere you
+ * just want the numbers to without waiting for something to fly there.
+ *
+ * Detected by hand rather than the browser's own dblclick event: that fires
+ * after two ordinary click events already ran, which would select a
+ * contact on the first click and immediately deselect it again on the
+ * second -- a double-click on a contact would silently cancel itself out.
+ */
+let groundTarget: { lat: number; lon: number } | null = null;
+
+/**
+ * Tracks every click, not just ones on open ground: a double-click on a
+ * contact goes through the ordinary single-click toggle twice too (select,
+ * then immediately deselect again), so recognising the pair has to cover
+ * both branches, not just the ground one.
+ */
+let lastClickAt: { t: number; pt: [number, number] } | null = null;
+const DOUBLE_CLICK_MS = 400;
+const DOUBLE_CLICK_PX = 10;
+
 /** The user sets the bullseye themselves -- the export hook doesn't provide one. */
 let bullseye: { lat: number; lon: number } = (() => {
   try {
@@ -866,6 +889,9 @@ function updateSources(now: number): void {
       }
       braaLine = [[own.lon, own.lat], [sel.lon, sel.lat]];
     }
+  } else if (groundTarget) {
+    // A fixed point has no trail of its own to draw -- just the line to it.
+    braaLine = [[own.lon, own.lat], [groundTarget.lon, groundTarget.lat]];
   }
   setData('selected-trail', {
     type: 'Feature',
@@ -1105,7 +1131,8 @@ function updateClickInfo(): void {
 
 function updateBraa(now: number): void {
   if (selectedId === null) {
-    braaBox.hidden = true;
+    if (groundTarget) updateGroundTargetBraa(groundTarget);
+    else braaBox.hidden = true;
     return;
   }
   // Not units.meta (the last raw sample) but the same interpolated position
@@ -1158,6 +1185,34 @@ function updateBraa(now: number): void {
   ].join('   ');
 }
 
+/**
+ * The BRAA box for a fixed ground reference instead of a contact: no name,
+ * category, altitude, aspect or speed, since none of that applies to a
+ * point -- but bearing, range, bullseye position and closure still mean
+ * exactly the same thing, closure here being simply how fast you yourself
+ * are covering the ground towards it (the point has no speed of its own to
+ * net out, so passing zero for both leaves only your own along-track
+ * component).
+ */
+function updateGroundTargetBraa(target: { lat: number; lon: number }): void {
+  const brg = bearingTo(own.lat, own.lon, target.lat, target.lon);
+  const rng = metersToNm(distanceTo(own.lat, own.lon, target.lat, target.lon));
+  const bullBrg = bearingTo(bullseye.lat, bullseye.lon, target.lat, target.lon);
+  const bullRng = metersToNm(distanceTo(bullseye.lat, bullseye.lon, target.lat, target.lon));
+  const vc = closureMs(own.track, own.groundSpeed, 0, 0, brg);
+  const ttgMin = vc > 1 ? (rng * M_PER_NM) / vc / 60 : null;
+
+  braaBox.hidden = false;
+  braaBox.textContent = [
+    nbsp('GROUND REF'),
+    nbsp(`${formatDDM(target.lat, 'NS')} ${formatDDM(target.lon, 'EW')}`),
+    nbsp(`BRAA ${bearing3(refBearing(brg))}${refSuffix} / ${rng.toFixed(1)} nm`),
+    nbsp(`BULLS ${bearing3(refBearing(bullBrg))}${refSuffix}/${Math.round(bullRng)}`),
+    nbsp(`Vc ${Math.round(msToKnots(vc))}`),
+    nbsp(ttgMin !== null && ttgMin < 60 ? `T ${ttgMin.toFixed(1)} min` : 'T —'),
+  ].join('   ');
+}
+
 // --- Controls ----------------------------------------------------------------
 
 canvas.addEventListener('click', (e) => {
@@ -1192,20 +1247,44 @@ canvas.addEventListener('click', (e) => {
   const hits = map.queryRenderedFeatures([[pt[0] - 12, pt[1] - 12], [pt[0] + 12, pt[1] + 12]], { layers: ['contacts-dot', 'contacts-air'] });
   const id = hits[0]?.properties?.['id'];
 
+  const now = performance.now();
+  const isDoubleClick =
+    lastClickAt !== null &&
+    now - lastClickAt.t < DOUBLE_CLICK_MS &&
+    Math.hypot(pt[0] - lastClickAt.pt[0], pt[1] - lastClickAt.pt[1]) < DOUBLE_CLICK_PX;
+  lastClickAt = { t: now, pt };
+
   if (typeof id === 'number') {
-    // A contact: toggle it off if it's the one already selected, otherwise
-    // switch the readout to it. Either way the BRAA box gets its own
-    // coordinate line, so the floating one here would be redundant.
-    selectedId = id === selectedId ? null : id;
-    selectedTrail = [];
+    // A contact. The first click of a double-click already toggles the
+    // selection; re-running that same toggle on the second click would
+    // just undo it, so the second click is a no-op here -- its only job is
+    // to not get in the way, since a double-click's real effect (should the
+    // user actually be double-clicking open ground nearby) happens below.
+    if (!isDoubleClick) {
+      selectedId = id === selectedId ? null : id;
+      selectedTrail = [];
+    }
+    // Either way the BRAA box gets its own coordinate line, so the floating
+    // one here would be redundant -- and a contact takes priority over any
+    // ground reference point showing.
     clickedPoint = null;
+    groundTarget = null;
   } else {
     // Empty ground. A stray tap elsewhere must never silently drop the BRA
     // line -- only clicking the selected contact again does that -- so the
     // selection is left exactly as it was; this only adds the coordinate
-    // readout at the point itself.
+    // readout at the point itself. A double-click instead sets a BRAA
+    // reference point right there, the ground equivalent of selecting a
+    // contact.
     const ll = map.unproject(pt);
-    clickedPoint = { lat: ll.lat, lon: ll.lng };
+    if (isDoubleClick) {
+      groundTarget = { lat: ll.lat, lon: ll.lng };
+      selectedId = null;
+      selectedTrail = [];
+      clickedPoint = null;
+    } else {
+      clickedPoint = { lat: ll.lat, lon: ll.lng };
+    }
   }
 });
 
@@ -1235,7 +1314,10 @@ const btnMeasure = document.getElementById('mode-measure')!;
 btnMeasure.addEventListener('click', () => {
   ruler = ruler ? null : { a: null, b: null };
   btnMeasure.setAttribute('aria-pressed', String(ruler !== null));
-  if (ruler) clickedPoint = null;
+  if (ruler) {
+    clickedPoint = null;
+    groundTarget = null;
+  }
 });
 
 btnCtr.addEventListener('click', () => setFollow(true));
