@@ -1013,7 +1013,6 @@ function updateHud(now: number): void {
       : `WIND ${bearing3(refBearing(wind.bearing))}${refSuffix}/${Math.round(msToKnots(wind.speedMs))}`),
     nbsp(`BULLS ${bearing3(refBearing(brgToUs))}/${Math.round(bullRange)}`),
     nbsp(`${displayedRangeNm()} NM`),
-    nbsp(`${units.meta.size} CONTACTS`),
   ].join('   ');
 
   // If the mission withholds other units, this needs to be shown. Otherwise
