@@ -324,9 +324,6 @@ hasn't changed, so the client doesn't dim it as stale.
   per aircraft module rather than a stable, documented, cross-module call. Someone who knows a
   specific module's export quirks would have to confirm this one way or the other; absent that, it
   stays unbuilt rather than guessed at.
-- Checking this project's feature set against user wishes on the DCS forum thread "DCS Moving
-  Map" (forum.dcs.world/topic/259831). The forum blocks automated fetches (403), so this needs a
-  manual read -- paste the relevant posts in and it can be done in one pass.
 - A small number of ship classes with a genuine area air-defence system have a threat ring
   (Ticonderoga/Arleigh Burke-class, Aegis; Kirov/Slava-class, SA-N-6) -- see threats.ts. Frigates
   and corvettes with a shorter-range system are deliberately left out until someone can confirm
