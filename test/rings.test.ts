@@ -80,7 +80,7 @@ describe('ring geometry', () => {
     assert.deepEqual(c[0], c[c.length - 1]);
   });
 
-  test('bearing ticks ring the view at every step, independent of the rings', () => {
+  test('every step has 12 bearing ticks, 4 of them cardinals', () => {
     for (const nm of RANGES_NM) {
       const ticks = buildRings(LAT, LON, nm).features.filter((f) => f.properties?.['kind'] === 'tick');
       assert.equal(ticks.length, 12, `range step ${nm}`); // every 30 degrees
@@ -96,24 +96,21 @@ describe('ring geometry', () => {
     return distanceTo(LAT, LON, far[1], far[0]) / M_PER_NM;
   };
 
-  // Reported as "weird direction arrows" in the range ring: zoomed out past
-  // the widest preset (stepless wheel/pinch), the ticks used to keep
-  // reaching the true view edge while the ring circles froze at 160 nm (the
-  // top preset, with nothing larger for ringStepFor to float up to) -- so
-  // the ticks ended up far outside the rings, looking like stray marks
-  // disconnected from anything.
-  test('ticks never reach past the widest preset, however far zoomed out', () => {
-    const widest = Math.max(...RANGES_NM);
-    for (const rangeNm of [161, 320, 497, 5000]) {
+  // Reported as "weird direction arrows": floating marks with no ring near
+  // them, disconnected from anything. Ticks used to reach a uniform
+  // geographic radius in every direction ("the edge of the view"), but the
+  // view is a wide rectangle, not a circle -- that radius only reaches the
+  // true edge along the screen's short axis. Along the long axis it falls
+  // well short, stranding ticks in open space. Reproduced at perfectly
+  // ordinary zoom (55 nm between the 50 and 80 presets), not just deep
+  // stepless zoom-out. Anchoring to the outermost ring that is actually
+  // drawn means a tick always touches something, in every direction.
+  test('ticks sit exactly on the outermost ring shown, at any range', () => {
+    for (const rangeNm of [1, 35, 55, 145, 160, 161, 320, 497, 5000]) {
+      const rings = ringsAt(rangeNm);
+      const expected = rings.length ? Math.max(...rings) : rangeNm;
       const r = tickOuterRadiusNm(rangeNm);
-      assert.ok(Math.abs(r - widest) < 0.1, `range ${rangeNm}: ticks reach ${r} nm, not ${widest}`);
-    }
-  });
-
-  test('within the preset range, ticks still reach the true view edge as before', () => {
-    for (const rangeNm of [1, 35, 145, 160]) {
-      const r = tickOuterRadiusNm(rangeNm);
-      assert.ok(Math.abs(r - rangeNm) < 0.1, `range ${rangeNm}: ticks reach ${r} nm, not ${rangeNm}`);
+      assert.ok(Math.abs(r - expected) < 0.1, `range ${rangeNm}: ticks reach ${r} nm, not ${expected}`);
     }
   });
 });

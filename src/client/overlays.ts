@@ -75,8 +75,9 @@ function geodesicRing(lat: number, lon: number, radiusM: number): [number, numbe
 
 export function buildRings(lat: number, lon: number, rangeNm: number): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
+  const shown = RINGS_FOR_RANGE[ringStepFor(rangeNm)] ?? [];
 
-  for (const nm of RINGS_FOR_RANGE[ringStepFor(rangeNm)] ?? []) {
+  for (const nm of shown) {
     features.push({
       type: 'Feature',
       geometry: { type: 'LineString', coordinates: geodesicRing(lat, lon, nm * M_PER_NM) },
@@ -85,14 +86,19 @@ export function buildRings(lat: number, lon: number, rangeNm: number): GeoJSON.F
   }
 
   // Bearing ticks every 30°, the cardinal directions longer. They replace
-  // the compass rose without cluttering the view. Always out to the edge of
-  // the current view, independent of which specific rings are shown above --
-  // except past the widest preset (160 nm), where there is no larger preset
-  // for ringStepFor to float up to: the rings freeze there, so the ticks
-  // have to as well, or stepless zoom-out drags them far outside the rings
-  // they are meant to sit on, reading as a handful of stray, oddly angled
-  // marks disconnected from anything.
-  const outer = Math.min(rangeNm, Math.max(...RANGES_NM));
+  // the compass rose without cluttering the view.
+  //
+  // Anchored to the outermost ring actually drawn, not to "the edge of the
+  // current view" as the radius once was defined: the view is a wide
+  // rectangle, not a circle, so a uniform geographic radius only reaches the
+  // true edge along the screen's short axis. Along the long axis it stops
+  // well short of it, stranded in open space with no ring anywhere near it --
+  // exactly the "floating, disconnected marks" this was reported as, and
+  // reproducible at perfectly ordinary zoom (55 nm), not just deep stepless
+  // zoom-out. Sitting on the ring instead means every tick always touches
+  // something, in every direction, on every screen shape. The 1 nm step
+  // shows no rings at all, so there ticks fall back to the raw range.
+  const outer = shown.length ? Math.max(...shown) : rangeNm;
   for (let deg = 0; deg < 360; deg += 30) {
     const major = deg % 90 === 0;
     const from = outer * (major ? 0.9 : 0.95);
