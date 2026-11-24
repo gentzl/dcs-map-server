@@ -124,16 +124,13 @@ map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-lef
 
 map.scrollZoom.disable();
 map.touchZoomRotate.disable();
-// interactive: false disables every handler at construction, so dragPan has
-// to be switched back on explicitly.
-map.dragPan.enable();
-// dragPan stays active in both modes. In follow mode the render loop
-// overwrites the centre every frame, but MapLibre's own dragstart event
-// switches to free beforehand -- so the very first drag takes effect,
-// instead of only after a button press.
-map.on('dragstart', () => {
-  if (follow) setFollow(false);
-});
+map.dragPan.disable();
+// Panning is driven directly from raw pointer events below instead of
+// MapLibre's own dragPan: on at least one real mouse/trackpad setup, a held
+// button drag produced no movement at all even with dragPan enabled --
+// MapLibre's internal gesture recognition never saw it. Pointer events also
+// unify mouse, touch and pen under one implementation, and let pinch share
+// the same pointer bookkeeping as the pan below.
 
 function stepRange(delta: number): void {
   rangeIndex = Math.max(0, Math.min(RANGES_NM.length - 1, rangeIndex + delta));
@@ -199,29 +196,87 @@ canvas.addEventListener('wheel', (e) => {
   if (!follow) map.jumpTo({ zoom: manualZoom });
 }, { passive: false });
 
-// Pinch zooms steplessly, unlike the wheel and the buttons -- when nudging
-// your own position on the map you want to feel the actual finger movement,
-// not jump to the next MFD step. The buttons stay the quick pick for known
-// ranges, pinch the free fine-tuning.
+// Prevents the browser's own touch scrolling/pinch-zoom/pull-to-refresh from
+// competing with the pointer handling below.
+canvas.style.touchAction = 'none';
+
+/**
+ * Panning and pinch-zoom, built directly on pointer events rather than
+ * MapLibre's own dragPan/touchZoomRotate (both disabled above). One pointer
+ * down drags the map -- the point under the cursor at the start stays under
+ * it, same feel as any slippy map. A second pointer switches to pinch-zoom,
+ * same stepless behaviour as the wheel. Pointer events cover mouse, touch
+ * and pen in one implementation instead of three separate ones.
+ */
+const activePointers = new Map<number, [number, number]>();
+let pan: { x: number; y: number; startX: number; startY: number } | null = null;
 let pinch: { dist: number; zoom: number } | null = null;
-const touchDist = (t: TouchList) => Math.hypot(t[0]!.clientX - t[1]!.clientX, t[0]!.clientY - t[1]!.clientY);
-canvas.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 2) {
-    pinch = { dist: touchDist(e.touches), zoom: manualZoom ?? map.getZoom() };
+
+const pointerAt = (e: PointerEvent): [number, number] => {
+  const rect = canvas.getBoundingClientRect();
+  return [e.clientX - rect.left, e.clientY - rect.top];
+};
+const pinchDist = (): number => {
+  const [a, b] = [...activePointers.values()];
+  return Math.hypot(a![0] - b![0], a![1] - b![1]);
+};
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  canvas.setPointerCapture(e.pointerId);
+  activePointers.set(e.pointerId, pointerAt(e));
+
+  if (activePointers.size === 1) {
+    const [x, y] = pointerAt(e);
+    pan = { x, y, startX: x, startY: y };
+    pinch = null;
+  } else if (activePointers.size === 2) {
+    pan = null;
+    pinch = { dist: pinchDist(), zoom: manualZoom ?? map.getZoom() };
   }
 });
-canvas.addEventListener('touchmove', (e) => {
-  if (e.touches.length === 2 && pinch) {
-    e.preventDefault();
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!activePointers.has(e.pointerId)) return;
+  activePointers.set(e.pointerId, pointerAt(e));
+
+  if (pan && activePointers.size === 1) {
+    const [x, y] = pointerAt(e);
+    // Against the gesture's start, to tell a drag apart from a stationary
+    // click (contact selection) before committing to leaving follow mode.
+    const fromStart = Math.hypot(x - pan.startX, y - pan.startY);
+    if (follow && fromStart > 3) setFollow(false);
+
+    if (!follow) {
+      // Incremental, read fresh from the current state every step -- not a
+      // pixel anchor cached at gesture start. setFollow(false) resets the
+      // bearing to north-up right as the drag begins, and a cached anchor
+      // from the pre-reset (rotated) frame doesn't carry over to the new
+      // one: project/unproject are only consistent within one bearing.
+      const dx = x - pan.x;
+      const dy = y - pan.y;
+      const centerPx = map.project(map.getCenter());
+      map.jumpTo({ center: map.unproject([centerPx.x - dx, centerPx.y - dy]) });
+    }
+    pan.x = x;
+    pan.y = y;
+  } else if (pinch && activePointers.size === 2) {
     // Doubling the finger distance is one zoom level.
-    const z = pinch.zoom + Math.log2(touchDist(e.touches) / pinch.dist);
+    const z = pinch.zoom + Math.log2(pinchDist() / pinch.dist);
     manualZoom = Math.max(0, Math.min(22, z));
     if (!follow) map.jumpTo({ zoom: manualZoom });
   }
-}, { passive: false });
-canvas.addEventListener('touchend', () => { pinch = null; });
+});
 
-// --- Eigene Layer ----------------------------------------------------------
+function endPointer(e: PointerEvent): void {
+  activePointers.delete(e.pointerId);
+  if (activePointers.size < 1) pan = null;
+  if (activePointers.size < 2) pinch = null;
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+
+// --- Own layers --------------------------------------------------------------
 
 function addOverlayLayers(): void {
   registerSymbols(map);
