@@ -525,7 +525,7 @@ function addOverlayLayers(): void {
     // without having to pick a colour that fights the contact symbols.
     map.addLayer({
       id: 'braa-line-casing', type: 'line', source: 'braa-line',
-      paint: { 'line-color': 'rgba(0,0,0,0.45)', 'line-width': 5 },
+      paint: { 'line-color': 'rgba(0,0,0,0.45)', 'line-width': 4.2 },
     });
     // Dashed core on a solid casing, the way a measured bearing is drawn on a
     // chart. The dashes are deliberately much coarser than the selected
@@ -533,7 +533,7 @@ function addOverlayLayers(): void {
     // same pitch the two would read as one kind of line.
     map.addLayer({
       id: 'braa-line-line', type: 'line', source: 'braa-line',
-      paint: { 'line-color': '#ffd166', 'line-width': 2.2, 'line-dasharray': [6, 3] },
+      paint: { 'line-color': '#ffd166', 'line-width': 1.8, 'line-dasharray': [6, 3] },
     });
   }
 
@@ -542,7 +542,7 @@ function addOverlayLayers(): void {
     // mission put there.
     map.addLayer({
       id: 'ruler-casing', type: 'line', source: 'ruler',
-      paint: { 'line-color': 'rgba(0,0,0,0.45)', 'line-width': 5 },
+      paint: { 'line-color': 'rgba(0,0,0,0.45)', 'line-width': 4.2 },
     });
     map.addLayer({
       id: 'ruler-line', type: 'line', source: 'ruler',
