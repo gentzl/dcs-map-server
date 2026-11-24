@@ -2,12 +2,12 @@ import type { Ownship, Unit } from '../shared/types.js';
 import { bearingTo, destination, distanceTo, shortestAngle } from './geo.js';
 
 /**
- * Eigenes Flugzeug: vorwaerts schaetzen statt verzoegern.
+ * Own aircraft: dead reckon forward instead of delaying.
  *
- * Eine Render-Verzoegerung waere hier stoerend, weil das Symbol im Mittelpunkt
- * steht und jede Unstetigkeit auffaellt. Stattdessen wird aus Kurs und TAS
- * extrapoliert und die Abweichung zum naechsten Sample weich ausgeglichen --
- * so bleibt die Bewegung auch bei Paketverlust glatt.
+ * A render delay would be disruptive here, since the symbol sits at the
+ * centre of the screen and any discontinuity stands out. Instead it
+ * extrapolates from heading and TAS and blends in the deviation to the next
+ * sample smoothly -- so motion stays smooth even through packet loss.
  */
 export class OwnshipEstimator {
   lat = 0;
@@ -18,7 +18,7 @@ export class OwnshipEstimator {
   private have = false;
   private correction = { lat: 0, lon: 0, hdg: 0 };
 
-  /** Zeitkonstante des Ausgleichs. Kuerzer ruckelt, laenger laeuft der Fehler nach. */
+  /** Time constant of the blend. Shorter judders, longer lets the error linger. */
   private static readonly BLEND_MS = 220;
 
   update(own: Ownship): void {
@@ -28,7 +28,7 @@ export class OwnshipEstimator {
       this.hdg = own.hdg;
       this.have = true;
     } else {
-      // Differenz zur Schaetzung wird nicht gesprungen, sondern abgebaut.
+      // The difference from the estimate isn't jumped to, but worked off.
       this.correction.lat += own.lat - this.lat;
       this.correction.lon += own.lon - this.lon;
       this.correction.hdg += shortestAngle(this.hdg, own.hdg);
@@ -67,27 +67,26 @@ interface Sample {
 }
 
 /**
- * Fremdeinheiten: bewusst ~150 ms in der Vergangenheit rendern und zwischen den
- * umschliessenden Samples interpolieren. Dadurch liegt meist ein Zielwert vor
- * und Jitter im WLAN faellt nicht auf.
+ * Other contacts: deliberately render ~150 ms in the past and interpolate
+ * between the bracketing samples. That way a target value is usually
+ * already available, and jitter on the Wi-Fi doesn't show.
  *
- * Reicht das nicht, wird aus den letzten beiden echten Samples vorwaerts
- * geschaetzt -- dieselbe Technik wie beim eigenen Flugzeug, nur ohne dessen
- * laufende Korrektur. Das war zunaechst bewusst weggelassen ("lieber eine
- * ehrlich veraltete Position als eine erfundene"), hat sich an echten
- * DCS-Daten aber als zu kurz gegriffen erwiesen: Der Export-Hook sendet
- * Fremdeinheiten im Round-Robin mit einer festen Objektzahl pro Tick
- * (SWEEP_BUDGET). Bei vielen Objekten in der Mission -- bei 333 real
- * beobachteten etwa alle 300 ms statt alle 100 ms -- stand ein Kontakt die
- * meiste Zeit still und "raste" dann in den letzten 150 ms zur neuen
- * Position, weil kein zweites Sample zum Einrahmen vorlag. Die Schaetzung
- * schliesst genau diese Luecke, bleibt aber durch EXTRAPOLATE_CAP_MS
- * begrenzt: Nach laengerem Ausbleiben soll die Position wieder ehrlich
- * einfrieren statt beliebig weiterzulaufen.
+ * When that's not enough, it dead-reckons forward from the last two real
+ * samples -- the same technique as for the own aircraft, just without its
+ * running correction. That was initially left out on purpose ("an honestly
+ * stale position beats a made-up one"), but turned out to fall short against
+ * real DCS data: the export hook sends other units in a round-robin with a
+ * fixed object count per tick (SWEEP_BUDGET). With many objects in the
+ * mission -- about every 300 ms instead of every 100 ms at 333 objects,
+ * observed for real -- a contact stood still most of the time and then
+ * "raced" to its new position in the last 150 ms, because no second sample
+ * was available to bracket it. The estimate closes exactly that gap, but
+ * stays bounded by EXTRAPOLATE_CAP_MS: after a longer absence the position
+ * should honestly freeze rather than keep running indefinitely.
  */
 export class UnitBuffer {
   static readonly DELAY_MS = 150;
-  /** Laenger wird nicht mehr extrapoliert, nur noch die letzte Position gehalten. */
+  /** Beyond this it no longer extrapolates, just holds the last position. */
   private static readonly EXTRAPOLATE_CAP_MS = 3000;
   private static readonly KEEP = 4;
 
@@ -112,7 +111,7 @@ export class UnitBuffer {
     this.meta.clear();
   }
 
-  /** Interpolierter Zustand zum Renderzeitpunkt, plus Alter in ms. */
+  /** Interpolated state at render time, plus age in ms. */
   at(now: number): Array<{ unit: Unit; lat: number; lon: number; hdg: number; ageMs: number }> {
     const target = now - UnitBuffer.DELAY_MS;
     const out = [];
@@ -127,9 +126,9 @@ export class UnitBuffer {
         const gap = last.t - (prevSample?.t ?? last.t);
         const overdue = Math.min(target - last.t, UnitBuffer.EXTRAPOLATE_CAP_MS);
 
-        // Ohne zweites Sample oder bei einer Standzeit (gap<=0, etwa beim
-        // ersten Erscheinen) laesst sich keine Richtung ableiten -- dann
-        // ehrlich an der letzten Position bleiben statt zu raten.
+        // Without a second sample, or at a standstill (gap<=0, e.g. on first
+        // appearance), no direction can be derived -- then honestly stay at
+        // the last position instead of guessing.
         if (!prevSample || gap <= 0 || overdue <= 0) {
           out.push({ unit, lat: last.lat, lon: last.lon, hdg: last.hdg, ageMs: now - last.t });
           continue;

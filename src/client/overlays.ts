@@ -2,17 +2,17 @@ import type { Unit } from '../shared/types.js';
 import { M_PER_NM, destination, metersToNm, toRad } from './geo.js';
 
 /**
- * Taktische Overlays: Entfernungsringe und Peilstriche um das eigene Flugzeug.
+ * Tactical overlays: range rings and bearing ticks around the own aircraft.
  *
- * Die Ringe sind geodätisch gezogen, nicht als Bildschirmkreise. Bei
- * Heading-up-Darstellung und hohen Breiten wäre ein Bildschirmkreis sonst
- * sichtbar verzerrt – und ein Entfernungsring, der die Entfernung nicht
- * einhält, ist schlimmer als keiner.
+ * The rings are drawn geodesically, not as screen circles. In heading-up
+ * presentation and at high latitudes a screen circle would otherwise be
+ * visibly distorted -- and a range ring that doesn't hold its range is worse
+ * than none at all.
  */
 
 /**
- * Ringradien in Seemeilen. Gezeichnet werden nur die, die in die gewählte
- * Entfernungsstufe passen -- Nahbereichsringe wären auf 160 nm nur Rauschen.
+ * Ring radii in nautical miles. Only the ones that fit the selected range
+ * step are drawn -- close-in rings would just be noise at 160 nm.
  */
 export const RING_RADII_NM = [2.5, 5, 10, 20, 40, 80, 160];
 
@@ -40,8 +40,8 @@ export function buildRings(lat: number, lon: number, maxNm: number): GeoJSON.Fea
     });
   }
 
-  // Peilstriche alle 30°, die Hauptrichtungen länger. Sie ersetzen die
-  // Kompassrose, ohne das Bild zuzustellen.
+  // Bearing ticks every 30°, the cardinal directions longer. They replace
+  // the compass rose without cluttering the view.
   const outer = Math.min(maxNm, RING_RADII_NM[RING_RADII_NM.length - 1]!);
   for (let deg = 0; deg < 360; deg += 30) {
     const major = deg % 90 === 0;
@@ -59,10 +59,9 @@ export function buildRings(lat: number, lon: number, maxNm: number): GeoJSON.Fea
 }
 
 export function buildBullseye(lat: number, lon: number): GeoJSON.FeatureCollection {
-  // Nur der Punkt. Die Erkennbarkeit liefert ein gezeichnetes Symbol fester
-  // Bildschirmgröße -- geodätische Ringe um das Bullseye konkurrierten mit den
-  // Entfernungsringen des eigenen Flugzeugs und überdeckten bei kleinen Stufen
-  // die halbe Ansicht.
+  // Just the point. Visibility comes from a drawn symbol of fixed screen
+  // size -- geodesic rings around the bullseye competed with the own
+  // aircraft's range rings and covered half the view at small range steps.
   return {
     type: 'FeatureCollection',
     features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: {} }],
@@ -72,12 +71,12 @@ export function buildBullseye(lat: number, lon: number): GeoJSON.FeatureCollecti
 
 
 /**
- * Wirkungsbereiche der Flugabwehr als Flächen.
+ * Air defence engagement ranges, as filled areas.
  *
- * Bewusst Polygone statt Linien: Die Aussage ist „dieser Bereich ist gefährdet",
- * und eine Fläche sagt das unmittelbar, während ein bloßer Kreisumriss erst
- * gelesen werden muss. Geodätisch gezogen wie die Entfernungsringe -- ein Ring,
- * der die Reichweite nicht einhält, wäre schlimmer als keiner.
+ * Deliberately polygons rather than lines: the message is "this area is
+ * dangerous", and a filled area says that immediately, while a bare circle
+ * outline has to be read first. Drawn geodesically like the range rings -- a
+ * ring that doesn't hold its range would be worse than none.
  */
 export function buildThreatRings(
   units: Array<{ unit: Unit; lat: number; lon: number; ageMs: number }>,
