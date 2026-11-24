@@ -8,21 +8,21 @@ import { bearingTo, destination, distanceTo, shortestAngle, toRad } from '../src
 import { type Schema, ownshipLine, toDatagrams, unitLine, weaponLine } from './wire.js';
 
 /**
- * Synthetische DCS-Telemetrie fuer die Entwicklung.
+ * Synthetic DCS telemetry for development.
  *
- * Erzeugt protokollkonforme Datagramme und sendet sie an den Server, damit
- * Darstellung und Interpolation ohne laufendes DCS geprueft werden koennen.
+ * Generates protocol-conformant datagrams and sends them to the server, so
+ * rendering and interpolation can be checked without a running DCS.
  *
  *   node dist/tools/tools/generate-telemetry.js --send
  *   npm run telemetry -- --send --units 20
  *
- * Die Kinematik ist bewusst stetig (begrenzte Dreh- und Steigrate): Eine
- * Sprungspur liesse Dead Reckoning faelschlich gut aussehen.
+ * The kinematics are deliberately continuous (bounded turn and climb rate):
+ * a jumpy track would make dead reckoning look falsely good.
  */
 
 const G = 9.80665;
 
-/** Kaukasus, Kuestenabschnitt Batumi-Sochi. Realwelt-Naeherungen, nicht aus DCS gelesen. */
+/** Caucasus, Batumi-Sochi coastal stretch. Real-world approximations, not read from DCS. */
 const WAYPOINTS: Array<[number, number, number]> = [
   [41.61, 41.6, 20],
   [41.93, 41.86, 2400],
@@ -34,7 +34,7 @@ const WAYPOINTS: Array<[number, number, number]> = [
   [41.8, 41.2, 2600],
 ];
 
-/** [Name, level1, Lat, Lon, Koalition, UnitName, GroupName] */
+/** [name, level1, lat, lon, coalition, unitName, groupName] */
 const STATICS: Array<[string, number, number, number, number, string, string]> = [
   ['S-300PS 5P85C LN', 2, 42.845, 41.115, 1, 'SAM-1-1', 'Sukhumi SAM'],
   ['S-300PS 5P85D LN', 2, 42.848, 41.122, 1, 'SAM-1-2', 'Sukhumi SAM'],
@@ -64,7 +64,7 @@ class Ownship {
   t = 0;
   private wp = 1;
 
-  /** Standardkurve und begrenzte Steigrate, damit die Spur interpolierbar bleibt. */
+  /** Standard-rate turn and bounded climb rate, so the track stays interpolatable. */
   private static readonly MAX_TURN = toRad(3);
   private static readonly MAX_CLIMB = 18;
 
@@ -83,7 +83,7 @@ class Ownship {
     const turn = Math.max(-limit, Math.min(limit, shortestAngle(this.hdg, want)));
     this.hdg = (this.hdg + turn + 2 * Math.PI) % (2 * Math.PI);
 
-    // Lastvielfaches aus der Kurvenrate: tan(bank) = omega * v / g
+    // Load factor from the turn rate: tan(bank) = omega * v / g
     const bank = Math.atan2((turn / dt) * Math.max(this.tas, 1), G);
     this.accelY = 1 / Math.max(Math.cos(bank), 0.2);
 
@@ -124,7 +124,7 @@ class Ownship {
   }
 }
 
-/** Bewegte Bodenziele -- stehende allein pruefen das Stale-Handling nicht. */
+/** Moving ground targets -- stationary ones alone wouldn't exercise the stale handling. */
 class Mover {
   constructor(
     readonly id: number,
@@ -179,7 +179,7 @@ class Missile {
   }
 }
 
-/** Reproduzierbarer Zufall, damit Laeufe vergleichbar bleiben. */
+/** Reproducible randomness, so runs stay comparable. */
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -192,9 +192,9 @@ function mulberry32(seed: number): () => number {
 
 class World {
   /**
-   * Obergrenze an Einheiten je Tick. Sie praegt das Alterungsverhalten, gegen
-   * das die Interpolation getestet werden muss: Objekte am Ende eines
-   * Durchlaufs sind aelter als die am Anfang.
+   * Upper bound of units per tick. This shapes the aging behaviour the
+   * interpolation has to be tested against: objects at the end of a sweep
+   * are older than the ones at the start.
    */
   private static readonly UNITS_PER_TICK = 30;
 
@@ -240,7 +240,7 @@ class World {
     }
   }
 
-  /** Ownship jeden Tick, Fremdeinheiten rundenweise ueber mehrere Ticks. */
+  /** Ownship every tick, other units round-robin over several ticks. */
   tickLines(): string[] {
     const out = [this.own.line(this.view, this.schema)];
     if (this.view === 'optview_onlymap' || this.view === 'optview_myaircraft') return out;
@@ -262,24 +262,24 @@ class World {
   }
 }
 
-// --- Selbstprüfung ---------------------------------------------------------
+// --- Self-check --------------------------------------------------------------
 
 /**
- * Schickt ein Datagramm durch den Parser des Servers. Zwei unabhaengige
- * Implementierungen desselben Formats laufen sonst auseinander, ohne dass es
- * jemandem auffaellt.
+ * Sends a datagram through the server's own parser. Two independent
+ * implementations of the same format otherwise drift apart without anyone
+ * noticing.
  */
 function verify(datagram: string): void {
   const { items } = parseDatagram(datagram);
   const errors = items.filter((i) => i?.kind === 'error');
   if (errors.length > 0) {
     const reasons = errors.map((e) => (e?.kind === 'error' ? e.reason : '')).join('; ');
-    throw new Error(`erzeugtes Datagramm ist nicht lesbar: ${reasons}`);
+    throw new Error(`generated datagram is not readable: ${reasons}`);
   }
-  if (items.length === 0) throw new Error('erzeugtes Datagramm enthaelt keine Datensaetze');
+  if (items.length === 0) throw new Error('generated datagram contains no records');
 }
 
-// --- Ablauf ----------------------------------------------------------------
+// --- Flow ----------------------------------------------------------------
 
 const { values } = parseArgs({
   options: {
@@ -300,7 +300,7 @@ const { values } = parseArgs({
 });
 
 if (!values.send && !values.stdout && !values.dump && !values.replay) {
-  console.error('mindestens eines von --send, --stdout, --dump, --replay');
+  console.error('at least one of --send, --stdout, --dump, --replay');
   process.exit(2);
 }
 
@@ -364,4 +364,4 @@ sink?.end();
 if (sock) {
   sock.send('close_socket', port, host, () => sock.close());
 }
-console.error(`${ticks} Ticks (${(ticks * dt).toFixed(1)} s Simulationszeit)`);
+console.error(`${ticks} ticks (${(ticks * dt).toFixed(1)} s simulated time)`);

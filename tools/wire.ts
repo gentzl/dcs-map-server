@@ -1,12 +1,12 @@
 import type { OptionsView } from '../src/shared/types.js';
 
 /**
- * Schreibt Telemetrie-Datagramme in den beiden Formaten, die der Server liest.
+ * Writes telemetry datagrams in the two formats the server reads.
  *
- * Gegenstück zu src/server/protocol.ts. Dass beide Seiten dasselbe Format
- * meinen, prüfen die Werkzeuge zur Laufzeit, indem sie ihr erstes Datagramm
- * durch den Parser des Servers schicken -- zwei unabhängige Implementierungen
- * desselben Formats laufen sonst früher oder später auseinander.
+ * Counterpart to src/server/protocol.ts. That both sides agree on the format
+ * is checked by the tools at runtime, by sending their first datagram
+ * through the server's own parser -- two independent implementations of one
+ * format otherwise drift apart sooner or later.
  */
 
 export type Schema = 1 | 3;
@@ -17,14 +17,14 @@ export interface OwnshipFields {
   lat: number;
   lon: number;
   alt: number;
-  /** Bogenmass, 0 = Nord. */
+  /** Radians, 0 = north. */
   hdg: number;
   unitName: string;
   groupName: string;
   coalition: number;
   tas: number;
   ralt: number;
-  /** 0 in der Luft, 1 Boden, 2 Traegerdeck. */
+  /** 0 airborne, 1 ground, 2 carrier deck. */
   wow: number;
   aoa: number;
   accelY: number;
@@ -44,7 +44,7 @@ export interface UnitFields {
   unitName: string;
   groupName: string;
   coalition: number;
-  /** Type.level1 aus DCS: 1 Air, 2 Ground, 3 Navy, 4 Weapon, 5 Static. */
+  /** Type.level1 from DCS: 1 Air, 2 Ground, 3 Navy, 4 Weapon, 5 Static. */
   level1: number;
   level2: number;
 }
@@ -61,7 +61,7 @@ export interface WeaponFields {
 
 const f = (v: number, digits: number): string => v.toFixed(digits);
 
-/** Tabs und Zeilenumbrueche zerlegen Schema 3, Kommata zerlegen Schema 1. */
+/** Tabs and line breaks would split schema 3, commas would split schema 1. */
 const clean = (v: string, schema: Schema): string => {
   const stripped = v.replace(/[\t\r\n]/g, ' ');
   return schema === 1 ? stripped.replace(/,/g, ' ') : stripped;
@@ -108,12 +108,12 @@ export function weaponLine(w: WeaponFields, schema: Schema): string {
   return ['W', w.id, c(w.name), f(w.lat, 6), f(w.lon, 6), f(w.alt, 1), f(w.hdg, 5), w.coalition].join('\t');
 }
 
-/** Nur Schema 3 kennt Löschereignisse. */
+/** Only schema 3 knows removal events. */
 export const removeLine = (id: number): string => `D\t${id}`;
 
 /**
- * Fasst die Zeilen eines Ticks zu Datagrammen zusammen. Schema 3 bündelt alles
- * hinter einer Kopfzeile, Schema 1 kennt keine und sendet je Zeile einzeln.
+ * Bundles a tick's lines into datagrams. Schema 3 bundles everything behind
+ * one header line, schema 1 has none and sends each line separately.
  */
 export function toDatagrams(
   lines: string[],

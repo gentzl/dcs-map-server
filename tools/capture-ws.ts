@@ -3,14 +3,14 @@ import { parseArgs } from 'node:util';
 import { WebSocket } from 'ws';
 
 /**
- * Zeichnet den WebSocket-Strom eines laufenden Servers auf.
+ * Records the WebSocket stream of a running server.
  *
- * Fuer Testdaten aus einer echten DCS-Sitzung, ohne auf der DCS-Maschine
- * selbst etwas anfassen zu muessen: verbindet sich wie ein Browser-Client an
- * /ws und schreibt jede empfangene Snapshot-/Delta-Nachricht mit relativer
- * Zeit in eine JSONL-Datei. Ergaenzt tools/inspect-capture.ts (das die
- * Rohdatagramme des Hooks auswertet) um die gleichwertige Aufzeichnung auf der
- * Client-Seite des Protokolls.
+ * For test data from a real DCS session, without having to touch anything
+ * on the DCS machine itself: connects like a browser client to /ws and
+ * writes every received snapshot/delta message with relative time into a
+ * JSONL file. Complements tools/inspect-capture.ts (which analyses the
+ * hook's raw datagrams) with the equivalent recording on the client side of
+ * the protocol.
  *
  *   npm run capture-ws -- wss://itstata:8443/ws --out fixture.jsonl --seconds 90 --insecure
  */
@@ -26,7 +26,7 @@ const { values } = parseArgs({
 
 const url = process.argv[2]?.startsWith('-') ? undefined : process.argv[2];
 if (!url) {
-  console.error('Aufruf: capture-ws <wss://host:port/ws> [--out DATEI] [--seconds N] [--insecure]');
+  console.error('usage: capture-ws <wss://host:port/ws> [--out FILE] [--seconds N] [--insecure]');
   process.exit(2);
 }
 
@@ -35,14 +35,14 @@ const ws = new WebSocket(url, { rejectUnauthorized: !values.insecure });
 const t0 = Date.now();
 let count = 0;
 
-ws.on('open', () => console.error(`verbunden mit ${url}, zeichne ${values.seconds}s auf -> ${values.out}`));
+ws.on('open', () => console.error(`connected to ${url}, recording ${values.seconds}s -> ${values.out}`));
 ws.on('message', (data) => {
   sink.write(`${JSON.stringify({ t: Date.now() - t0, msg: JSON.parse(data.toString('utf8')) })}\n`);
   count++;
 });
-ws.on('error', (err) => console.error(`Fehler: ${err.message}`));
+ws.on('error', (err) => console.error(`error: ${err.message}`));
 
 setTimeout(() => {
   ws.close();
-  sink.end(() => console.error(`fertig: ${count} Nachrichten in ${values.out}`));
+  sink.end(() => console.error(`done: ${count} messages in ${values.out}`));
 }, Number(values.seconds) * 1000);

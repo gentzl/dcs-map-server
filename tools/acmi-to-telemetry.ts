@@ -9,23 +9,23 @@ import { type Schema, ownshipLine, removeLine, toDatagrams, unitLine, weaponLine
 import { isZip, readFirstEntry } from './zip.js';
 
 /**
- * Tacview-ACMI-Aufzeichnung in Telemetrie-Datagramme umsetzen.
+ * Converts a Tacview ACMI recording into telemetry datagrams.
  *
- * Macht aus einem echten DCS-Flug Testdaten: DCS/Tacview schreibt nach jedem
- * Flug eine .acmi, die bereits alles Noetige enthaelt.
+ * Turns a real DCS flight into test data: DCS/Tacview writes a .acmi after
+ * every flight, which already contains everything needed.
  *
- *   npm run acmi -- flug.zip.acmi --list     # Objekte zeigen
- *   npm run acmi -- flug.zip.acmi --send
+ *   npm run acmi -- flight.zip.acmi --list     # show objects
+ *   npm run acmi -- flight.zip.acmi --send
  *
- * Format laut https://www.tacview.net/documentation/acmi/ :
- *   Kopf       Objekt 0 traegt ReferenceLongitude/-Latitude
- *   Frame      "#<sekunden>"
- *   Objekt     "<hexid>,T=lon|lat|alt|roll|pitch|yaw,Name=..,Type=.."
- *   Entfernen  "-<hexid>"
+ * Format per https://www.tacview.net/documentation/acmi/ :
+ *   Header   object 0 carries ReferenceLongitude/-Latitude
+ *   Frame    "#<seconds>"
+ *   Object   "<hexid>,T=lon|lat|alt|roll|pitch|yaw,Name=..,Type=.."
+ *   Remove   "-<hexid>"
  *
- * Drei Fallstricke sind behandelt: leere Felder in T= bedeuten "unveraendert"
- * und nicht null; die Koordinaten sind Offsets auf die Referenzwerte; Kommata
- * in Namen sind maskiert.
+ * Three pitfalls are handled: empty fields in T= mean "unchanged", not
+ * zero; the coordinates are offsets from the reference values; commas in
+ * names are escaped.
  */
 
 interface Transform {
@@ -52,7 +52,7 @@ interface Frame {
 
 const HEX_ID = /^[0-9a-fA-F]+$/;
 
-/** Trennt an Kommata, achtet dabei auf die Maskierung mit Backslash. */
+/** Splits on commas, respecting backslash escaping. */
 function splitFields(line: string): string[] {
   const out: string[] = [];
   let current = '';
@@ -72,7 +72,7 @@ function splitFields(line: string): string[] {
   return out;
 }
 
-/** Leere Felder in T= bedeuten "unveraendert" -- der haeufigste Parserfehler. */
+/** Empty fields in T= mean "unchanged" -- the most common parsing mistake. */
 function mergeTransform(prev: Transform, raw: string): Transform {
   const f = raw.split('|');
   const out = { ...prev };
@@ -99,14 +99,14 @@ class Acmi {
       this.load(raw.toString('utf8'));
       return;
     }
-    // Abgebrochene Aufzeichnungen behalten das PK-Magic, sind aber nicht
-    // entpackbar. Ohne diese Pruefung liefe Binaermuell in den Parser.
+    // Truncated recordings keep the PK magic bytes but aren't unpackable.
+    // Without this check, binary garbage would flow into the parser.
     try {
       this.load(readFirstEntry(raw).data.toString('utf8'));
     } catch (err) {
       throw new Error(
-        `${path} ist kein lesbares Archiv (${(err as Error).message}). ` +
-          'Tacview hat die Aufzeichnung vermutlich nicht sauber geschlossen.',
+        `${path} is not a readable archive (${(err as Error).message}). ` +
+          'Tacview probably didn\'t close the recording cleanly.',
       );
     }
   }
@@ -142,7 +142,7 @@ class Acmi {
 
       const parts = splitFields(line);
       const oid = parts[0]!;
-      if (!HEX_ID.test(oid)) continue; // Kopfzeilen wie FileType= sind keine Objekte
+      if (!HEX_ID.test(oid)) continue; // Header lines like FileType= aren't objects
 
       const props = new Map<string, string>();
       for (const p of parts.slice(1)) {
@@ -178,11 +178,11 @@ class Acmi {
   }
 
   /**
-   * Luftfahrzeug mit den meisten Positionsupdates.
+   * The aircraft with the most position updates.
    *
-   * Ein Pilot-Feld taugt nicht als Kriterium: Tacview vergibt es auch an
-   * Bodeneinheiten und Schiffe. Die hoechste Abtastrate hat dagegen
-   * zuverlaessig das vom Spieler geflogene Objekt.
+   * A Pilot field doesn't work as a criterion: Tacview assigns it to ground
+   * units and ships too. The highest sample rate, on the other hand,
+   * reliably belongs to the object the player is flying.
    */
   pickOwnship(): string | null {
     const counts = new Map<string, number>();
@@ -199,15 +199,15 @@ class Acmi {
   }
 }
 
-/** DCS: 1 = rot, 2 = blau. ACMI fuehrt Color zuverlaessiger als Coalition. */
+/** DCS: 1 = red, 2 = blue. ACMI carries Color more reliably than Coalition. */
 function coalitionId(meta: Meta): number {
   const c = (meta.Color ?? meta.Coalition ?? '').toLowerCase();
   return c.startsWith('red') || c.includes('enem') ? 1 : 2;
 }
 
 /**
- * ACMI-Typ-Tags auf Type.level1 abbilden, damit der Server dieselbe Einordnung
- * vornimmt wie bei Daten aus dem Hook.
+ * Maps ACMI type tags onto Type.level1, so the server classifies this the
+ * same way it would classify data from the hook.
  */
 function level1FromTags(tags = ''): number {
   const t = tags.toLowerCase();
@@ -225,11 +225,11 @@ const lerpAngle = (a: number, b: number, f: number): number =>
   (a + (((b - a + 180) % 360) - 180) * f + 360) % 360;
 
 /**
- * Liefert (t, Datagramm) in Sendereihenfolge.
+ * Yields (t, datagram) in send order.
  *
- * Das Ownship wird auf die Zielrate interpoliert, Fremdobjekte werden bis zum
- * naechsten Frame gehalten. Das bildet die reale Asymmetrie ab, statt eine
- * gleichmaessige Abtastung vorzutaeuschen, die es nie gibt.
+ * The ownship is interpolated to the target rate, other objects are held
+ * until the next frame. This reflects the real asymmetry, instead of
+ * faking a uniform sample rate that never actually exists.
  */
 function* build(
   acmi: Acmi,
@@ -249,7 +249,7 @@ function* build(
     }
   }
   if (ownSamples.length === 0) {
-    throw new Error('Kein Ownship-Track gefunden -- mit --own <id> festlegen (--list zeigt IDs)');
+    throw new Error('No ownship track found -- set one with --own <id> (--list shows IDs)');
   }
 
   const ownMeta = acmi.objects.get(ownId) ?? {};
@@ -336,7 +336,7 @@ function* build(
   }
 }
 
-// --- Ablauf ----------------------------------------------------------------
+// --- Flow ----------------------------------------------------------------
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -357,11 +357,11 @@ const { values, positionals } = parseArgs({
 
 const path = positionals[0];
 if (!path) {
-  console.error('Aufruf: acmi-to-telemetry <datei.acmi> [--list|--send|--stdout|--dump DATEI]');
+  console.error('usage: acmi-to-telemetry <file.acmi> [--list|--send|--stdout|--dump FILE]');
   process.exit(2);
 }
 
-/** Erwartbare Fehler verständlich melden statt als Stacktrace. */
+/** Reports expected failures understandably instead of as a stack trace. */
 function fail(message: string): never {
   console.error(message);
   process.exit(1);
@@ -374,22 +374,22 @@ try {
   fail((err as Error).message);
 }
 console.error(
-  `Frames: ${acmi.frames.length}   Objekte: ${acmi.objects.size}   ` +
-    `Referenz: ${acmi.refLat.toFixed(4)} / ${acmi.refLon.toFixed(4)}   ` +
-    `Dauer: ${(acmi.frames.at(-1)?.t ?? 0).toFixed(1)} s`,
+  `Frames: ${acmi.frames.length}   Objects: ${acmi.objects.size}   ` +
+    `Reference: ${acmi.refLat.toFixed(4)} / ${acmi.refLon.toFixed(4)}   ` +
+    `Duration: ${(acmi.frames.at(-1)?.t ?? 0).toFixed(1)} s`,
 );
 
 if (values.list) {
   for (const [oid, m] of [...acmi.objects].sort(([a], [b]) => a.localeCompare(b))) {
     const affiliation = m.Color ?? m.Coalition ?? '?';
-    const pilot = m.Pilot ? `  <- Pilot: ${m.Pilot}` : '';
+    const pilot = m.Pilot ? `  <- pilot: ${m.Pilot}` : '';
     console.log(`${oid.padEnd(10)} ${(m.Name ?? '?').padEnd(28)} ${(m.Type ?? '?').padEnd(22)} ${affiliation}${pilot}`);
   }
   process.exit(0);
 }
 
 const own = values.own ?? acmi.pickOwnship();
-if (!own) fail('Kein Objekt mit Positionsdaten gefunden');
+if (!own) fail('No object with position data found');
 console.error(`Ownship: ${own} (${acmi.objects.get(own)?.Name ?? '?'})`);
 
 const port = Number(values.port);
@@ -411,7 +411,7 @@ for (const [t, datagram] of build(acmi, own, Number(values.rate), values['emit-d
     const { items } = parseDatagram(datagram);
     const bad = items.filter((i) => i?.kind === 'error');
     if (bad.length > 0) {
-      throw new Error(`erzeugtes Datagramm ist nicht lesbar: ${bad.map((e) => (e?.kind === 'error' ? e.reason : '')).join('; ')}`);
+      throw new Error(`generated datagram is not readable: ${bad.map((e) => (e?.kind === 'error' ? e.reason : '')).join('; ')}`);
     }
     verified = true;
   }
@@ -432,4 +432,4 @@ for (const [t, datagram] of build(acmi, own, Number(values.rate), values['emit-d
 
 sink?.end();
 if (sock) sock.send('close_socket', port, host, () => sock.close());
-console.error(`Datagramme: ${count}`);
+console.error(`Datagrams: ${count}`);
