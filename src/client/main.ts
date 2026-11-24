@@ -1011,6 +1011,22 @@ function updateHud(now: number): void {
 
 const rulerBox = document.getElementById('ruler')!;
 
+/**
+ * Places the ruler readout at a point in the map, clamped to stay fully
+ * inside the canvas -- a label that runs off the edge the moment you
+ * measure towards a corner would be worse than a fixed one.
+ */
+function placeRulerBox(lon: number, lat: number, offsetY: number): void {
+  const p = map.project([lon, lat]);
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  const halfBox = 150; // half of #ruler's max-width, a reasonable upper bound
+  const x = Math.min(Math.max(p.x, halfBox + 4), w - halfBox - 4);
+  const y = Math.min(Math.max(p.y + offsetY, 24), h - 24);
+  rulerBox.style.left = `${x}px`;
+  rulerBox.style.top = `${y}px`;
+}
+
 function updateRuler(): void {
   if (!ruler) {
     rulerBox.hidden = true;
@@ -1027,9 +1043,13 @@ function updateRuler(): void {
 
   rulerBox.hidden = false;
   if (!ruler.a) {
+    // No point to anchor to yet -- the aircraft itself is as good a default
+    // as any, since that is where the first tap usually lands anyway.
     rulerBox.textContent = 'MEAS  —  tap the start point';
+    placeRulerBox(own.lon, own.lat, -40);
   } else if (!ruler.b) {
     rulerBox.textContent = 'MEAS  —  tap the end point';
+    placeRulerBox(ruler.a.lon, ruler.a.lat, -24);
   } else {
     const { a, b } = ruler;
     features.push({
@@ -1048,6 +1068,9 @@ function updateRuler(): void {
       nbsp(`MEAS ${bearing3(refBearing(brg))}${refSuffix} / ${nm.toFixed(1)} nm`),
       nbsp(min !== null && min < 600 ? `${min.toFixed(1)} min` : '— min'),
     ].join('   ');
+    // Next to the line's midpoint, the same spot regardless of which end
+    // was tapped first or last.
+    placeRulerBox((a.lon + b.lon) / 2, (a.lat + b.lat) / 2, -24);
   }
 
   setData('ruler', { type: 'FeatureCollection', features });

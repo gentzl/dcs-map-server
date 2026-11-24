@@ -25,13 +25,18 @@
                letter-spacing: .04em; }
     #status { white-space: pre-line; }
 
-    /* Bottom left rather than under the BRAA readout: that one grows and
-       shrinks with what is selected, and a measurement has to stay put while
-       you read it off. */
-    #ruler { position: absolute; bottom: 64px; left: 12px; padding: 6px 10px;
-             max-width: min(360px, calc(100vw - 24px)); line-height: 1.6;
-             background: var(--panel); border: 1px solid #4cc9f0; border-radius: 6px;
-             color: #4cc9f0; }
+    /* Floats next to the measurement itself (position set per frame in
+       JS, like #offscreen) rather than sitting in a fixed corner -- the
+       whole point of a ruler is reading the number right where you drew it,
+       not hunting for it elsewhere on screen. pointer-events: none so it
+       never blocks a tap on the map underneath it. */
+    /* translate centres the box horizontally on its anchor and sits it just
+       above it (bottom edge at the anchor point), matching the small
+       upward nudge placeRulerBox already applies. */
+    #ruler { position: absolute; transform: translate(-50%, -100%); padding: 6px 10px;
+             pointer-events: none; max-width: min(300px, calc(100vw - 24px));
+             line-height: 1.6; background: var(--panel); border: 1px solid #4cc9f0;
+             border-radius: 6px; color: #4cc9f0; }
 
     #braa { position: absolute; top: 44px; left: 12px; padding: 6px 10px;
             max-width: min(360px, calc(100vw - 24px)); line-height: 1.6;
