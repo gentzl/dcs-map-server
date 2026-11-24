@@ -3,6 +3,7 @@
 For working on the code, running it without DCS, or driving it beyond what the settings panel
 exposes. If you just want to fly with it, the [handbook](MANUAL.md) is the one you want.
 
+- [Manual setup](#manual-setup)
 - [How it fits together](#how-it-fits-together)
 - [Source layout](#source-layout)
 - [The DCS hook](#the-dcs-hook)
@@ -16,6 +17,47 @@ exposes. If you just want to fly with it, the [handbook](MANUAL.md) is the one y
 - [Still open](#still-open)
 - [Contributing](#contributing)
 - [License and data sources](#license-and-data-sources)
+
+## Manual setup
+
+The [README](../README.md) points players at `start.bat`, a one-click installer. For development,
+or if you'd rather run the steps yourself:
+
+Clone the repo (`git clone`). You'll need [Node.js](https://nodejs.org) installed (version 22 or
+newer). Everything below is copy-paste into a terminal, in the project folder — the same commands
+work in PowerShell or cmd.exe.
+
+1. Install and prepare the map data (one-time, a couple of minutes):
+
+   ```bash
+   npm install
+   cp node_modules/maplibre-gl/dist/maplibre-gl.css public/
+   npm run fetch-assets        # map labels and symbols, ~2.3 MB
+   npm run fetch-tiles -- caucasus  # the map itself, ~131 MB — swap in another theater if you fly elsewhere
+   npm run install-hook        # copies the DCS export hook into Saved Games, see below
+   ```
+
+   > In cmd.exe (not PowerShell), `cp` isn't a command — use
+   > `copy node_modules\maplibre-gl\dist\maplibre-gl.css public\` instead.
+
+   `fetch-tiles` downloads the `pmtiles` tool it needs by itself the first time it runs, into this
+   project's own `runtime/` folder — nothing to put on `PATH`.
+
+   `install-hook` copies `dcs/Scripts/Hooks/dcs-map-server.lua` into every DCS installation it finds
+   under `Saved Games\` (stable and open beta). It never overwrites a hook file that's already
+   there, so it's always safe to re-run; if you'd rather do it by hand, or it doesn't find your DCS
+   install, just copy that file into `Saved Games\DCS\Scripts\Hooks\` yourself.
+
+2. (Re)start DCS, so it picks up the hook.
+
+3. Start the server:
+
+   ```bash
+   npm run dev
+   ```
+
+4. Open the web address it prints — `http://localhost:8080` on the DCS PC itself, one of the
+   other two from a phone or tablet on the same Wi-Fi.
 
 ## How it fits together
 
