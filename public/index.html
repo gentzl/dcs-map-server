@@ -17,8 +17,8 @@
            background: var(--panel); backdrop-filter: blur(4px);
            white-space: normal; letter-spacing: .02em; line-height: 1.6; }
 
-    /* Hinweis, wenn die Mission Fremdeinheiten zurueckhaelt. Auffaellig, aber
-       nicht als Fehler gefaerbt -- die Anzeige arbeitet ja korrekt. */
+    /* Notice for when the mission withholds other units. Eye-catching, but
+       not coloured as an error -- the display is working correctly after all. */
     #warning { position: absolute; top: 44px; right: 12px; padding: 6px 10px;
                background: rgba(10,14,18,.88); border: 1px solid #e9c46a;
                border-radius: 6px; color: #e9c46a; font-size: 11px;
@@ -29,9 +29,9 @@
             background: var(--panel); border: 1px solid #ffd166; border-radius: 6px;
             color: #ffd166; }
 
-    /* Auf Telefonbreite faellt die HUD-Leiste zweizeilig um (siehe #hud) und
-       braucht entsprechend mehr Platz, bevor Warnung und BRAA-Anzeige
-       beginnen -- sonst ueberlappen sie die zweite Zeile. */
+    /* At phone width the HUD bar wraps to two lines (see #hud) and needs
+       correspondingly more room before the warning and BRAA readout start --
+       otherwise they'd overlap the second line. */
     @media (max-width: 480px) {
       #warning, #braa { top: 78px; }
     }
@@ -41,24 +41,24 @@
        geometry every frame. */
     /* Dark outline rather than plain fill: yellow alone lacks contrast on the
        light chart. This way the symbol carries in both modes. */
-    /* transform wird pro Frame gesetzt; transform-origin muss die Symbolmitte
-       sein, sonst wandert das Symbol beim Drehen aus der Bildmitte. */
-    /* left/top werden pro Frame gesetzt: verfolgend die Bildmitte, frei die
-       projizierte Position des Flugzeugs. */
+    /* transform is set per frame; transform-origin must be the symbol's
+       centre, otherwise the symbol drifts off screen centre when rotating. */
+    /* left/top are set per frame: screen centre while following, the
+       aircraft's projected position while free. */
     #ownship { position: absolute; top: 50%; left: 50%;
                transform: translate(-50%, -55%); transform-origin: 50% 50%;
                pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); }
 
-    /* Randmarke: zeigt im freien Modus, wo das Flugzeug ausserhalb des Bildes
-       steht, mit Peilung und Entfernung von der Bildmitte aus. */
+    /* Edge marker: in free mode, shows where the aircraft is outside the
+       view, with bearing and range from screen centre. */
     #offscreen { position: absolute; transform: translate(-50%, -50%);
                  pointer-events: none; z-index: 3; }
     #offscreen::before { content: '▲'; display: block; color: #ffd166;
                          font-size: 20px; line-height: 1;
                          transform: rotate(var(--angle, 0deg));
                          text-shadow: 0 0 3px rgba(0,0,0,.9); }
-    /* Dunkle Flaeche hinter der Beschriftung: Ohne sie laeuft sie in die
-       Kartenschrift und ist genau dann unlesbar, wenn man sie braucht. */
+    /* Dark area behind the label: without it, it runs into the map's own
+       text and becomes unreadable exactly when it's needed. */
     #offscreen::after { content: attr(data-label); position: absolute;
                         left: 50%; top: 100%; transform: translateX(-50%);
                         margin-top: 2px; padding: 2px 6px; border-radius: 4px;
@@ -68,7 +68,7 @@
 
     button[disabled] { opacity: .35; }
 
-    /* Umbrechend, damit die Leiste auch auf Telefonbreite nicht überläuft. */
+    /* Wrapping, so the bar doesn't overflow even at phone width. */
     #controls { position: absolute; bottom: max(12px, env(safe-area-inset-bottom));
                 z-index: 2; right: 12px; left: 12px; display: flex; gap: 8px;
                 flex-wrap: wrap; justify-content: flex-end; align-items: center; }
@@ -76,20 +76,20 @@
              border: 1px solid var(--line); border-radius: 8px; min-width: 48px; }
     button:active { background: #1b2a3a; }
 
-    /* Umschalter mit sichtbarem Zustand: Beim einzelnen Knopf war nicht
-       erkennbar, welche Ausrichtung gerade aktiv ist. */
+    /* Toggle with a visible state: with a single button it wasn't apparent
+       which orientation was currently active. */
     .seg { display: flex; }
     .seg button { border-radius: 0; min-width: 52px; }
     .seg button:first-child { border-radius: 8px 0 0 8px; }
     .seg button:last-child { border-radius: 0 8px 8px 0; border-left-width: 0; }
     .seg button[aria-pressed="true"] { background: #ffd166; color: #14181c;
                                        border-color: #ffd166; font-weight: 600; }
-    /* Entfernungsanzeige zwischen den Tasten: Der eingestellte Maßstab muss
-       ablesbar sein, nicht nur veränderbar. */
-    /* Direkttasten schmaler als die Schrittasten: Vier davon plus Plus und
-       Minus müssen auf Telefonbreite nebeneinander passen. */
-    /* Sieben Stufen muessen auf Telefonbreite nebeneinander passen, deshalb
-       schmal; die Leiste bricht zusaetzlich um. */
+    /* Range readout between the buttons: the set scale must be readable,
+       not just changeable. */
+    /* Direct-pick buttons narrower than the step buttons: several of them
+       plus plus and minus have to fit side by side at phone width. */
+    /* Seven steps have to fit side by side at phone width, hence narrow;
+       the bar also wraps on top of that. */
     .seg button.preset { min-width: 40px; padding: 12px 6px; }
 
     #settings { position: absolute; bottom: 70px; right: 12px; width: min(300px, calc(100vw - 24px));
