@@ -554,7 +554,7 @@ function restyle(): void {
 let ws: WebSocket | null = null;
 let backoff = 500;
 const trackPoints: Array<[number, number]> = [];
-/** Spur des angewaehlten Kontakts. Wird bei jedem Auswahlwechsel geleert. */
+/** Trail of the selected contact. Cleared whenever the selection changes. */
 let selectedTrail: Array<[number, number]> = [];
 
 function connect(): void {
@@ -677,7 +677,7 @@ function updateSources(now: number): void {
           u.unit.coalition,
         ),
         affiliation: affiliationOf(u.unit.coalition, ownCoalition),
-        // Grad statt Bogenmass: icon-rotate erwartet Grad.
+        // Degrees, not radians: icon-rotate expects degrees.
         hdgDeg: (u.hdg * 180) / Math.PI,
         rotates: symbolRotates(settings.symbolSet, u.unit.category),
         label: `${u.unit.name}  ${Math.round(metersToFeet(u.unit.alt) / 100) * 100}`,
@@ -788,7 +788,7 @@ function placeOwnship(): void {
   );
   edgeEl.style.left = `${cx + dx * scale}px`;
   edgeEl.style.top = `${cy + dy * scale}px`;
-  // Pfeil zeigt vom Rand aus zum Flugzeug; 0 Grad ist nach oben.
+  // The arrow points from the edge towards the aircraft; 0 degrees is up.
   edgeEl.style.setProperty('--angle', `${toDeg(Math.atan2(dy, dx)) + 90}deg`);
 
   const centre = map.getCenter();
