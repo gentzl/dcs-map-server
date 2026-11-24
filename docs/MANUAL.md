@@ -196,7 +196,9 @@ Check, in order:
 
 1. Is the hook installed? `dcs/Scripts/Hooks/dcs-map-server.lua` has to be in
    `Saved Games\DCS\Scripts\Hooks\`, and DCS has to have been restarted since you put it there.
-2. Is the server running, and does the page load at all?
+2. Is the server running, and does the page load at all? Its own console window shows a colored
+   line for this: green `Hook connected` once DCS is sending data, yellow `Hook not connected`
+   while it's waiting.
 3. Are you in a flight? The map comes alive when a mission starts.
 
 The hook writes its status to `Saved Games/DCS/Logs/dcs.log` every ten seconds, which tells you
