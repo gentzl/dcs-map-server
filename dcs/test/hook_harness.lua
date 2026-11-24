@@ -113,4 +113,95 @@ end
 cb.onSimulationStop()
 
 for _, p in ipairs(sent) do io.write(p) end
-io.stderr:write(string.format('Datagrams: %d\n', #sent))
+
+-- Check what the hook actually produced.
+--
+-- Running it against mocked APIs only proves it does not crash. The wire
+-- format is the one thing a mistake in stays invisible until someone is in
+-- the cockpit, and it is also the part a user can least diagnose -- so the
+-- harness states the contract rather than printing it and hoping somebody
+-- reads carefully.
+
+local function fail(msg, line)
+  io.stderr:write('hook_harness: ', msg, '\n')
+  if line then io.stderr:write('  in: ', (line:gsub('\t', '<TAB>')), '\n') end
+  os.exit(1)
+end
+
+local function fields(line)
+  local out = {}
+  for f in (line .. '\t'):gmatch('([^\t]*)\t') do out[#out + 1] = f end
+  return out
+end
+
+-- Schema 3 field counts, the same table src/server/protocol.ts parses by.
+local LAYOUT = { O = 20, A = 12, W = 8, D = 2 }
+
+local counts = { O = 0, A = 0, W = 0, D = 0 }
+local headers, closed = 0, false
+local own_id = nil
+local ids_as_unit = {}
+
+for _, payload in ipairs(sent) do
+  if payload:match('^close_socket') then
+    closed = true
+  else
+    local first = true
+    for line in payload:gmatch('[^\n]+') do
+      if line:find('\r') then fail('a carriage return reached the wire', line) end
+
+      if first then
+        local f = fields(line)
+        if f[1] ~= 'MM' then fail('datagram does not start with a header line', line) end
+        if f[2] ~= '3' then fail('header does not announce schema 3', line) end
+        if not tonumber(f[3]) then fail('header carries no model time', line) end
+        if f[4] ~= OPTIONS_VIEW then
+          fail(string.format('header says optionsView=%s, expected %s', tostring(f[4]), OPTIONS_VIEW), line)
+        end
+        headers = headers + 1
+        first = false
+      else
+        local f = fields(line)
+        local kind = f[1]
+        local want = LAYOUT[kind]
+        if not want then fail('unknown line type ' .. tostring(kind), line) end
+        if #f ~= want then
+          fail(string.format('%s line has %d fields, expected %d', kind, #f, want), line)
+        end
+        if not tonumber(f[2]) then fail(kind .. ' line has no numeric id', line) end
+        counts[kind] = counts[kind] + 1
+
+        if kind == 'O' then own_id = f[2] end
+        if kind == 'A' or kind == 'W' then ids_as_unit[f[2]] = true end
+        if (kind == 'A' or kind == 'W') and (f[3] == nil or f[3] == '') then
+          fail(kind .. ' line has an empty type name', line)
+        end
+      end
+    end
+  end
+end
+
+if headers == 0 then fail('no datagram was sent at all') end
+if counts.O == 0 then fail('the own aircraft was never sent') end
+if counts.A == 0 then fail('no other units were sent') end
+if counts.D == 0 then fail('objects were removed but no D line was sent') end
+if not closed then fail('the session did not end with close_socket') end
+
+-- LoGetWorldObjects() includes the player's own aircraft. It already has its
+-- own O line, and a second copy would draw the same aircraft twice.
+if own_id and ids_as_unit[own_id] then
+  fail('the own aircraft was also sent as an ordinary unit, id ' .. own_id)
+end
+
+-- The mocked group name carries a comma and a tab: the comma has to survive,
+-- the tab must not reach the wire. Field counts above already prove no tab
+-- did; this proves the comma was not stripped with it.
+local saw_comma = false
+for _, payload in ipairs(sent) do
+  if payload:find('Convoy, Group', 1, true) then saw_comma = true end
+end
+if not saw_comma then fail('a comma in a group name did not survive') end
+
+io.stderr:write(string.format(
+  'Datagrams: %d  (O %d, A %d, W %d, D %d)  -- format OK\n',
+  #sent, counts.O, counts.A, counts.W, counts.D))

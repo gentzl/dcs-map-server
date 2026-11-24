@@ -150,6 +150,12 @@ Check the hook against mocked export APIs:
 lua dcs/test/hook_harness.lua 300 optview_all 150
 ```
 
+It writes the datagrams to stdout and checks them: header per datagram, schema version, the
+configured `optionsView` coming back out, the field count of every line type, a `D` line once
+objects disappear, the own aircraft not also sent as an ordinary unit, and a comma in a group name
+surviving while a tab does not. It exits non-zero and says what broke, so it belongs in CI rather
+than in a careful read of its output — which is where it runs.
+
 Synthetic telemetry:
 
 ```bash
@@ -215,6 +221,8 @@ What's covered, and why those parts:
 | `test/classify.test.ts` | Classification of every unit name in the recorded sessions, against a checked-in baseline |
 | `test/threats.test.ts` | Which air defence units get a threat ring and which don't |
 | `test/geo.test.ts` | The geodetic maths and cockpit formatting the BRA readout depends on |
+| `test/leaders.test.ts` | Which contacts get a velocity leader, and how long it is |
+| `test/server.test.ts` | The real server end to end: a datagram in over UDP, messages out over the WebSocket |
 
 ### The classification baseline
 

@@ -33,3 +33,18 @@ jobs:
       # The client is bundled rather than typechecked into existence, so a
       # broken import only shows up here.
       - run: npm run build:client
+
+  # The Lua hook has no Node to run it, so it gets its own job. The harness
+  # drives it against mocked DCS APIs and checks the wire format it produces.
+  hook:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: sudo apt-get update && sudo apt-get install -y lua5.4
+
+      - name: Hook against mocked DCS APIs
+        run: |
+          lua5.4 dcs/test/hook_harness.lua 60 optview_all 80 > /dev/null
+          lua5.4 dcs/test/hook_harness.lua 60 optview_allies 80 > /dev/null
