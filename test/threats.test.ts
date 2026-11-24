@@ -60,6 +60,12 @@ describe('threat rings', () => {
     assert.deepEqual(threatOf('ZSU-23-4 Shilka'), { rangeM: 2_500, label: 'ZSU-23-4' });
   });
 
+  test('a surface combatant with a real area air-defence system gets a ring', () => {
+    assert.deepEqual(threatOf('TICONDEROG'), { rangeM: 70_000, label: 'AEGIS' });
+    assert.deepEqual(threatOf('USS_Arleigh_Burke_IIa'), { rangeM: 70_000, label: 'AEGIS' });
+    assert.deepEqual(threatOf('MOSCOW'), { rangeM: 75_000, label: 'SA-N-6' });
+  });
+
   test('a unit that is not air defence gets no ring', () => {
     assert.equal(threatOf('BMP-1'), null);
     assert.equal(threatOf('T-72B'), null);

@@ -64,6 +64,22 @@ const THREATS: ThreatEntry[] = [
   // it is still worth drawing.
   { match: 'phalanx', km: 2, label: 'C-RAM' },
   { match: 'c-ram', km: 2, label: 'C-RAM' },
+
+  // Surface combatants with a genuine area air-defence system -- an Aegis or
+  // S-300F-family radar and missile set, not just a point-defence gun. Kept
+  // to hull classes this is confident about; plenty of frigates and
+  // corvettes carry a shorter-range system (Shtil, Sea Sparrow, Albatros)
+  // that would deserve a smaller ring, but without a verified in-game range
+  // for each, a wrong number here would be worse than no ring at all. See
+  // "Still open" in docs/DEVELOPERS.md.
+  { match: 'ticonderog', km: 70, label: 'AEGIS' },
+  { match: 'arleigh_burke', km: 70, label: 'AEGIS' },
+  { match: 'arleigh burke', km: 70, label: 'AEGIS' },
+  { match: 'kirov', km: 75, label: 'SA-N-6' },
+  { match: 'slava', km: 75, label: 'SA-N-6' },
+  { match: 'moskva', km: 75, label: 'SA-N-6' },
+  // The in-game unit name is the English transliteration, not the class name.
+  { match: 'moscow', km: 75, label: 'SA-N-6' },
 ];
 
 /**

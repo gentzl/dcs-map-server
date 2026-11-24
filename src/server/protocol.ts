@@ -44,7 +44,7 @@ function num(v: string | undefined): number {
  * In one place, so schema 1 and 3 use the same lookup.
  */
 function withThreat(name: string, category: Category) {
-  if (category !== 'sam') return { category };
+  if (category !== 'sam' && category !== 'naval') return { category };
   const t = threatOf(name);
   return t ? { category, threatM: t.rangeM, threatLabel: t.label } : { category };
 }

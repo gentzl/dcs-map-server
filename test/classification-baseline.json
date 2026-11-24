@@ -406,7 +406,9 @@
   {
     "name": "MOSCOW",
     "level1": 3,
-    "category": "naval"
+    "category": "naval",
+    "threatM": 75000,
+    "threatLabel": "SA-N-6"
   },
   {
     "name": "NASAMS_Command_Post",
@@ -691,7 +693,9 @@
   {
     "name": "TICONDEROG",
     "level1": 3,
-    "category": "naval"
+    "category": "naval",
+    "threatM": 70000,
+    "threatLabel": "AEGIS"
   },
   {
     "name": "Tigr_233036",
@@ -747,7 +751,9 @@
   {
     "name": "USS_Arleigh_Burke_IIa",
     "level1": 3,
-    "category": "naval"
+    "category": "naval",
+    "threatM": 70000,
+    "threatLabel": "AEGIS"
   },
   {
     "name": "ZBD04A",
