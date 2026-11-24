@@ -271,10 +271,11 @@ function endPointer(e: PointerEvent): void {
   activePointers.delete(e.pointerId);
   if (activePointers.size < 1) {
     pan = null;
-    // No-op while still following (e.g. a pinch that never left follow
-    // mode, guarded inside applyFreeZoom itself); matches the zoom to the
-    // current range preset now that the pan is over.
-    applyFreeZoom();
+    // A pan changes latitude, and how much ground a preset covers depends on
+    // it, so re-fit the preset now that the gesture is over. Only while the
+    // view is actually on a preset: a stepless pinch or wheel zoom has to
+    // survive the next gesture, and a stationary click is one of those.
+    if (manualZoom === null) applyFreeZoom();
   }
   if (activePointers.size < 2) pinch = null;
 }
