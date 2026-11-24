@@ -199,14 +199,18 @@ const ICONS: Partial<Record<Category, Draw>> = {
   // Plain fixed wing only -- the roles above carry a letter instead, and an
   // icon drawn after it would paint straight over it.
   air: fixedWingIcon,
-  // Rotor blades: crossed, to suggest the spinning motion.
-  // A filled rotor disc (like the fixed-wing's propeller), with the crossed
-  // strokes as rotor blades on top. Without the disc the helicopter was left
-  // with only thin crossed lines, where fixed-wing already had its filled
-  // propeller to carry the symbol.
+  // Rotor disc, as a ring with the blades across it. Filled it swallowed the
+  // frame -- a disc that wide in near-black leaves a dark blob where the
+  // affiliation colour should be, which is the whole thing you read first.
+  // Kept small and low: the hostile air frame is a triangle, so anything
+  // centred and wide crosses its edges near the apex.
   helo: (c, s) => {
     c.beginPath();
-    c.ellipse(s * 0.5, s * 0.47, s * 0.25, s * 0.25, 0, 0, Math.PI * 2);
+    c.ellipse(s * 0.5, s * 0.53, s * 0.16, s * 0.16, 0, 0, Math.PI * 2);
+    c.moveTo(s * 0.39, s * 0.42);
+    c.lineTo(s * 0.61, s * 0.64);
+    c.moveTo(s * 0.61, s * 0.42);
+    c.lineTo(s * 0.39, s * 0.64);
   },
   // Track suggestion: a lying oval. Under the standard this belongs to main
   // battle tanks alone; other ground targets carry an empty frame, which
@@ -251,7 +255,7 @@ const ICONS: Partial<Record<Category, Draw>> = {
 };
 
 /** Icons that get filled; the rest stay strokes. */
-const FILLED = new Set<Category>(['armor', 'sam', 'weapon', 'air', 'naval', 'helo']);
+const FILLED = new Set<Category>(['armor', 'sam', 'weapon', 'air', 'naval']);
 
 function render(category: Category, affiliation: Affiliation): ImageData {
   const { ctx, px } = newCanvas();
