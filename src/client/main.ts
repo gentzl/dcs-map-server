@@ -588,11 +588,14 @@ function frame(now: number): void {
       map.jumpTo({ center: [own.lon, own.lat], bearing: headingUp ? -toDeg(own.hdg) : 0, zoom });
     }
 
-    // While following, the symbol stays fixed at screen centre: in
-    // heading-up the map rotates underneath it, in north-up the symbol
-    // itself must show the heading. Free-moving, it travels with the map and
-    // always shows the heading.
-    const symbolRotation = follow && headingUp ? 0 : toDeg(own.hdg);
+    // The symbol's own heading plus however much the map itself is already
+    // rotated -- not a fixed per-mode case. Heading-up follow sets the map's
+    // bearing to -heading, which makes this always resolve to 0 there (the
+    // map rotates under the symbol instead). North-up follow and free mode
+    // (which now keeps whatever bearing was active on leaving follow,
+    // rather than forcing north-up) fall out of the same formula without
+    // needing their own case.
+    const symbolRotation = toDeg(own.hdg) + map.getBearing();
     ownshipEl.style.transform = `translate(-50%, -55%) rotate(${symbolRotation.toFixed(1)}deg)`;
     placeOwnship();
 
