@@ -1,33 +1,33 @@
 #!/usr/bin/env bash
-# Erzeugt ein selbstsigniertes Zertifikat fuer den LAN-Zugriff.
+# Generates a self-signed certificate for LAN access.
 #
-# Hintergrund: Die Screen-Wake-Lock-API verlangt einen Secure Context. Ueber
-# http://<LAN-IP> gibt es den nicht, das Display eines Tablets schlaeft also
-# mitten im Flug ein. Ein Zertifikat loest das.
+# Background: the Screen Wake Lock API requires a secure context. There's
+# none over http://<LAN-IP>, so a tablet's display falls asleep mid-flight.
+# A certificate fixes this.
 #
-# Wichtig: iOS und Android pruefen ausschliesslich subjectAltName, nicht den
-# Common Name. Ohne die IP im SAN wird das Zertifikat auch nach manueller
-# Bestaetigung abgelehnt.
+# Important: iOS and Android check subjectAltName exclusively, not the
+# Common Name. Without the IP in the SAN, the certificate gets rejected even
+# after manual confirmation.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p certs
 
-# Alle aktiven IPv4-Adressen einsammeln, damit das Zertifikat unabhaengig vom
-# gerade genutzten Interface passt.
+# Collect every active IPv4 address, so the certificate works regardless of
+# which interface is currently in use.
 SAN="DNS:localhost,IP:127.0.0.1"
 for i in $(ifconfig -l 2>/dev/null || true); do
   ip=$(ipconfig getifaddr "$i" 2>/dev/null || true)
   [ -n "$ip" ] && SAN="$SAN,IP:$ip"
 done
-# Linux-Rueckfall
+# Linux fallback
 if [ "$SAN" = "DNS:localhost,IP:127.0.0.1" ] && command -v hostname >/dev/null; then
   for ip in $(hostname -I 2>/dev/null || true); do SAN="$SAN,IP:$ip"; done
 fi
 
 echo "subjectAltName: $SAN"
 
-# 825 Tage ist die Obergrenze, die iOS fuer manuell vertraute Zertifikate
-# akzeptiert -- laengere werden kommentarlos abgelehnt.
+# 825 days is the upper bound iOS accepts for manually trusted certificates
+# -- longer ones get rejected without any message.
 openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
   -keyout certs/key.pem -out certs/cert.pem \
   -subj "/CN=dcs-map-server" \
@@ -38,12 +38,12 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
 
 chmod 600 certs/key.pem
 echo
-echo "Zertifikat liegt in certs/. Server neu starten, dann:"
+echo "Certificate is in certs/. Restart the server, then:"
 echo "  https://<LAN-IP>:8443"
 echo
-echo "Beim ersten Aufruf warnt der Browser -- Ausnahme bestaetigen. Danach gilt"
-echo "die Seite als Secure Context und Wake Lock funktioniert."
+echo "The browser will warn on first visit -- accept the exception. After that"
+echo "the page counts as a secure context and Wake Lock works."
 echo
-echo "Ohne Warnung geht es mit mkcert (eigene lokale CA, einmal auf dem Geraet"
-echo "installieren): brew install mkcert && mkcert -install &&"
+echo "To avoid the warning, use mkcert (a local CA of your own, install once"
+echo "on the device): brew install mkcert && mkcert -install &&"
 echo "  mkcert -key-file certs/key.pem -cert-file certs/cert.pem localhost 127.0.0.1 <LAN-IP>"

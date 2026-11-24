@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Holt die Kartenkacheln fuer ein DCS-Theater als PMTiles.
+# Fetches the map tiles for a DCS theater as PMTiles.
 #
-# Laedt per HTTP-Range nur die Bytes der Region aus dem oeffentlichen
-# Protomaps-Planet-Build. Kein Java, kein Zugangsschluessel.
-# Voraussetzung: brew install pmtiles
+# Pulls only the region's bytes via HTTP range requests out of the public
+# Protomaps planet build. No Java, no access key.
+# Requires: brew install pmtiles
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -21,12 +21,12 @@ case "$THEATER" in
   kola)          BBOX="20.0,64.0,42.0,71.0" ;;
   iraq)          BBOX="38.0,29.0,49.0,38.0" ;;
   afghanistan)   BBOX="60.0,29.0,75.0,39.0" ;;
-  *) echo "unbekanntes Theater: $THEATER"; exit 1 ;;
+  *) echo "unknown theater: $THEATER"; exit 1 ;;
 esac
 
-command -v pmtiles >/dev/null || { echo "pmtiles fehlt: brew install pmtiles"; exit 1; }
+command -v pmtiles >/dev/null || { echo "pmtiles is missing: brew install pmtiles"; exit 1; }
 
-# Protomaps haelt nur ein rollierendes Fenster vor, daher rueckwaerts suchen.
+# Protomaps only keeps a rolling window, so search backwards.
 PLANET=""
 for back in 2 3 4 5 6 7 8; do
   d=$(date -v-"${back}"d +%Y%m%d 2>/dev/null || date -d "-${back} days" +%Y%m%d)
@@ -34,10 +34,10 @@ for back in 2 3 4 5 6 7 8; do
     PLANET="https://build.protomaps.com/$d.pmtiles"; break
   fi
 done
-[ -n "$PLANET" ] || { echo "kein erreichbarer Planet-Build gefunden"; exit 1; }
+[ -n "$PLANET" ] || { echo "no reachable planet build found"; exit 1; }
 
 mkdir -p tiles
-echo "Quelle:  $PLANET"
+echo "Source:  $PLANET"
 echo "Region:  $THEATER  bbox $BBOX  maxzoom $MAXZOOM"
 pmtiles extract "$PLANET" "tiles/$THEATER.pmtiles" --bbox="$BBOX" --maxzoom="$MAXZOOM"
 ls -lh "tiles/$THEATER.pmtiles"
