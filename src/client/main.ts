@@ -209,6 +209,35 @@ canvas.addEventListener('wheel', (e) => {
   if (!follow) map.jumpTo({ zoom: manualZoom });
 }, { passive: false });
 
+/**
+ * Arrow keys pan the map, for a second screen driven from a keyboard rather
+ * than a touchscreen or mouse. Behaves like a drag: switches to FREE on the
+ * first press, same fixed pixel step regardless of zoom so repeated presses
+ * feel consistent.
+ *
+ * Listens on the window, not the canvas: the canvas is not a focusable
+ * element, so it would never receive key events at all.
+ */
+const PAN_STEP_PX = 80;
+window.addEventListener('keydown', (e) => {
+  const delta: Record<string, [number, number]> = {
+    ArrowUp: [0, -PAN_STEP_PX],
+    ArrowDown: [0, PAN_STEP_PX],
+    ArrowLeft: [-PAN_STEP_PX, 0],
+    ArrowRight: [PAN_STEP_PX, 0],
+  };
+  const d = delta[e.key];
+  if (!d) return;
+  // Don't steal the arrow keys from an input/select (the theater dropdown,
+  // a future text field) -- only pan while nothing is being typed into.
+  const tag = (document.activeElement as HTMLElement | null)?.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+  e.preventDefault();
+  if (follow) setFollow(false);
+  map.panBy(d, { animate: false });
+});
+
 // Prevents the browser's own touch scrolling/pinch-zoom/pull-to-refresh from
 // competing with the pointer handling below.
 canvas.style.touchAction = 'none';
