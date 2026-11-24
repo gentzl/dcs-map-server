@@ -11,10 +11,31 @@ import { M_PER_NM, destination, metersToNm, toRad } from './geo.js';
  */
 
 /**
- * Ring radii in nautical miles. Only the ones that fit the selected range
- * step are drawn -- close-in rings would just be noise at 160 nm.
+ * Ring radii in nautical miles, tied to the distances a fighter pilot
+ * actually uses them for: 2.5 nm close tactical/formation distance and
+ * rejoin, 5 nm a typical IR Rmax and the rough BVR/WVR transition, 10/20 nm
+ * standard BVR working ranges, 40 nm a CAP-station overview scale.
  */
-export const RING_RADII_NM = [2.5, 5, 10, 20, 40, 80, 160];
+export const RING_RADII_NM = [2.5, 5, 10, 20, 40] as const;
+
+/**
+ * Which of those rings are shown per selected MFD range step.
+ *
+ * Showing every ring up to the selected range (the old behaviour) crowded
+ * the display at wide range steps -- seven overlapping rings near the
+ * centre say nothing useful mid-fight. Capped at the one or two bands
+ * actually relevant to that step instead; the key maps 1:1 to RANGES_NM
+ * in geo.ts.
+ */
+const RINGS_FOR_RANGE: Record<number, readonly number[]> = {
+  1: [],
+  5: [2.5, 5],
+  10: [5, 10],
+  20: [10, 20],
+  50: [20, 40],
+  80: [40],
+  160: [40],
+};
 
 const CIRCLE_SEGMENTS = 128;
 
@@ -28,11 +49,10 @@ function geodesicRing(lat: number, lon: number, radiusM: number): [number, numbe
   return coords;
 }
 
-export function buildRings(lat: number, lon: number, maxNm: number): GeoJSON.FeatureCollection {
+export function buildRings(lat: number, lon: number, rangeNm: number): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
 
-  for (const nm of RING_RADII_NM) {
-    if (nm > maxNm) continue;
+  for (const nm of RINGS_FOR_RANGE[rangeNm] ?? []) {
     features.push({
       type: 'Feature',
       geometry: { type: 'LineString', coordinates: geodesicRing(lat, lon, nm * M_PER_NM) },
@@ -41,8 +61,9 @@ export function buildRings(lat: number, lon: number, maxNm: number): GeoJSON.Fea
   }
 
   // Bearing ticks every 30°, the cardinal directions longer. They replace
-  // the compass rose without cluttering the view.
-  const outer = Math.min(maxNm, RING_RADII_NM[RING_RADII_NM.length - 1]!);
+  // the compass rose without cluttering the view. Always out to the edge of
+  // the current view, independent of which specific rings are shown above.
+  const outer = rangeNm;
   for (let deg = 0; deg < 360; deg += 30) {
     const major = deg % 90 === 0;
     const from = outer * (major ? 0.9 : 0.95);
