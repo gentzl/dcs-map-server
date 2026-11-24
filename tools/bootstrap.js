@@ -21,8 +21,17 @@ function npmCliPath() {
   return candidate;
 }
 
+// npm's own lifecycle scripts (e.g. esbuild's install.js) are run in a child
+// shell that resolves `node` via PATH, not via our process.execPath — so the
+// portable runtime's node dir has to be on PATH too, or those scripts fail
+// with "'node' is not recognized" on machines without a system-wide Node.
+function npmEnv() {
+  const nodeDir = path.dirname(process.execPath);
+  return { ...process.env, PATH: `${nodeDir}${path.delimiter}${process.env.PATH ?? ''}` };
+}
+
 function runNpm(args) {
-  execFileSync(process.execPath, [npmCliPath(), ...args], { stdio: 'inherit' });
+  execFileSync(process.execPath, [npmCliPath(), ...args], { stdio: 'inherit', env: npmEnv() });
 }
 
 const THEATERS = [
@@ -78,6 +87,7 @@ async function main() {
   console.log('Starting the server...');
   const server = spawn(process.execPath, [npmCliPath(), 'run', 'dev'], {
     stdio: ['inherit', 'pipe', 'pipe'],
+    env: npmEnv(),
   });
 
   // Tees the server's own output to the console and opens the browser at
