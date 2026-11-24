@@ -25,6 +25,14 @@
                letter-spacing: .04em; }
     #status { white-space: pre-line; }
 
+    /* Bottom left rather than under the BRAA readout: that one grows and
+       shrinks with what is selected, and a measurement has to stay put while
+       you read it off. */
+    #ruler { position: absolute; bottom: 64px; left: 12px; padding: 6px 10px;
+             max-width: min(360px, calc(100vw - 24px)); line-height: 1.6;
+             background: var(--panel); border: 1px solid #4cc9f0; border-radius: 6px;
+             color: #4cc9f0; }
+
     #braa { position: absolute; top: 44px; left: 12px; padding: 6px 10px;
             max-width: min(360px, calc(100vw - 24px)); line-height: 1.6;
             background: var(--panel); border: 1px solid #ffd166; border-radius: 6px;
@@ -127,6 +135,7 @@
   <div id="offscreen" hidden></div>
   <div id="hud">connecting…</div>
   <div id="braa" hidden></div>
+  <div id="ruler" hidden></div>
   <div id="warning" hidden></div>
 
   <div id="settings" hidden>
@@ -197,7 +206,7 @@
     <div id="status"></div>
     <div id="hint">
       Tap a contact for BRAA.<br />
-      Shift + click to set bullseye.<br />
+      Shift + click to set bullseye. MEAS measures between two points you tap.<br />
       Theaters need the matching tile file (<code>tools/fetch-tiles.sh</code>).
     </div>
   </div>
@@ -222,6 +231,9 @@
     <div class="seg" role="group" aria-label="Map orientation">
       <button id="mode-hdg" aria-pressed="true" title="Heading up">HDG</button>
       <button id="mode-north" aria-pressed="false" title="North up">N</button>
+    </div>
+    <div class="seg" role="group" aria-label="Measure">
+      <button id="mode-measure" aria-pressed="false" title="Measure between two points">MEAS</button>
     </div>
   </div>
 

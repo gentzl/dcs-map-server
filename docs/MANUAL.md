@@ -88,9 +88,20 @@ site covers half the map at 100 km without telling you anything you need in flig
 **The bullseye** is a reference point everyone on the radio calls distances from. DCS's export
 doesn't provide the mission's bullseye, so you place it yourself: shift-click where it belongs.
 
+**A short line ahead of each aircraft** shows where it will be in a minute — long for something
+fast, short for something slow. It's there so you can read the geometry of the whole picture at a
+glance: who's converging on whom, who's running. Only aircraft get one; a stub on every parked
+truck would bury what it's meant to show.
+
 **Tapping a contact** draws a line to it and shows the full readout: affiliation, category,
-bearing, range, altitude, aspect and ground speed. Aspect tells you where it's pointing relative
-to you — `HOT` straight at you, `FLANK`, `BEAM`, `DRAG`, `COLD` straight away.
+bearing and range from you, the contact's own bullseye position, altitude, aspect, ground speed,
+closure and the time that leaves. Aspect tells you where it's pointing relative to you — `HOT`
+straight at you, `FLANK`, `BEAM`, `DRAG`, `COLD` straight away. Closure is how fast the gap is
+actually shutting, which is not the same as how fast either of you is flying: forty miles is two
+and a half minutes head-on and never at all behind someone faster than you.
+
+Altitudes for aircraft are in thousands of feet — `31.9` is thirty-one thousand nine hundred, the
+way it goes over the radio. Things on the ground keep plain feet.
 
 Everything is in cockpit units: distances in nautical miles, altitude in feet or as a flight
 level, speed in knots, coordinates in degrees and decimal minutes, bearings magnetic.
@@ -104,10 +115,16 @@ level, speed in knots, coordinates in degrees and decimal minutes, bearings magn
 | Click/touch and drag | Pan the map, switches to FREE |
 | `CTR / FREE` | Follow the aircraft, or pan the map freely |
 | `HDG / N` | Heading up or north up (follow mode only) |
+| `MEAS` | Measure between two points: tap the start, tap the end |
 | `⚙` | Settings |
 | Tap a contact | Line and readout to it |
 | `⚙` → Symbols | Legend of all contact symbols |
 | Shift + click | Place the bullseye |
+
+`MEAS` is for the questions the contact readout can't answer — how far your ingress leg is, how
+wide you have to go round a SAM, whether a divert field is reachable. Tap it, tap two points, and
+you get the bearing, the distance, and how long it takes at your current speed. Tap two more
+points to measure something else, or press `MEAS` again to clear it.
 
 The range buttons follow the scaling of the Hornet's and Viper's HSI/HSD displays, so a press
 gives you a known distance rather than just some zoom level. "20 NM" covers the same real distance
@@ -131,7 +148,8 @@ monitor can be set up differently.
 | Bullseye | on / off | The reference point and its readout |
 | Bearings | Magnetic / True | Magnetic is what you call on the radio; true is for map work |
 | Place names | on / off | Town and feature labels from the map data |
-| Contact labels | on / off | Name and altitude beside every contact — quickly too much in a busy mission |
+| Contact labels | on / off | Name and altitude beside every contact — quickly too much in a busy
+mission |
 | Contacts | All / Air only / None | Which contacts are drawn at all |
 | Theater | per fetched theater | Which map you're looking at |
 

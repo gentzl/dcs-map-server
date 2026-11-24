@@ -98,6 +98,15 @@ let ownCoalition: Coalition = 2;
 
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
+/**
+ * Two-point measurement. Off until MEAS is pressed; the first tap then sets
+ * the start, the second the end, and a further tap starts over.
+ *
+ * A button rather than a modifier because the thing is meant to be used on a
+ * tablet, where there is no keyboard to hold anything down with.
+ */
+let ruler: { a: { lat: number; lon: number } | null; b: { lat: number; lon: number } | null } | null = null;
+
 /** The user sets the bullseye themselves -- the export hook doesn't provide one. */
 let bullseye: { lat: number; lon: number } = (() => {
   try {
@@ -293,7 +302,7 @@ function addOverlayLayers(): void {
   const c = CHART_COLORS[settings.mode];
   const ink = c.ink;
 
-  for (const id of ['graticule', 'threats', 'rings', 'bullseye', 'track', 'selected-trail', 'braa-line', 'leaders', 'contacts'] as const) {
+  for (const id of ['graticule', 'threats', 'rings', 'bullseye', 'track', 'selected-trail', 'braa-line', 'leaders', 'ruler', 'contacts'] as const) {
     if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY });
   }
 
@@ -434,6 +443,29 @@ function addOverlayLayers(): void {
     map.addLayer({
       id: 'braa-line-line', type: 'line', source: 'braa-line',
       paint: { 'line-color': '#ffd166', 'line-width': 2.2, 'line-dasharray': [6, 3] },
+    });
+  }
+
+  if (!map.getLayer('ruler-line')) {
+    // Cyan, like the own track: this is a line you drew, not something the
+    // mission put there.
+    map.addLayer({
+      id: 'ruler-casing', type: 'line', source: 'ruler',
+      paint: { 'line-color': 'rgba(0,0,0,0.45)', 'line-width': 5 },
+    });
+    map.addLayer({
+      id: 'ruler-line', type: 'line', source: 'ruler',
+      paint: { 'line-color': '#4cc9f0', 'line-width': 2.2, 'line-dasharray': [4, 2] },
+    });
+    map.addLayer({
+      id: 'ruler-point', type: 'circle', source: 'ruler',
+      filter: ['==', ['geometry-type'], 'Point'],
+      paint: {
+        'circle-radius': 4,
+        'circle-color': '#4cc9f0',
+        'circle-stroke-color': 'rgba(0,0,0,0.6)',
+        'circle-stroke-width': 1.5,
+      },
     });
   }
 
@@ -877,6 +909,50 @@ function updateHud(now: number): void {
   if (withheld) warnEl.textContent = `CONTACTS WITHHELD BY MISSION (${optionsView})`;
 
   updateBraa(now);
+  updateRuler();
+}
+
+const rulerBox = document.getElementById('ruler')!;
+
+function updateRuler(): void {
+  if (!ruler) {
+    rulerBox.hidden = true;
+    setData('ruler', { type: 'FeatureCollection', features: [] });
+    return;
+  }
+
+  const points = [ruler.a, ruler.b].filter((p) => p !== null);
+  const features: GeoJSON.Feature[] = points.map((p) => ({
+    type: 'Feature',
+    geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+    properties: {},
+  }));
+
+  rulerBox.hidden = false;
+  if (!ruler.a) {
+    rulerBox.textContent = 'MEAS  —  tap the start point';
+  } else if (!ruler.b) {
+    rulerBox.textContent = 'MEAS  —  tap the end point';
+  } else {
+    const { a, b } = ruler;
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: [[a.lon, a.lat], [b.lon, b.lat]] },
+      properties: {},
+    });
+
+    const brg = bearingTo(a.lat, a.lon, b.lat, b.lon);
+    const nm = metersToNm(distanceTo(a.lat, a.lon, b.lat, b.lon));
+    // Time to fly it at what we are doing now -- the number a leg is
+    // actually planned on, and useless to work out in your head mid-flight.
+    const min = own.tas > 1 ? (nm * M_PER_NM) / own.tas / 60 : null;
+    rulerBox.textContent = [
+      nbsp(`MEAS ${bearing3(refBearing(brg))}${refSuffix} / ${nm.toFixed(1)} nm`),
+      nbsp(min !== null && min < 600 ? `${min.toFixed(1)} min` : '— min'),
+    ].join('   ');
+  }
+
+  setData('ruler', { type: 'FeatureCollection', features });
 }
 
 function updateBraa(now: number): void {
@@ -940,6 +1016,16 @@ canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
   const pt: [number, number] = [e.clientX - rect.left, e.clientY - rect.top];
 
+  if (ruler) {
+    // While measuring, a tap places a point instead of selecting a contact:
+    // the two would fight over the same gesture, and you are usually
+    // measuring to something rather than from nothing.
+    const ll = map.unproject(pt);
+    const at = { lat: ll.lat, lon: ll.lng };
+    ruler = ruler.b || !ruler.a ? { a: at, b: null } : { a: ruler.a, b: at };
+    return;
+  }
+
   if (e.shiftKey) {
     // Shift-click sets the bullseye -- the hook doesn't provide it.
     const ll = map.unproject(pt);
@@ -976,6 +1062,12 @@ function setOrientation(up: boolean): void {
 btnHdg.addEventListener('click', () => setOrientation(true));
 btnNorth.addEventListener('click', () => setOrientation(false));
 setOrientation(headingUp);
+const btnMeasure = document.getElementById('mode-measure')!;
+btnMeasure.addEventListener('click', () => {
+  ruler = ruler ? null : { a: null, b: null };
+  btnMeasure.setAttribute('aria-pressed', String(ruler !== null));
+});
+
 btnCtr.addEventListener('click', () => setFollow(true));
 btnFree.addEventListener('click', () => { setFollow(false); applyFreeZoom(); });
 setFollow(true);
