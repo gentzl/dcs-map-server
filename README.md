@@ -22,9 +22,10 @@ install, nothing to put on `PATH`, no terminal commands to type. (Nothing it dow
 rest of your system — it all stays inside this project's own folder.) Next time, just double-click
 it again — it asks the theater question once more, but skips every download it's already done.
 
-Open the web address it prints — `http://localhost:8080` on the DCS PC itself, one of the other
-two from a phone or tablet on the same Wi-Fi. Start or join a flight in DCS and the map comes
-alive.
+**Open the web address it prints:** `http://localhost:8080` on the DCS PC itself. From a phone or
+tablet on the same Wi-Fi, use one of the other addresses it lists instead — something like
+`http://192.168.1.23:8080` or `http://<your-pc-name>.local:8080`. Start or join a flight in DCS and
+the map comes alive.
 
 ## Documentation
 
