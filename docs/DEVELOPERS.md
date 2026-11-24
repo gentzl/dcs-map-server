@@ -4,6 +4,7 @@ For working on the code, running it without DCS, or driving it beyond what the s
 exposes. If you just want to fly with it, the [handbook](MANUAL.md) is the one you want.
 
 - [Manual setup](#manual-setup)
+- [Detecting owned maps](#detecting-owned-maps)
 - [How it fits together](#how-it-fits-together)
 - [Source layout](#source-layout)
 - [The DCS hook](#the-dcs-hook)
@@ -20,10 +21,9 @@ exposes. If you just want to fly with it, the [handbook](MANUAL.md) is the one y
 
 ## Manual setup
 
-The [README](../README.md) points players at `start.bat`, a one-click installer that asks which
-maps they own on first run, saves the answer to `theaters.json`, and skips the question on every
-run after that (`configure-maps.bat` re-asks it, for a map bought later). For development, or if
-you'd rather run the steps yourself:
+The [README](../README.md) points players at `start.bat`, a one-click installer that works out
+which maps they own by itself on every run (see [Detecting owned maps](#detecting-owned-maps)) and
+downloads tiles for each one. For development, or if you'd rather run the steps yourself:
 
 Clone the repo (`git clone`). You'll need [Node.js](https://nodejs.org) installed (version 22 or
 newer). Everything below is copy-paste into a terminal, in the project folder — the same commands
@@ -63,6 +63,28 @@ work in PowerShell or cmd.exe.
 
 This path doesn't touch `theaters.json` -- `fetch-tiles` just downloads whatever theater you pass
 it, as many times as you like.
+
+## Detecting owned maps
+
+`tools/detect-owned-theaters.js` reads which DCS maps are installed straight from the game's own
+records, so bootstrap.js doesn't have to ask -- checked fresh on every run, so a map bought later
+just shows up on the next start, rather than once at first setup:
+
+1. Each installed DCS variant registers its install path at
+   `HKCU\Software\Eagle Dynamics\<variant>\Path` (`DCS World`, `DCS World OpenBeta`, or the
+   oddly-branded `DCS World 2 OpenAlpha`) -- read via `reg query`.
+2. DCS's own installer/updater tracks installed terrains in `autoupdate.cfg` at that path's root,
+   as a `modules` array using the same IDs `DCS_updater.exe install` takes (e.g. `SYRIA_terrain`).
+   `TERRAIN_MODULE_IDS` in that file maps those back to this project's theater keys.
+
+Neither of those is officially documented, so every failure mode -- missing registry key, missing
+or unparseable `autoupdate.cfg`, an install DCS itself doesn't report a terrain for -- returns
+`null` rather than guessing, and the caller falls back to `theaters.json` and then to asking
+(`tools/theater-config.js`). Caucasus is always included once detection succeeds at all, since
+it ships free with the base game and older DCS versions may not list it as a module.
+
+`configure-maps.bat` (`tools/reconfigure-theaters.js`) exists only for when detection fails -- it
+tries detection first too, and only prompts if that also comes back empty.
 
 ## How it fits together
 

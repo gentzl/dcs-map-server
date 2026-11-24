@@ -41,11 +41,12 @@ The map itself is ordinary OpenStreetMap material — the same roads, towns and 
 that part of the world shows. A "theater" here is just the patch of the world the DCS map of that
 name sits on.
 
-`start.bat` asks which DCS maps you own the first time you run it, and downloads tiles for each
-one — that only happens once; every run after that skips straight to starting the server.
+`start.bat` works out which maps you own straight from your DCS installation and downloads tiles
+for each one, every time it runs — so a map you buy later just shows up the next time you
+double-click it, nothing to redo by hand.
 
-Bought a new map since? Double-click **`configure-maps.bat`** to add it without redoing the whole
-setup.
+If it can't tell automatically (an unusual install setup), it asks once instead, and
+**`configure-maps.bat`** lets you change that answer any time.
 
 Available: `caucasus`, `syria`, `persiangulf`, `sinai`, `normandy`, `marianas`, `kola`, `iraq`,
 `afghanistan` — each one roughly 100–150 MB on disk. If you own more than one, switch between the

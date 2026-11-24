@@ -2,6 +2,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { detectOwnedTheaters } from './detect-owned-theaters.js';
 import { npmCliPath, npmEnv, runNpm } from './npm-runtime.js';
 import { promptTheaters, readOwnedTheaters, saveOwnedTheaters } from './theater-config.js';
 
@@ -28,9 +29,11 @@ async function main() {
   console.log('Fetching map labels and symbols...');
   runNpm(['run', 'fetch-assets']);
 
-  let theaters = readOwnedTheaters(root);
-  if (!theaters) {
-    theaters = await promptTheaters();
+  let theaters = detectOwnedTheaters();
+  if (theaters) {
+    console.log(`Maps you own, detected from your DCS installation: ${theaters.join(', ')}`);
+  } else {
+    theaters = readOwnedTheaters(root) ?? (await promptTheaters());
     saveOwnedTheaters(root, theaters);
   }
 

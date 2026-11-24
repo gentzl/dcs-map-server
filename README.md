@@ -16,9 +16,10 @@ stays on your own home network.
 1. Download this project — the green **Code → Download ZIP** button on GitHub — and unzip it.
 2. **Double-click `start.bat`.**
 
-That's it. The first time, it asks which DCS maps you own and sets everything up; after that,
-every double-click just starts the server. Bought a new map since? Double-click
-**`configure-maps.bat`** to add it.
+That's it. It works out which DCS maps you own by itself and sets everything up — nothing to
+answer. Bought a new map? Just double-click `start.bat` again, it picks that up too. (Can't figure
+it out automatically? It asks once instead — double-click **`configure-maps.bat`** any time to
+change the answer.)
 
 **Open the web address it prints:** `http://localhost:8080` on the DCS PC itself. From a phone or
 tablet on the same Wi-Fi, use one of the other addresses it lists instead — something like

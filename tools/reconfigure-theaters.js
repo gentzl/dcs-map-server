@@ -1,13 +1,13 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { detectOwnedTheaters } from './detect-owned-theaters.js';
 import { runNpm } from './npm-runtime.js';
 import { promptTheaters, readOwnedTheaters, saveOwnedTheaters } from './theater-config.js';
 
 /**
- * Lets a player add (or change) which DCS maps the server fetches tiles for,
- * without redoing the whole first-run setup -- for when a map is bought
- * after start.bat already asked and saved an answer. Run via
+ * Manual fallback for the rare case bootstrap.js can't detect which maps are
+ * owned by itself (an install the registry doesn't know about, say). Run via
  * configure-maps.bat.
  */
 
@@ -15,8 +15,16 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(root);
 
 async function main() {
-  const current = readOwnedTheaters(root) ?? [];
-  const theaters = await promptTheaters(current);
+  const detected = detectOwnedTheaters();
+  let theaters;
+  if (detected) {
+    console.log(`Your DCS installation already reports which maps you own: ${detected.join(', ')}`);
+    console.log('start.bat picks this up by itself -- nothing to set here.');
+    theaters = detected;
+  } else {
+    const current = readOwnedTheaters(root) ?? [];
+    theaters = await promptTheaters(current);
+  }
   saveOwnedTheaters(root, theaters);
 
   for (const theater of theaters) {
