@@ -55,6 +55,11 @@ describe('threat rings', () => {
     assert.deepEqual(threatOf('S_75M_Volhov'), { rangeM: 34_000, label: 'SA-2' });
   });
 
+  test('a gun system gets its short ring rather than none', () => {
+    assert.deepEqual(threatOf('HEMTT_C-RAM_Phalanx'), { rangeM: 2_000, label: 'C-RAM' });
+    assert.deepEqual(threatOf('ZSU-23-4 Shilka'), { rangeM: 2_500, label: 'ZSU-23-4' });
+  });
+
   test('a unit that is not air defence gets no ring', () => {
     assert.equal(threatOf('BMP-1'), null);
     assert.equal(threatOf('T-72B'), null);

@@ -58,6 +58,12 @@ const THREATS: ThreatEntry[] = [
   { match: 'shilka', km: 2.5, label: 'ZSU-23-4' },
   { match: 'zsu', km: 2.5, label: 'ZSU-23-4' },
   { match: 'zu-23', km: 2.5, label: 'ZU-23' },
+  // Land-based Phalanx. Built to shoot down rockets and mortars rather than
+  // aircraft, and its 20 mm reaches barely two kilometres -- but inside that
+  // it is lethal, and a ring you can only see once you are nearly on top of
+  // it is still worth drawing.
+  { match: 'phalanx', km: 2, label: 'C-RAM' },
+  { match: 'c-ram', km: 2, label: 'C-RAM' },
 ];
 
 /**

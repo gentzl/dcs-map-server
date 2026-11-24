@@ -244,7 +244,9 @@
   {
     "name": "HEMTT_C-RAM_Phalanx",
     "level1": 2,
-    "category": "sam"
+    "category": "sam",
+    "threatM": 2000,
+    "threatLabel": "C-RAM"
   },
   {
     "name": "HL_KORD",
