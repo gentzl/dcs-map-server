@@ -1,4 +1,4 @@
-/** Sichtbarkeitsregel aus DCS (missionOptions.difficulty.optionsView). */
+/** Visibility rule from DCS (missionOptions.difficulty.optionsView). */
 export type OptionsView =
   | 'optview_onlymap'
   | 'optview_myaircraft'
@@ -7,12 +7,12 @@ export type OptionsView =
   | 'optview_extended'
   | 'optview_all';
 
-export type Coalition = 0 | 1 | 2; // 0 = neutral, 1 = rot, 2 = blau
+export type Coalition = 0 | 1 | 2; // 0 = neutral, 1 = red, 2 = blue
 
 /**
- * Kategorie für die Darstellung. Grob genug, um auf einen Blick unterscheidbar
- * zu sein, fein genug, um Flugabwehr von sonstigen Bodenzielen zu trennen --
- * nur Letztere bekommt einen Bedrohungsring.
+ * Category for display. Coarse enough to tell apart at a glance, fine
+ * enough to separate air defence from other ground targets -- only the
+ * latter gets a threat ring.
  */
 export type Category =
   | 'air'
@@ -38,24 +38,24 @@ export interface Unit {
   lat: number;
   lon: number;
   alt: number;
-  /** Bogenmass, 0 = Nord -- wie von LoGetSelfData() geliefert. */
+  /** Radians, 0 = north -- as supplied by LoGetSelfData(). */
   hdg: number;
   coalition: Coalition;
   category: Category;
   unitName?: string;
   groupName?: string;
-  /** Wirkungsbereich in Metern, nur bei Flugabwehr mit bekanntem Typ. */
+  /** Engagement range in metres, only for air defence of a known type. */
   threatM?: number;
-  /** Kurzbezeichnung des Systems für die Beschriftung des Rings. */
+  /** Short label of the system for the ring's annotation. */
   threatLabel?: string;
 }
 
 export interface Ownship extends Unit {
-  /** Modellzeit aus DCS. Dient dem Client als Zeitbasis, nicht die Wanduhr. */
+  /** Model time from DCS. Serves the client as its time base, not the wall clock. */
   modelTime: number;
   tas: number;
   ralt: number;
-  /** 0 = in der Luft, 1 = Boden, 2 = Traegerdeck. */
+  /** 0 = airborne, 1 = ground, 2 = carrier deck. */
   wow: 0 | 1 | 2;
   aoa: number;
   accelY: number;

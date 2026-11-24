@@ -1,31 +1,32 @@
 /**
- * Wirkungsbereiche von Flugabwehrsystemen.
+ * Air defence engagement ranges.
  *
- * Die Werte sind Näherungen der maximalen Bekämpfungsentfernung gegen ein
- * Luftziel in mittlerer Höhe. Sie hängen in DCS von Variante, Höhe, Aspekt und
- * Spielversion ab und sind deshalb bewusst grob gehalten: Für die Kartenarbeit
- * zählt die Größenordnung, nicht die dritte Stelle. Der Ring sagt „hier nicht
- * hineinfliegen", nicht „hier endet die Gefahr auf den Meter".
+ * The values are approximations of the maximum engagement range against an
+ * airborne target at medium altitude. In DCS they depend on variant,
+ * altitude, aspect and game version, and are therefore deliberately kept
+ * coarse: what matters for map work is the order of magnitude, not the third
+ * digit. The ring says "don't fly in here", not "the danger ends exactly at
+ * this meter".
  *
- * Reihenfolge ist bedeutsam -- die erste passende Teilzeichenfolge gewinnt,
- * deshalb stehen spezifischere Muster vor allgemeineren.
+ * Order matters -- the first matching substring wins, so more specific
+ * patterns come before more general ones.
  */
 
 interface ThreatEntry {
-  /** Teilzeichenfolge im DCS-Typnamen, kleingeschrieben. */
+  /** Substring in the DCS type name, lowercased. */
   match: string;
-  /** Maximale Bekämpfungsentfernung in Kilometern. */
+  /** Maximum engagement range in kilometres. */
   km: number;
-  /** Kurzbezeichnung für die Beschriftung. */
+  /** Short label for the ring annotation. */
   label: string;
 }
 
 const THREATS: ThreatEntry[] = [
-  // Langstrecke
+  // Long range
   { match: 's-200', km: 130, label: 'SA-5' },
   { match: 'patriot', km: 100, label: 'PATRIOT' },
   { match: 's-300', km: 75, label: 'SA-10' },
-  // Mittelstrecke
+  // Medium range
   { match: 'hawk', km: 40, label: 'HAWK' },
   { match: 's_75', km: 34, label: 'SA-2' },
   { match: 's-75', km: 34, label: 'SA-2' },
@@ -35,7 +36,7 @@ const THREATS: ThreatEntry[] = [
   { match: 'nasams', km: 25, label: 'NASAMS' },
   { match: 's-125', km: 18, label: 'SA-3' },
   { match: 's_125', km: 18, label: 'SA-3' },
-  // Kurzstrecke
+  // Short range
   { match: 'tor ', km: 12, label: 'SA-15' },
   { match: 'sa-15', km: 12, label: 'SA-15' },
   { match: 'hq-7', km: 12, label: 'HQ-7' },
@@ -50,7 +51,7 @@ const THREATS: ThreatEntry[] = [
   { match: 'stinger', km: 4.8, label: 'STINGER' },
   { match: 'avenger', km: 4.8, label: 'AVENGER' },
   { match: 'linebacker', km: 4.8, label: 'LINEBACKER' },
-  // Rohrwaffen
+  // Gun systems
   { match: 'gepard', km: 3, label: 'GEPARD' },
   { match: 'shilka', km: 2.5, label: 'ZSU-23-4' },
   { match: 'zsu', km: 2.5, label: 'ZSU-23-4' },
@@ -58,9 +59,9 @@ const THREATS: ThreatEntry[] = [
 ];
 
 /**
- * Reine Radargeräte bekommen keinen Ring: Sie schießen nicht, und ein Ring um
- * jedes Element einer Stellung würde die Karte zustellen, ohne etwas zu sagen.
- * Erkennbar an den DCS-Namenszusätzen für Such-, Feuerleit- und Zielfolgeradar.
+ * Pure radar units get no ring: they don't shoot, and a ring around every
+ * element of a site would clutter the map without saying anything. Recognised
+ * by the DCS name suffixes for search, fire-control and tracking radar.
  */
 const RADAR_SUFFIXES = [' sr', ' tr', ' str', 'snr', 'radar', 'cp ', ' cc'];
 

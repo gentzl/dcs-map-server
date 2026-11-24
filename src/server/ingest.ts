@@ -5,14 +5,14 @@ import type { World } from './world.js';
 
 export interface IngestOptions {
   port: number;
-  /** Bewusst nur Loopback: der LAN-Hop ist WebSocket, nicht UDP. */
+  /** Deliberately loopback only: the LAN hop is WebSocket, not UDP. */
   host: string;
   /**
-   * Pfad fuer eine Rohaufzeichnung aller eingehenden Datagramme.
+   * Path for a raw recording of every incoming datagram.
    *
-   * Zur Fehlersuche: Was der Hook tatsaechlich sendet, laesst sich sonst nicht
-   * nachvollziehen -- fehlende Einheiten koennen am Export, an der
-   * Missionseinstellung oder am Hook liegen, und das sieht von aussen gleich aus.
+   * For troubleshooting: otherwise there's no way to tell what the hook
+   * actually sends -- missing units could be caused by the export, the
+   * mission setting, or the hook, and all three look the same from outside.
    */
   capture?: string;
   onError?: (reason: string) => void;
@@ -20,15 +20,15 @@ export interface IngestOptions {
 
 export function startIngest(world: World, opts: IngestOptions): dgram.Socket {
   const sock = dgram.createSocket('udp4');
-  let errorBudget = 20; // Fehlerhafte Pakete nur begrenzt melden, sonst flutet das Log.
+  let errorBudget = 20; // Only report a limited number of bad packets, otherwise it floods the log.
   const capture = opts.capture ? createWriteStream(opts.capture, { flags: 'a' }) : null;
 
   sock.on('message', (buf) => {
     capture?.write(`${JSON.stringify({ t: Date.now(), p: buf.toString('utf8') })}\n`);
     const { optionsView, items } = parseDatagram(buf.toString('utf8'));
 
-    // Schema 2 traegt die Sichtbarkeitsregel im Kopf, also auch dann, wenn das
-    // Datagramm kein Ownship-Paket enthaelt.
+    // Schema 2 carries the visibility rule in the header, so also when the
+    // datagram contains no ownship packet.
     if (optionsView) world.optionsView = optionsView;
 
     for (const parsed of items) {
@@ -53,17 +53,17 @@ export function startIngest(world: World, opts: IngestOptions): dgram.Socket {
     }
   });
 
-  // Ohne eigenen Handler beendet ein Bindefehler den Prozess mit Stacktrace.
-  // Der haeufigste Fall ist eine bereits laufende zweite Instanz -- das gehoert
-  // verstaendlich gemeldet, nicht als Absturz.
+  // Without a handler of its own, a bind error ends the process with a stack
+  // trace. The most common case is a second instance already running --
+  // that deserves an understandable message, not a crash.
   sock.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
       console.error(
-        `[ingest] UDP ${opts.host}:${opts.port} ist belegt -- laeuft bereits eine Instanz?`,
+        `[ingest] UDP ${opts.host}:${opts.port} is already in use -- is another instance running?`,
       );
       process.exit(1);
     }
-    console.error(`[ingest] Socket-Fehler: ${err.message}`);
+    console.error(`[ingest] socket error: ${err.message}`);
     process.exit(1);
   });
 

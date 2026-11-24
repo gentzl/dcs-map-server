@@ -15,7 +15,7 @@ const UDP_PORT = Number(process.env.MM_UDP_PORT ?? 50000);
 const UDP_HOST = process.env.MM_UDP_HOST ?? '127.0.0.1';
 const TICK_HZ = Number(process.env.MM_TICK_HZ ?? 10);
 
-/** Ab dieser Sendepufferfuellung gilt ein Client als ueberlastet. */
+/** Beyond this send-buffer fill level, a client counts as overloaded. */
 const BACKPRESSURE_BYTES = 256 * 1024;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -24,16 +24,16 @@ const tilesDir = path.resolve(here, '../../tiles');
 const certsDir = path.resolve(here, '../../certs');
 
 /**
- * HTTPS, sobald ein Zertifikat vorliegt.
+ * HTTPS as soon as a certificate is present.
  *
- * Nicht aus Vertraulichkeitsgründen -- im Heimnetz ist das nachrangig --,
- * sondern weil die Screen-Wake-Lock-API einen Secure Context verlangt. Über
- * http://<LAN-IP> gibt es den nicht, und ein Tablet, dessen Display mitten im
- * Flug ausgeht, ist unbrauchbar. Zertifikat erzeugen: tools/make-cert.sh
+ * Not for confidentiality -- that's secondary on a home network -- but
+ * because the Screen Wake Lock API requires a secure context. There's none
+ * over http://<LAN-IP>, and a tablet whose display turns off mid-flight is
+ * useless. Generate a certificate: tools/make-cert.sh
  */
 async function loadCerts(): Promise<{ key: Buffer; cert: Buffer } | null> {
-  // Abschaltbar: fuer die Fehlersuche und fuer Nutzer, die im eigenen Netz
-  // bewusst ohne TLS fahren wollen. Wake Lock bleibt dann aus.
+  // Can be turned off: for troubleshooting, and for users who deliberately
+  // want to run without TLS on their own network. Wake Lock then stays off.
   if (process.env.MM_TLS === 'off') return null;
   try {
     const [key, cert] = await Promise.all([
@@ -48,15 +48,15 @@ async function loadCerts(): Promise<{ key: Buffer; cert: Buffer } | null> {
 
 const certs = await loadCerts();
 const world = new World();
-// Nur ein Aufruf mit optionaler https-Eigenschaft: Zwei getrennte
-// Fastify-Aufrufe ergaeben einen Union-Typ aus HTTP- und HTTPS-Instanz, auf dem
-// die Routen-Methoden nicht mehr aufrufbar sind.
+// Only one call with an optional https property: two separate Fastify calls
+// would produce a union type of the HTTP and HTTPS instance, on which the
+// route methods are no longer callable.
 const app = Fastify({ logger: false, ...(certs ? { https: certs } : {}) });
 
 await app.register(fastifyStatic, { root: publicDir });
 
-// PMTiles wird per HTTP-Range gelesen; @fastify/static liefert Ranges mit aus.
-// Eigener Prefix, weil das Archiv nicht im Public-Verzeichnis liegt.
+// PMTiles is read via HTTP range requests; @fastify/static serves ranges too.
+// Own prefix, since the archive doesn't live in the public directory.
 await app.register(fastifyStatic, {
   root: tilesDir,
   prefix: '/tiles/',
@@ -66,10 +66,10 @@ await app.register(fastifyStatic, {
 });
 
 /**
- * Welche Theater tatsaechlich ausgeliefert werden koennen.
+ * Which theaters can actually be served.
  *
- * Ohne diese Auskunft waehlt der Client ein Theater, dessen Archiv fehlt, und
- * zeigt wortlos eine leere Karte -- der Fehler ist fuer Nutzer nicht erkennbar.
+ * Without this information the client might pick a theater whose archive is
+ * missing and silently show an empty map -- a fault users can't diagnose.
  */
 app.get('/api/theaters', async () => {
   try {
@@ -104,18 +104,19 @@ setInterval(() => {
 
   for (const ws of clients) {
     if (ws.readyState !== ws.OPEN) continue;
-    // Langsame Clients ueberspringen Ticks, statt den Server zu stauen. Sie
-    // holen beim naechsten Snapshot wieder auf.
+    // Slow clients skip ticks instead of backing up the server. They catch
+    // up again at the next snapshot.
     if (ws.bufferedAmount > BACKPRESSURE_BYTES) continue;
     ws.send(payload);
   }
 }, 1000 / TICK_HZ);
 
 /**
- * Alternative Quelle: statt vom eigenen DCS-Hook per UDP die Welt aus einem
- * anderen laufenden Server per WebSocket spiegeln. Fuer eine zweite Instanz
- * zum Entwickeln gegen echte Daten, ohne jeden Codestand auf den DCS-Rechner
- * kopieren zu muessen -- siehe relay.ts fuer die Begruendung gegen UDP ueber LAN.
+ * Alternative source: instead of taking the world from the own DCS hook via
+ * UDP, mirror it from another running server over WebSocket. For a second
+ * instance developing against real data without having to copy every code
+ * change onto the DCS machine -- see relay.ts for the reasoning against UDP
+ * over the LAN.
  */
 const UPSTREAM = process.env.MM_UPSTREAM;
 
@@ -130,7 +131,7 @@ if (UPSTREAM) {
     port: UDP_PORT,
     host: UDP_HOST,
     capture: process.env.MM_CAPTURE,
-    onError: (reason) => console.warn(`[ingest] verworfen: ${reason}`),
+    onError: (reason) => console.warn(`[ingest] dropped: ${reason}`),
   });
 }
 
@@ -138,8 +139,8 @@ const port = certs ? HTTPS_PORT : HTTP_PORT;
 await app.listen({ port, host: '0.0.0.0' });
 
 if (certs) {
-  // Der Klartext-Port bleibt als Weiterleitung bestehen, damit eine gemerkte
-  // http-Adresse nicht ins Leere läuft.
+  // The plaintext port stays up as a redirect, so a bookmarked http address
+  // doesn't just fail.
   http
     .createServer((req, res) => {
       const host = (req.headers.host ?? '').replace(/:\d+$/, '');
@@ -151,9 +152,9 @@ if (certs) {
 
 const scheme = certs ? 'https' : 'http';
 console.log(`${scheme.toUpperCase().padEnd(5)} ${scheme}://localhost:${port}`);
-if (certs) console.log(`HTTP  http://localhost:${HTTP_PORT}  (Weiterleitung)`);
-else console.log('      kein Zertifikat -- Wake Lock bleibt aus, s. tools/make-cert.sh');
+if (certs) console.log(`HTTP  http://localhost:${HTTP_PORT}  (redirect)`);
+else console.log('      no certificate -- Wake Lock stays off, see tools/make-cert.sh');
 if (UPSTREAM) console.log(`Relay <- ${UPSTREAM}`);
-else console.log(`UDP   ${UDP_HOST}:${UDP_PORT}  (nur Loopback)`);
+else console.log(`UDP   ${UDP_HOST}:${UDP_PORT}  (loopback only)`);
 console.log(`Tick  ${TICK_HZ} Hz`);
-if (process.env.MM_CAPTURE) console.log(`Mitschnitt  ${process.env.MM_CAPTURE}`);
+if (process.env.MM_CAPTURE) console.log(`Capture  ${process.env.MM_CAPTURE}`);

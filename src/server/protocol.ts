@@ -3,12 +3,12 @@ import { classify } from './classify.js';
 import { threatOf } from './threats.js';
 
 /**
- * Parser fuer das UDP-Format des DCS-Hooks (Typen O/A/W, zusaetzlich D).
+ * Parser for the DCS hook's UDP format (types O/A/W, plus D).
  *
- * Schema 1 ist nicht eindeutig: Felder sind kommagetrennt, Namen werden aber
- * unmaskiert eingesetzt. Ein Gruppenname mit Komma verschiebt alle Folgefelder.
- * Deshalb wird bei abweichender Feldzahl der zusammenhaengende Zahlenblock
- * (Lat/Lon/Alt/HDG) gesucht, statt die Koordinaten still falsch zu lesen.
+ * Schema 1 is ambiguous: fields are comma-separated, but names are inserted
+ * unescaped. A group name containing a comma shifts every following field.
+ * So on a mismatched field count, the contiguous number block (lat/lon/
+ * alt/hdg) is searched for, instead of silently misreading the coordinates.
  */
 
 export interface Datagram {
@@ -24,7 +24,7 @@ export type Parsed =
   | { kind: 'error'; reason: string }
   | null;
 
-/** Feldzahl und Index des ersten Koordinatenfeldes je Pakettyp. */
+/** Field count and index of the first coordinate field, per packet type. */
 const LAYOUT = {
   O: { fields: 23, latAt: 4 },
   A: { fields: 11, latAt: 4 },
@@ -40,8 +40,8 @@ function num(v: string | undefined): number {
 }
 
 /**
- * Ergänzt den Wirkungsbereich, sofern das Objekt Flugabwehr mit bekanntem Typ
- * ist. An einer Stelle, damit Schema 1 und 3 dieselbe Zuordnung verwenden.
+ * Adds the engagement range, if the object is air defence of a known type.
+ * In one place, so schema 1 and 3 use the same lookup.
  */
 function withThreat(name: string, category: Category) {
   if (category !== 'sam') return { category };
@@ -55,9 +55,9 @@ function coalition(v: string | undefined): Coalition {
 }
 
 /**
- * Sucht den Versatz, um den sich die Felder durch Kommata in Namen verschoben
- * haben. Lat/Lon/Alt/HDG stehen immer zusammen und sind immer Zahlen; das ist
- * das einzige verlaessliche Muster im Paket.
+ * Looks for the offset by which the fields have shifted due to commas in
+ * names. Lat/lon/alt/hdg always sit together and are always numbers; that's
+ * the only reliable pattern in the packet.
  */
 function findShift(f: string[], latAt: number, expected: number): number | null {
   const max = f.length - expected;
@@ -78,21 +78,21 @@ export function parsePacket(raw: string): Parsed {
   const type = f[0];
 
   if (type === 'D') {
-    return isNum(f[1]) ? { kind: 'remove', id: num(f[1]) } : { kind: 'error', reason: 'D ohne ID' };
+    return isNum(f[1]) ? { kind: 'remove', id: num(f[1]) } : { kind: 'error', reason: 'D without ID' };
   }
 
   if (type !== 'O' && type !== 'A' && type !== 'W') {
-    return { kind: 'error', reason: `unbekannter Typ "${type}"` };
+    return { kind: 'error', reason: `unknown type "${type}"` };
   }
 
   const layout = LAYOUT[type];
   const shift = findShift(f, layout.latAt, layout.fields);
   if (shift === null) {
-    return { kind: 'error', reason: `${type}: ${f.length} Felder, erwartet ${layout.fields}` };
+    return { kind: 'error', reason: `${type}: ${f.length} fields, expected ${layout.fields}` };
   }
 
-  // Namensfelder absorbieren den Versatz. Wo genau das Komma stand, laesst sich
-  // nicht rekonstruieren -- der Name wird deshalb zusammenhaengend uebernommen.
+  // Name fields absorb the shift. Exactly where the comma was can't be
+  // reconstructed -- so the name is taken as one contiguous block.
   const g = (i: number) => f[i + shift];
   const name = f.slice(2, 3 + shift).join(',');
 
@@ -127,8 +127,8 @@ export function parsePacket(raw: string): Parsed {
         unitName: g(8),
         groupName: g(9),
         coalition: coalition(g(10)),
-        // Schema 1 überträgt nur level2, nicht level1 -- die Einordnung stützt
-        // sich hier überwiegend auf den Namen.
+        // Schema 1 only carries level2, not level1 -- classification here
+        // relies mostly on the name.
         ...withThreat(name, classify({ name, level2: num(g(3)) })),
       },
     };
@@ -164,12 +164,12 @@ export function parsePacket(raw: string): Parsed {
 
 // --- Schema 3 ----------------------------------------------------------------
 //
-// Tabgetrennt, mehrere Datensaetze je Datagramm, Kopfzeile mit Schemaversion.
-// Tabs und Zeilenumbrueche entfernt bereits der Hook, Kommata duerfen bleiben --
-// damit entfaellt die Mehrdeutigkeit, die Schema 1 anhaftet.
+// Tab-separated, multiple records per datagram, header line with the schema
+// version. The hook already strips tabs and line breaks, commas may stay --
+// which removes the ambiguity schema 1 is stuck with.
 //
-// Gegenueber Schema 2 tragen A-Zeilen zusaetzlich Type.level1 und level2, ohne
-// die sich Flugabwehr nicht von sonstigen Bodenzielen trennen laesst.
+// Compared to schema 2, A lines additionally carry Type.level1 and level2,
+// without which air defence can't be separated from other ground targets.
 
 const V3_LAYOUT = { O: 20, A: 12, W: 8, D: 2 } as const;
 
@@ -177,10 +177,10 @@ function parseV3Line(line: string, modelTime: number, view: OptionsView): Parsed
   const f = line.split('\t');
   const type = f[0];
   if (type !== 'O' && type !== 'A' && type !== 'W' && type !== 'D') {
-    return { kind: 'error', reason: `v3: unbekannter Typ "${type}"` };
+    return { kind: 'error', reason: `v3: unknown type "${type}"` };
   }
   if (f.length !== V3_LAYOUT[type]) {
-    return { kind: 'error', reason: `v3 ${type}: ${f.length} Felder, erwartet ${V3_LAYOUT[type]}` };
+    return { kind: 'error', reason: `v3 ${type}: ${f.length} fields, expected ${V3_LAYOUT[type]}` };
   }
 
   if (type === 'D') return { kind: 'remove', id: num(f[1]) };
@@ -239,8 +239,8 @@ function parseV3Line(line: string, modelTime: number, view: OptionsView): Parsed
 }
 
 /**
- * Zerlegt ein Datagramm. Schema 2 wird an der Kopfzeile erkannt, alles andere
- * als Schema 1 gelesen, das kommagetrennte Format ohne Kopfzeile.
+ * Splits apart a datagram. Schema 2 is recognised by its header line,
+ * everything else is read as schema 1, the comma-separated format with no header.
  */
 export function parseDatagram(raw: string): Datagram {
   const text = raw.trim();
@@ -252,7 +252,7 @@ export function parseDatagram(raw: string): Datagram {
   if (head?.[0] === 'MM') {
     const schema = Number(head[1]);
     if (schema !== 3) {
-      return { items: [{ kind: 'error', reason: `nicht unterstuetztes Schema ${head[1]}` }] };
+      return { items: [{ kind: 'error', reason: `unsupported schema ${head[1]}` }] };
     }
     const modelTime = Number(head[2]) || 0;
     const view = (head[3] || 'optview_all') as OptionsView;
