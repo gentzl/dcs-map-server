@@ -24,6 +24,37 @@ describe('threat rings', () => {
     assert.equal(threatOf('Strela-1 9P31')?.label, 'SA-9');
   });
 
+  // The role can come last in the name, and the separator varies by unit set.
+  // A substring list with a space baked in on one side missed all of these,
+  // so a Patriot site drew five stacked 100 km rings -- one per vehicle.
+  const support = [
+    'Patriot cp',
+    'Patriot AMG',
+    'Patriot ECS',
+    'Patriot EPP',
+    'Hawk pcp',
+    'Hawk cwar',
+    'NASAMS_Command_Post',
+    'S-300PS 54K6 cp',
+    'HQ-7_STR_SP',
+  ];
+  for (const name of support) {
+    test(`${name} does not shoot and gets no ring`, () => {
+      assert.equal(threatOf(name), null);
+    });
+  }
+
+  test('the launcher of a site keeps its ring while its support does not', () => {
+    assert.equal(threatOf('HQ-7_LN_SP')?.label, 'HQ-7');
+    assert.equal(threatOf('NASAMS_LN_B')?.label, 'NASAMS');
+    assert.equal(threatOf('Patriot ln')?.label, 'PATRIOT');
+  });
+
+  test('underscore-separated names are read like hyphenated ones', () => {
+    // The SA-2 launcher is spelled S_75M_Volhov where the table says s-75.
+    assert.deepEqual(threatOf('S_75M_Volhov'), { rangeM: 34_000, label: 'SA-2' });
+  });
+
   test('a unit that is not air defence gets no ring', () => {
     assert.equal(threatOf('BMP-1'), null);
     assert.equal(threatOf('T-72B'), null);

@@ -101,7 +101,9 @@
   {
     "name": "CHAP_IRISTSLM_LN",
     "level1": 2,
-    "category": "sam"
+    "category": "sam",
+    "threatM": 40000,
+    "threatLabel": "IRIS-T"
   },
   {
     "name": "CHAP_IRISTSLM_STR",
@@ -116,7 +118,9 @@
   {
     "name": "CHAP_PantsirS1",
     "level1": 2,
-    "category": "sam"
+    "category": "sam",
+    "threatM": 20000,
+    "threatLabel": "SA-22"
   },
   {
     "name": "CHAP_T84OplotM",
@@ -213,9 +217,7 @@
   {
     "name": "Hawk cwar",
     "level1": 2,
-    "category": "sam",
-    "threatM": 40000,
-    "threatLabel": "HAWK"
+    "category": "sam"
   },
   {
     "name": "Hawk ln",
@@ -227,9 +229,7 @@
   {
     "name": "Hawk pcp",
     "level1": 2,
-    "category": "sam",
-    "threatM": 40000,
-    "threatLabel": "HAWK"
+    "category": "sam"
   },
   {
     "name": "Hawk sr",
@@ -268,9 +268,7 @@
   {
     "name": "HQ-7_STR_SP",
     "level1": 2,
-    "category": "sam",
-    "threatM": 12000,
-    "threatLabel": "HQ-7"
+    "category": "sam"
   },
   {
     "name": "Hummer",
@@ -411,9 +409,7 @@
   {
     "name": "NASAMS_Command_Post",
     "level1": 2,
-    "category": "sam",
-    "threatM": 25000,
-    "threatLabel": "NASAMS"
+    "category": "sam"
   },
   {
     "name": "NASAMS_LN_B",
@@ -459,30 +455,22 @@
   {
     "name": "Patriot AMG",
     "level1": 2,
-    "category": "sam",
-    "threatM": 100000,
-    "threatLabel": "PATRIOT"
+    "category": "sam"
   },
   {
     "name": "Patriot cp",
     "level1": 2,
-    "category": "sam",
-    "threatM": 100000,
-    "threatLabel": "PATRIOT"
+    "category": "sam"
   },
   {
     "name": "Patriot ECS",
     "level1": 2,
-    "category": "sam",
-    "threatM": 100000,
-    "threatLabel": "PATRIOT"
+    "category": "sam"
   },
   {
     "name": "Patriot EPP",
     "level1": 2,
-    "category": "sam",
-    "threatM": 100000,
-    "threatLabel": "PATRIOT"
+    "category": "sam"
   },
   {
     "name": "Patriot ln",
@@ -563,9 +551,7 @@
   {
     "name": "S-300PS 54K6 cp",
     "level1": 2,
-    "category": "sam",
-    "threatM": 75000,
-    "threatLabel": "SA-10"
+    "category": "sam"
   },
   {
     "name": "S-300PS 5P85C ln",

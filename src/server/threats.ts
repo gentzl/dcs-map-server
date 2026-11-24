@@ -28,12 +28,14 @@ const THREATS: ThreatEntry[] = [
   { match: 's-300', km: 75, label: 'SA-10' },
   // Medium range
   { match: 'hawk', km: 40, label: 'HAWK' },
+  { match: 'iris', km: 40, label: 'IRIS-T' },
   { match: 's_75', km: 34, label: 'SA-2' },
   { match: 's-75', km: 34, label: 'SA-2' },
   { match: 'volhov', km: 34, label: 'SA-2' },
   { match: 'buk', km: 35, label: 'SA-11' },
   { match: 'kub', km: 25, label: 'SA-6' },
   { match: 'nasams', km: 25, label: 'NASAMS' },
+  { match: 'pantsir', km: 20, label: 'SA-22' },
   { match: 's-125', km: 18, label: 'SA-3' },
   { match: 's_125', km: 18, label: 'SA-3' },
   // Short range
@@ -59,11 +61,27 @@ const THREATS: ThreatEntry[] = [
 ];
 
 /**
- * Pure radar units get no ring: they don't shoot, and a ring around every
- * element of a site would clutter the map without saying anything. Recognised
- * by the DCS name suffixes for search, fire-control and tracking radar.
+ * Elements of a site that do not shoot: search, tracking and fire-control
+ * radars, command posts, power plants, antenna masts. Each sits within metres
+ * of the launcher, so a ring apiece stacks half a dozen identical circles on
+ * one site and claims a shooter where there is none.
+ *
+ * Matched as whole words, with space, hyphen and underscore all counting as
+ * separators -- DCS spells the same role "Patriot str", "Hawk sr",
+ * "p-19 s-125 sr" and "CHAP_IRISTSLM_STR" depending on the unit set. The
+ * previous list compared raw substrings with a space baked in on one side,
+ * so it missed every name where the role came last: "Patriot cp" drew the
+ * launcher's full 100 km ring.
  */
-const RADAR_SUFFIXES = [' sr', ' tr', ' str', 'snr', 'radar', 'cp ', ' cc'];
+const SUPPORT_TOKENS = [
+  // Radars
+  'sr', 'tr', 'str', 'snr', 'cwar', 'radar', 'ewr',
+  // Command, control and support vehicles
+  'cp', 'pcp', 'cc', 'command', 'post', 'amg', 'ecs', 'epp',
+];
+
+const isSupport = (name: string): boolean =>
+  SUPPORT_TOKENS.some((t) => new RegExp(`(^|[^a-z0-9])${t}([^a-z0-9]|$)`, 'i').test(name));
 
 export interface Threat {
   rangeM: number;
@@ -72,7 +90,7 @@ export interface Threat {
 
 export function threatOf(name: string): Threat | null {
   const n = name.toLowerCase();
-  if (RADAR_SUFFIXES.some((s) => n.includes(s))) return null;
+  if (isSupport(name)) return null;
 
   const hit = THREATS.find((t) => n.includes(t.match));
   return hit ? { rangeM: hit.km * 1000, label: hit.label } : null;
