@@ -2,23 +2,24 @@ import type { Category, Coalition } from '../../shared/types.js';
 import { type Draw, SIZE, type SymbolSet, newCanvas } from './types.js';
 
 /**
- * Symbolsatz nach der Kartendarstellung des Spiels.
+ * Symbol set following the game's own map presentation.
  *
- * Nachgebaut anhand von Bildschirmaufnahmen der F10-Karte. Die Originalgrafiken
- * liegen als geschützte Texturen in der Installation und werden hier nicht
- * mitgeliefert; nachgezeichnet sind Form, Farbgebung und Aufbau.
+ * Redrawn from screenshots of the F10 map. The original artwork ships as
+ * protected textures in the installation and isn't redistributed here; shape,
+ * colouring and structure are redrawn from reference.
  *
- * Aufbau: Die Form trägt die Domäne, der Inhalt den Typ.
- *   Luft   Schild mit Rollenbuchstabe (F Jäger, C Transport, K Tanker, W Frühwarnung, H Drehflügler)
- *   Boden  Rechteck mit Piktogramm
- *   See    Kreis mit Kürzel oder Piktogramm
+ * Structure: shape carries the domain, content carries the type.
+ *   Air    shield with a role letter (F fighter, C transport, K tanker,
+ *          W AWACS, H rotary wing)
+ *   Ground rectangle with a pictogram
+ *   Sea    circle with a code or pictogram
  *
- * Farbe folgt der Koalition, nicht der Zugehörigkeit zum Betrachter -- Blau
- * bleibt Blau, auch im Rotflug. Das ist der wesentliche Unterschied zur Norm.
+ * Colour follows the coalition, not the viewer's affiliation -- blue stays
+ * blue even when flying red. That's the key difference from the standard.
  *
- * Bewusst weggelassen: der grüne Zustandsbalken über Boden- und
- * Wasserfahrzeugen. Der Export-Hook liefert keinen Zustand, und ein immer
- * voller Balken behauptete "unbeschädigt", ohne es zu wissen.
+ * Deliberately left out: the green condition bar above ground and naval
+ * markers. The export hook carries no condition, and a permanently full bar
+ * would claim "undamaged" without knowing it.
  */
 
 interface Palette {
@@ -33,7 +34,7 @@ const PALETTE: Record<Coalition, Palette> = {
   2: { fill: '#8ad2e6', edge: '#2a6b80', ink: '#0f2a33' },
 };
 
-/** Für Bodenfahrzeuge ist die Füllung gedämpfter als für Luft und See. */
+/** Ground vehicles get a more muted fill than air and sea. */
 const GROUND_FILL: Record<Coalition, string> = {
   0: '#b8bab2',
   1: '#e8706b',
@@ -60,7 +61,7 @@ const SHAPES: Record<Category, Shape> = {
   submarine: 'circle',
 };
 
-/** Wappenform: gerade Schultern, nach unten zulaufend. */
+/** Shield shape: straight shoulders, tapering towards the bottom. */
 const shield: Draw = (c, s) => {
   c.beginPath();
   c.moveTo(s * 0.26, s * 0.22);
@@ -84,11 +85,11 @@ const circle: Draw = (c, s) => {
 const FRAME: Record<Shape, Draw> = { shield, rect, circle };
 
 /**
- * Kürzel im Rahmen, wie sie auf der Karte des Spiels erscheinen.
+ * Letter codes in the frame, as they appear on the game's own map.
  *
- * 'F' galt bisher für jedes Starrflügelflugzeug -- ein C-130 erschien damit
- * genauso wie ein Jäger. Referenzaufnahme zeigt DCS trennt auch hier: ein
- * C-130 führt ein eigenes Kürzel statt des Jäger-Buchstabens.
+ * 'F' used to apply to every fixed-wing aircraft -- a C-130 looked the same
+ * as a fighter. A reference screenshot shows DCS separates these too: a
+ * C-130 carries its own letter instead of the fighter letter.
  */
 const LETTERS: Partial<Record<Category, string>> = {
   air: 'F',
@@ -101,15 +102,15 @@ const LETTERS: Partial<Record<Category, string>> = {
   submarine: 'SS',
 };
 
-/** Piktogramme für Bodenziele; der Rahmen ist bereits gezeichnet. */
+/** Pictograms for ground targets; the frame is already drawn. */
 const GLYPHS: Partial<Record<Category, Draw>> = {
   /**
-   * Ovaler Ring mit gefülltem Mittelpunkt: Fahrzeug mit Hauptwaffe.
+   * Oval ring with a filled centre point: a vehicle with a main gun.
    *
-   * Referenzaufnahmen zu 2S1 und PLZ05 (beides Selbstfahrlafetten) zeigen
-   * genau dieses Symbol -- kein Turm-mit-Rohr wie zuvor angenommen. Der Punkt
-   * wird als eigener Teilpfad sofort gefüllt, der Ring bleibt als letzter
-   * offener Pfad stehen, damit ihn der gemeinsame Stroke-Aufruf danach trifft.
+   * Reference screenshots of the 2S1 and PLZ05 (both self-propelled guns)
+   * show exactly this symbol -- not the turret-with-barrel assumed earlier.
+   * The point is filled immediately as its own sub-path; the ring is left as
+   * the last open path so the shared stroke call afterwards picks it up.
    */
   armor: (c, s) => {
     c.beginPath();
@@ -118,7 +119,7 @@ const GLYPHS: Partial<Record<Category, Draw>> = {
     c.beginPath();
     c.ellipse(s * 0.5, s * 0.5, s * 0.22, s * 0.13, 0, 0, Math.PI * 2);
   },
-  // Aufgerichtetes Rohr, wie bei Flugabwehrgeschützen.
+  // An upright barrel, as on anti-aircraft guns.
   sam: (c, s) => {
     c.beginPath();
     c.moveTo(s * 0.42, s * 0.64);
@@ -128,9 +129,10 @@ const GLYPHS: Partial<Record<Category, Draw>> = {
     c.lineTo(s * 0.5, s * 0.64);
   },
   /**
-   * Derselbe ovale Ring wie bei Selbstfahrlafetten, aber ohne Punkt: Fahrzeug
-   * ohne eigene Hauptwaffe. Referenz: MT59, ein unbewaffneter Transporter, der
-   * auf der Karte des Spiels denselben Ring ohne Mittelpunkt führt.
+   * The same oval ring as for self-propelled guns, but without the point: a
+   * vehicle with no main gun of its own. Reference: MT59, an unarmed
+   * transporter that carries the same ring without a centre point on the
+   * game's own map.
    */
   ground: (c, s) => {
     c.beginPath();
@@ -155,8 +157,8 @@ function render(category: Category, coalition: Coalition): ImageData {
   const p = PALETTE[coalition];
   const shape = SHAPES[category];
 
-  // Waffen bleiben ein Punkt: Auf der Karte des Spiels sind Flugkörper
-  // winzige Marken ohne Rahmen.
+  // Weapons stay a point: on the game's own map, munitions are tiny marks
+  // without a frame.
   if (category === 'weapon') {
     ctx.beginPath();
     ctx.arc(SIZE * 0.5, SIZE * 0.5, SIZE * 0.09, 0, Math.PI * 2);
@@ -181,14 +183,14 @@ function render(category: Category, coalition: Coalition): ImageData {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = p.ink;
-    // Im Schild sitzt die Schrift etwas höher, weil die Form unten zuläuft.
+    // In the shield the text sits a bit higher, since the shape tapers at the bottom.
     ctx.fillText(letter, SIZE * 0.5, SIZE * (shape === 'shield' ? 0.47 : 0.5));
   }
 
   const glyph = GLYPHS[category];
   if (glyph) {
-    // Vorab gesetzt, falls ein Piktogramm (wie armor) einen eigenen Teilpfad
-    // sofort füllt, statt nur den gemeinsamen Stroke-Aufruf unten zu nutzen.
+    // Set up front, in case a pictogram (like armor) fills its own sub-path
+    // immediately instead of only relying on the shared stroke call below.
     ctx.fillStyle = p.ink;
     glyph(ctx, SIZE);
     ctx.strokeStyle = p.ink;
@@ -202,7 +204,7 @@ function render(category: Category, coalition: Coalition): ImageData {
 export const dcsSet: SymbolSet = {
   id: 'dcs',
   render: (category, _affiliation, coalition) => render(category, coalition),
-  // Die Karte des Spiels dreht die Marken nicht mit dem Kurs.
+  // The game's own map doesn't rotate markers to heading.
   rotates: () => false,
   key: (category, _affiliation, coalition) => `${category}-c${coalition}`,
 };

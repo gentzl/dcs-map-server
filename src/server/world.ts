@@ -1,12 +1,12 @@
 import type { Delta, OptionsView, Ownship, Snapshot, Unit } from '../shared/types.js';
 
-/** Ohne Update gilt ein Objekt als veraltet bzw. verschwunden. */
+/** Without an update, an object counts as stale or gone. */
 const STALE_MS = 5_000;
 const DROP_MS = 30_000;
-// Haelt stehende Ziele unter der "stale"-Schwelle des Clients (5s), auch wenn
-// sie nie dirty werden -- sonst dimmt der Client SAM-Stellungen, Gebaeude und
-// geparkte Fahrzeuge nach kurzer Zeit dauerhaft ab, obwohl ihre Position
-// weiterhin aktuell ist.
+// Keeps stationary targets under the client's "stale" threshold (5s) even if
+// they never go dirty -- otherwise the client permanently dims SAM sites,
+// buildings and parked vehicles after a short while, even though their
+// position is still current.
 const HEARTBEAT_MS = 3_000;
 
 interface Tracked {
@@ -17,11 +17,11 @@ interface Tracked {
 }
 
 /**
- * Haelt den Weltzustand und bildet pro Tick Deltas.
+ * Holds world state and builds a delta per tick.
  *
- * Eingehende UDP-Pakete werden hier nur eingesammelt; der Versand an Clients
- * laeuft ueber einen eigenen, festen Takt. Das entkoppelt die Client-Last von
- * der DCS-Framerate und erlaubt ueberhaupt erst Delta-Bildung.
+ * Incoming UDP packets are only collected here; sending to clients runs on
+ * its own, fixed cadence. That decouples client load from the DCS framerate,
+ * and is what makes delta-building possible in the first place.
  */
 export class World {
   private units = new Map<number, Tracked>();
@@ -35,10 +35,10 @@ export class World {
   upsertUnit(unit: Unit, now = Date.now()): void {
     const prev = this.units.get(unit.id);
 
-    // Der Hook sendet Fremdeinheiten im Round-Robin erneut, auch wenn sie sich
-    // nicht bewegt haben. Ohne diesen Vergleich waere jedes "Delta" ein
-    // Voll-Dump -- bei stehenden Zielen (SAM-Stellungen, geparkte Flugzeuge)
-    // also fast die gesamte Last ohne jeden Informationsgewinn.
+    // The hook re-sends other units round-robin even when they haven't
+    // moved. Without this comparison every "delta" would be a full dump --
+    // for stationary targets (SAM sites, parked aircraft) almost all of the
+    // load for zero information gain.
     const moved =
       !prev ||
       Math.abs(prev.unit.lat - unit.lat) > 1e-6 ||
@@ -46,8 +46,8 @@ export class World {
       Math.abs(prev.unit.alt - unit.alt) > 0.5 ||
       Math.abs(prev.unit.hdg - unit.hdg) > 1e-4;
 
-    // lastSeen wird immer fortgeschrieben: das Objekt ist gesehen worden,
-    // auch wenn es sich nicht bewegt hat.
+    // lastSeen is always advanced: the object has been seen, even if it
+    // hasn't moved.
     this.units.set(unit.id, {
       unit,
       lastSeen: now,
@@ -76,7 +76,7 @@ export class World {
 
   private removed = new Set<number>();
 
-  /** Fog of War wird hier angewandt, nicht im Client -- dort waere sie wirkungslos. */
+  /** Fog of war is applied here, not on the client -- there it would be pointless. */
   private visible(unit: Unit): boolean {
     switch (this.optionsView) {
       case 'optview_onlymap':
@@ -87,22 +87,23 @@ export class World {
       case 'optview_onlyallies':
         return this.own ? unit.coalition === this.own.coalition : false;
       case 'optview_extended':
-        // DCS' "Fog Of War"-Ansicht: zeigt eigentlich nur tatsaechlich
-        // geortete Objekte zusaetzlich zu allen eigenen. Echte Ortung liefert
-        // LoGetWorldObjects() nicht -- es gibt keine Detection-Information.
-        // Bis dahin wie Allies-only behandelt: zeigt nie gegnerische
-        // Positionen, verletzt also die Fairness-Garantie nicht, auch wenn es
-        // weniger zeigt als DCS eigentlich vorsieht.
+        // DCS' "Fog Of War" view: is actually meant to show only objects
+        // that have genuinely been detected, plus everything on your own
+        // side. LoGetWorldObjects() provides no real detection data --
+        // there's no detection information at all. Treated as allies-only
+        // until that changes: never shows enemy positions, so it doesn't
+        // violate the fairness guarantee, even though it shows less than
+        // DCS actually intends.
         return this.own ? unit.coalition === this.own.coalition : false;
       case 'optview_all':
         return true;
       default:
-        // Ein unbekannter Laufzeitwert faellt durch den Switch, weil der
-        // Parser optionsView per Typumwandlung uebernimmt, nicht geprueft.
-        // Ohne diesen Fallback liefe das still auf "alles unsichtbar" hinaus --
-        // genau der Fehler, den optview_extended vor dieser Aenderung ausloeste.
-        // Sicherster Default aus Sicht der Fairness-Garantie ist Allies-only,
-        // nicht "alles zeigen".
+        // An unrecognised runtime value falls through the switch, because
+        // the parser takes over optionsView via a type cast, unchecked.
+        // Without this fallback that would silently end up as "nothing
+        // visible" -- exactly the bug optview_extended caused before this
+        // change. The safest default from the fairness guarantee's
+        // perspective is allies-only, not "show everything".
         return this.own ? unit.coalition === this.own.coalition : false;
     }
   }
@@ -131,7 +132,7 @@ export class World {
     };
   }
 
-  /** Gibt das Delta seit dem letzten Aufruf zurueck, oder null wenn nichts anliegt. */
+  /** Returns the delta since the last call, or null if there's nothing to send. */
   tick(now = Date.now()): Delta | null {
     this.prune(now);
 

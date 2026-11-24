@@ -3,9 +3,9 @@ import type { Category, Coalition } from '../../shared/types.js';
 export type Affiliation = 'friend' | 'hostile' | 'neutral' | 'unknown';
 export type SymbolSetId = 'nato' | 'dcs';
 
-/** Kantenlänge der gezeichneten Symbole in CSS-Pixeln. */
+/** Edge length of the drawn symbols, in CSS pixels. */
 export const SIZE = 34;
-/** Zeichnung in doppelter Auflösung; MapLibre bekommt pixelRatio 2. */
+/** Drawn at double resolution; MapLibre gets pixelRatio 2. */
 export const DPR = 2;
 
 export type Draw = (c: CanvasRenderingContext2D, s: number) => void;
@@ -13,14 +13,14 @@ export type Draw = (c: CanvasRenderingContext2D, s: number) => void;
 export interface SymbolSet {
   id: SymbolSetId;
   /**
-   * Zeichnet ein Symbol. Bekommt beides: Zugehörigkeit (relativ zum Betrachter)
-   * und Koalition (absolut) -- die Sätze nutzen unterschiedliche Bezüge. Die
-   * Norm färbt nach Zugehörigkeit, DCS nach Koalition.
+   * Draws a symbol. Gets both: affiliation (relative to the viewer) and
+   * coalition (absolute) -- the two sets use different references. The
+   * standard colours by affiliation, DCS by coalition.
    */
   render: (category: Category, affiliation: Affiliation, coalition: Coalition) => ImageData;
-  /** Ob das Symbol auf den Kurs gedreht wird. */
+  /** Whether the symbol is rotated to heading. */
   rotates: (category: Category) => boolean;
-  /** Schlüsselbestandteil, der die Darstellung eindeutig macht. */
+  /** Key component that makes the rendering unique. */
   key: (category: Category, affiliation: Affiliation, coalition: Coalition) => string;
 }
 
@@ -41,7 +41,7 @@ export function affiliationOf(coalition: Coalition, ownCoalition: Coalition): Af
   return coalition === ownCoalition ? 'friend' : 'hostile';
 }
 
-/** Beschriftung der Kategorien für die Legende. */
+/** Category labels for the legend. */
 export const CATEGORY_LABELS: Array<[Category, string]> = [
   ['air', 'Fixed wing'],
   ['cargo', 'Transport'],

@@ -25,7 +25,7 @@ const COALITIONS: Coalition[] = [0, 1, 2];
 
 export const symbolSet = (id: SymbolSetId): SymbolSet => SETS[id];
 
-/** Bildkennung. Enthält den Satz, damit beide Sätze nebeneinander vorliegen können. */
+/** Image id. Includes the set, so both sets can coexist. */
 export function symbolId(
   set: SymbolSetId,
   category: Category,
@@ -39,17 +39,17 @@ export const symbolRotates = (set: SymbolSetId, category: Category): boolean =>
   SETS[set].rotates(category);
 
 /**
- * Legt alle Bilder beider Sätze an.
+ * Creates all images for both sets.
  *
- * Beide gleichzeitig, weil ein Wechsel sonst einen Stilneuaufbau erforderte --
- * der Speicherbedarf ist mit wenigen Dutzend 68er-Bildern vernachlässigbar.
+ * Both at once, since switching would otherwise require rebuilding the style
+ * -- the memory cost is negligible at a few dozen 68-ish-pixel images.
  */
 /**
- * Bullseye-Symbol: konzentrische Ringe mit Fadenkreuz.
+ * Bullseye symbol: concentric rings with a crosshair.
  *
- * Als Bild mit fester Bildschirmgröße statt als geodätische Geometrie. Ringe in
- * Weltkoordinaten konkurrierten mit den Entfernungsringen des eigenen Flugzeugs
- * und überdeckten bei kleinen Entfernungsstufen die halbe Ansicht.
+ * As a fixed-screen-size image rather than geodetic geometry. Rings in world
+ * coordinates competed with the aircraft's own range rings and covered half
+ * the view at small range steps.
  */
 export const BULLSEYE_IMAGE = 'bullseye';
 
@@ -91,8 +91,8 @@ function renderBullseye(): ImageData {
 }
 
 /**
- * Symbol als Data-URL für die Legende. Nutzt dieselbe Zeichenroutine wie die
- * Karte, damit die Legende nicht von der Darstellung abweichen kann.
+ * Symbol as a data URL for the legend. Uses the same drawing routine as the
+ * map, so the legend can't drift from the rendering.
  */
 export function symbolDataUrl(
   set: SymbolSetId,
