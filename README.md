@@ -9,6 +9,8 @@ stays on your own home network.
 
 ![How it works: the DCS PC reads your flight, the map server turns it into a live map, any screen on your Wi-Fi can open it](docs/overview.svg)
 
+![The map in flight: NATO contact symbols, a BRA line and readout to a selected contact, range rings, and terrain shading](docs/screenshot.jpg)
+
 - **[Handbook](docs/MANUAL.md)** — what's on the map, the controls, the settings, troubleshooting.
 - **[Technical guide](docs/DEVELOPERS.md)** — architecture, wire protocol, running it without DCS,
   changing the code.
