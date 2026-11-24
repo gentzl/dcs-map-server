@@ -259,11 +259,13 @@ function render(category: Category, affiliation: Affiliation): ImageData {
   const { fill, edge, ink } = COLORS[affiliation];
   const dim = DIMENSION[category];
 
-  // Dark backing first, so the frame carries equally on the light
-  // aeronautical chart and in night mode.
+  // Dark backing, so the symbol separates from the terrain in both the light
+  // chart and night mode. Thin: it only has to part the symbol from what is
+  // behind it, where it used to carry the symbol on its own -- at the old
+  // width it reads as a heavy black border around a small shape.
   FRAMES[affiliation][dim](ctx, SIZE);
   ctx.strokeStyle = 'rgba(12,16,20,0.85)';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 2.4;
   ctx.stroke();
 
   // Solid body. A 20 % tint used to leave only the 2 px outline carrying any
@@ -273,7 +275,7 @@ function render(category: Category, affiliation: Affiliation): ImageData {
   ctx.fillStyle = fill;
   ctx.fill();
   ctx.strokeStyle = edge;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 1.2;
   ctx.stroke();
 
   const letter = LETTERS[category];
@@ -298,7 +300,7 @@ function render(category: Category, affiliation: Affiliation): ImageData {
     // Thin: at small render sizes a thick outline ate up almost the entire
     // fill area -- a filled rotor disc turned into a thin ring on the map.
     ctx.strokeStyle = ink;
-    ctx.lineWidth = 1.6;
+    ctx.lineWidth = 1.2;
     ctx.stroke();
   }
 
