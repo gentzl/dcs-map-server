@@ -19,7 +19,8 @@
     "acmi": "npm run build:tools --silent && node dist-tools/tools/acmi-to-telemetry.js",
     "capture": "npm run build:tools --silent && node dist-tools/tools/inspect-capture.js",
     "capture-ws": "npm run build:tools --silent && node dist-tools/tools/capture-ws.js",
-    "replay-ws": "npm run build:tools --silent && node dist-tools/tools/replay-ws.js"
+    "replay-ws": "npm run build:tools --silent && node dist-tools/tools/replay-ws.js",
+    "fetch-assets": "npm run build:tools --silent && node dist-tools/tools/fetch-map-assets.js"
   },
   "dependencies": {
     "@fastify/static": "^8.0.0",
