@@ -869,6 +869,13 @@ function updateBraa(now: number): void {
   const rng = metersToNm(distanceTo(own.lat, own.lon, sel.lat, sel.lon));
   const asp = aspect(sel.hdg, bearingTo(sel.lat, sel.lon, own.lat, own.lon));
 
+  // The contact's own bullseye position, not ours. A BVR call gives where
+  // the bandit is relative to the reference point -- "bullseye 270/45" --
+  // and reading it off a display that only knows your own offset means
+  // doing the geometry in your head while someone waits on the radio.
+  const bullBrg = bearingTo(bullseye.lat, bullseye.lon, sel.lat, sel.lon);
+  const bullRng = metersToNm(distanceTo(bullseye.lat, bullseye.lon, sel.lat, sel.lon));
+
   const roleLabel = CATEGORY_LABELS.find(([cat]) => cat === u.category)?.[1] ?? u.category;
   const aff = affiliationOf(u.coalition, ownCoalition).toUpperCase();
 
@@ -879,6 +886,7 @@ function updateBraa(now: number): void {
   braaBox.textContent = [
     nbsp(`${u.name}  —  ${aff} ${roleLabel}`),
     nbsp(`BRAA ${bearing3(refBearing(brg))}${refSuffix} / ${rng.toFixed(1)} nm`),
+    nbsp(`BULLS ${bearing3(refBearing(bullBrg))}${refSuffix}/${Math.round(bullRng)}`),
     nbsp(`${Math.round(metersToFeet(u.alt) / 100) * 100} ft`),
     nbsp(`${aspectLabel(asp)} ${Math.round(asp)}°`),
     nbsp(`${Math.round(msToKnots(sel.spdMs))} kt`),
