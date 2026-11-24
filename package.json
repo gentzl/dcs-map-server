@@ -13,7 +13,7 @@
     "dev": "npm run build && node dist/server/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json && tsc -p tsconfig.tools.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "test": "npm run build:test --silent && node --test \"dist-test/test/**/*.test.js\"",
-    "build:test": "tsc -p tsconfig.test.json",
+    "build:test": "node -e \"require('fs').rmSync('dist-test',{recursive:true,force:true})\" && tsc -p tsconfig.test.json",
     "build:tools": "tsc -p tsconfig.tools.json",
     "telemetry": "npm run build:tools --silent && node dist-tools/tools/generate-telemetry.js",
     "acmi": "npm run build:tools --silent && node dist-tools/tools/acmi-to-telemetry.js",
