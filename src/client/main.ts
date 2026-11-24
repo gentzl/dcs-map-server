@@ -904,7 +904,9 @@ function updateHud(now: number): void {
   // the bar wraps to two lines on phone width instead of tearing a group
   // apart mid-way or scrolling sideways.
   hud.textContent = [
-    nbsp(`${connected ? '●' : '○'} ${lastSeq}`),
+    // Just a delta sequence counter, but unlabelled it reads as a clock --
+    // SEQ makes clear it's not one.
+    nbsp(`${connected ? '●' : '○'} SEQ ${lastSeq}`),
     nbsp(`${formatDDM(own.lat, 'NS')} ${formatDDM(own.lon, 'EW')}`),
     nbsp(formatAltitude(own.alt)),
     nbsp(`${Math.round(msToKnots(own.tas))} kt`),
