@@ -405,16 +405,18 @@ function addOverlayLayers(): void {
       id: 'threats-fill', type: 'fill', source: 'threats',
       paint: {
         'fill-color': ['case', ['==', ['get', 'affiliation'], 'hostile'], '#e63946', '#4895ef'],
-        // Weak enough that overlapping areas can still be told apart -- a
-        // layered air-defence setup has many of these stacked on top of each
-        // other. Friend rings are the weaker of the two: "all" mode shows
-        // your own side's air defence too, and a mission usually fields far
-        // more of it than the enemy -- at matched opacity those stack up and
-        // the whole map reads blue.
+        // Barely a tint. The outline below carries the boundary; the fill
+        // only has to keep a dangerous area from reading as empty ground,
+        // and a layered air-defence setup stacks many of these on top of
+        // each other -- even a faint value compounds fast once four or five
+        // rings overlap, which is most of what made "all" mode read as a
+        // solid wash of blue. Friend is weaker still: that mode shows your
+        // own side's air defence too, and a mission usually fields far more
+        // of it than the enemy.
         'fill-opacity': [
-          'case', ['get', 'stale'], 0.025,
-          ['==', ['get', 'affiliation'], 'hostile'], 0.07,
-          0.035,
+          'case', ['get', 'stale'], 0.008,
+          ['==', ['get', 'affiliation'], 'hostile'], 0.025,
+          0.012,
         ],
       },
     });
