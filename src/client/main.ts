@@ -270,7 +270,13 @@ canvas.addEventListener('pointermove', (e) => {
 
 function endPointer(e: PointerEvent): void {
   activePointers.delete(e.pointerId);
-  if (activePointers.size < 1) pan = null;
+  if (activePointers.size < 1) {
+    pan = null;
+    // No-ops while still following (e.g. a pinch that never left follow
+    // mode); settles the north-up bearing now that the gesture is actually
+    // over, see settleFree.
+    settleFree();
+  }
   if (activePointers.size < 2) pinch = null;
 }
 canvas.addEventListener('pointerup', endPointer);
@@ -854,25 +860,37 @@ canvas.addEventListener('click', (e) => {
 const btnCtr = document.getElementById('mode-centre')!;
 const btnFree = document.getElementById('mode-free')!;
 
+function setFollow(on: boolean): void {
+  follow = on;
+  btnCtr.setAttribute('aria-pressed', String(on));
+  btnFree.setAttribute('aria-pressed', String(!on));
+  for (const el of [btnHdg, btnNorth]) el.toggleAttribute('disabled', !on);
+  if (on) ownshipEl.hidden = false;
+}
+
 /**
  * Free-moving is always shown north-up.
  *
  * Panning a map that's also rotating under your hand is unusable, and the
  * graticule labels only read correctly north-up. The HDG/N setting is kept
  * and applies again when switching back.
+ *
+ * Eased, and deliberately not part of setFollow itself: snapping the
+ * bearing the instant a drag crosses the leave-follow threshold rotated the
+ * whole map out from under the cursor mid-gesture. Called once the pan
+ * actually ends instead (see the pointer handling above), when nothing else
+ * is still moving the camera and the easing has a chance to play out; and
+ * immediately for the explicit FREE button, where there's no drag to upset.
  */
-function setFollow(on: boolean): void {
-  follow = on;
-  btnCtr.setAttribute('aria-pressed', String(on));
-  btnFree.setAttribute('aria-pressed', String(!on));
-  for (const el of [btnHdg, btnNorth]) el.toggleAttribute('disabled', !on);
-
-  if (!on) {
-    map.jumpTo({ bearing: 0 });
-    applyFreeZoom();
-  } else {
-    ownshipEl.hidden = false;
-  }
+function settleFree(): void {
+  if (follow) return;
+  // One combined easeTo, not a separate applyFreeZoom() -- jumpTo (which
+  // applyFreeZoom uses) cancels any running animation, so calling it right
+  // after easeTo killed the bearing animation before a single frame of it
+  // ever rendered.
+  manualZoom = null;
+  const shortSide = Math.min(map.getCanvas().clientWidth, map.getCanvas().clientHeight);
+  map.easeTo({ bearing: 0, zoom: zoomForRange(currentRange(), map.getCenter().lat, shortSide), duration: 250 });
 }
 
 const btnHdg = document.getElementById('mode-hdg')!;
@@ -887,7 +905,7 @@ btnHdg.addEventListener('click', () => setOrientation(true));
 btnNorth.addEventListener('click', () => setOrientation(false));
 setOrientation(headingUp);
 btnCtr.addEventListener('click', () => setFollow(true));
-btnFree.addEventListener('click', () => setFollow(false));
+btnFree.addEventListener('click', () => { setFollow(false); settleFree(); });
 setFollow(true);
 // Step buttons in addition to the direct-pick buttons: on a tablet, the
 // large tap targets are easier to hit than a specific number.
