@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initLogFile, ok } from './cli-log.js';
 import { readEntries } from './zip.js';
+import { THEATER_BOUNDS } from '../src/shared/theaters.js';
 
 /**
  * Fetches the map tiles for a DCS theater as PMTiles, pulling only the
@@ -24,17 +25,10 @@ initLogFile();
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
 
-const BBOX: Record<string, string> = {
-  caucasus: '36.0,40.0,47.0,46.0',
-  syria: '32.0,31.5,42.5,37.5',
-  persiangulf: '50.0,22.5,60.0,30.0',
-  sinai: '30.0,27.0,36.5,32.5',
-  normandy: '-3.5,48.0,2.0,51.5',
-  marianas: '144.0,12.5,147.5,16.0',
-  kola: '20.0,64.0,42.0,71.0',
-  iraq: '38.0,29.0,49.0,38.0',
-  afghanistan: '60.0,29.0,75.0,39.0',
-};
+// west,south,east,north -- the format `pmtiles extract --bbox` takes.
+const BBOX: Record<string, string> = Object.fromEntries(
+  Object.entries(THEATER_BOUNDS).map(([t, b]) => [t, b.map((v) => v.toFixed(1)).join(',')]),
+);
 
 // Pinned rather than resolved against "latest" at runtime: a moved or
 // renamed asset should be a deliberate version bump here, not a silent

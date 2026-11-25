@@ -29,6 +29,7 @@ import {
 } from './geo.js';
 import { buildGraticule } from './graticule.js';
 import { buildBullseye, buildLeaders, buildRings, buildThreatRings } from './overlays.js';
+import { theaterAt, theaterContains } from '../shared/theaters.js';
 import * as cfg from './settings.js';
 import {
   CATEGORY_LABELS,
@@ -734,6 +735,31 @@ function restyle(): void {
   tryAdd();
 }
 
+/**
+ * The theater the own aircraft was last found in. Switching only when this
+ * changes, not on every update, keeps a theater picked by hand in the
+ * settings: it holds until the aircraft turns up in a different theater.
+ */
+let autoTheater: string | null = null;
+
+/**
+ * Switches the map to the theater the own aircraft is in, so the right tiles
+ * load without anyone having to pick them. Only theaters with tiles on the
+ * server are candidates; outside all of them nothing changes.
+ */
+function followTheater(lat: number, lon: number): void {
+  const found = theaterContains(settings.theater, lat, lon) ? settings.theater : theaterAt(lat, lon, available);
+  if (!found || found === autoTheater) return;
+  autoTheater = found;
+  if (found === settings.theater) return;
+
+  settings = { ...settings, theater: found };
+  cfg.save(settings);
+  const sel = panel.querySelector<HTMLSelectElement>('[data-key="theater"]');
+  if (sel) sel.value = found;
+  restyle();
+}
+
 // --- WebSocket -------------------------------------------------------------
 
 let ws: WebSocket | null = null;
@@ -754,9 +780,9 @@ function connect(): void {
       units.clear();
       trackPoints.length = 0;
       for (const u of msg.units) units.push(u, now);
-      if (msg.own) { own.update(msg.own); ownCoalition = msg.own.coalition; }
+      if (msg.own) { own.update(msg.own); ownCoalition = msg.own.coalition; followTheater(msg.own.lat, msg.own.lon); }
     } else {
-      if (msg.own) { own.update(msg.own); ownCoalition = msg.own.coalition; }
+      if (msg.own) { own.update(msg.own); ownCoalition = msg.own.coalition; followTheater(msg.own.lat, msg.own.lon); }
       for (const u of msg.units ?? []) units.push(u, now);
       for (const id of msg.removed ?? []) units.remove(id);
     }
@@ -814,14 +840,19 @@ function frame(now: number): void {
       lastSources = now;
       updateSources(now);
     }
-    // The graticule depends on the view, not on time; once a second or on a
-    // zoom change is enough.
-    if (now - lastGrid > 1000 || Math.abs(zoom - lastZoomForGrid) > 0.01) {
-      lastGrid = now;
-      lastZoomForGrid = zoom;
-      updateGraticule();
-    }
     updateHud(now);
+  }
+
+  // The graticule depends on the view, not on time; once a second or on a
+  // zoom change is enough. Reads the map's own zoom rather than `zoom`, which
+  // only follow mode keeps current -- a wheel zoom in free mode left the grid
+  // at the old, finer step. Outside the own.ready block, so the grid also
+  // follows the view before any telemetry has arrived.
+  const mapZoom = map.getZoom();
+  if (!document.hidden && (now - lastGrid > 1000 || Math.abs(mapZoom - lastZoomForGrid) > 0.01)) {
+    lastGrid = now;
+    lastZoomForGrid = mapZoom;
+    updateGraticule();
   }
   requestAnimationFrame(frame);
 }
@@ -915,7 +946,7 @@ function updateGraticule(): void {
   const b = map.getBounds();
   setData('graticule', buildGraticule(
     { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() },
-    zoom,
+    map.getZoom(),
   ));
 }
 
