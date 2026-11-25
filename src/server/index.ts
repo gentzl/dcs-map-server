@@ -32,7 +32,7 @@ const VERSION = resolveVersion(path.resolve(here, '../..'));
  * Not for confidentiality -- that's secondary on a home network -- but
  * because the Screen Wake Lock API requires a secure context. There's none
  * over http://<LAN-IP>, and a tablet whose display turns off mid-flight is
- * useless. Generate a certificate: tools/make-cert.sh
+ * useless. Generating a certificate: "HTTPS on a LAN" in docs/DEVELOPERS.md
  */
 async function loadCerts(): Promise<{ key: Buffer; cert: Buffer } | null> {
   // Can be turned off: for troubleshooting, and for users who deliberately
@@ -198,7 +198,7 @@ for (const addr of lanAddresses()) console.log(`      ${scheme}://${addr}:${port
 const shortHost = hostname().split('.')[0];
 console.log(`      ${scheme}://${shortHost}.local:${port}  (same, if your network supports mDNS/Bonjour)`);
 if (certs) console.log(`HTTP  http://localhost:${HTTP_PORT}  (redirect)`);
-else console.log('      no certificate -- Wake Lock stays off, see tools/make-cert.sh');
+else console.log('      no certificate -- Wake Lock stays off, see "HTTPS on a LAN" in docs/DEVELOPERS.md');
 if (UPSTREAM) console.log(`Relay <- ${UPSTREAM}`);
 else console.log(`UDP   ${UDP_HOST}:${UDP_PORT}  (loopback only)`);
 console.log(`Tick  ${TICK_HZ} Hz`);

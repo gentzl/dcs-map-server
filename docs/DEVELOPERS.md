@@ -26,24 +26,25 @@ which maps they own by itself on every run (see [Detecting owned maps](#detectin
 downloads tiles for each one. For development, or if you'd rather run the steps yourself:
 
 Clone the repo (`git clone`). You'll need [Node.js](https://nodejs.org) installed (version 22 or
-newer). Everything below is copy-paste into a terminal, in the project folder — the same commands
-work in PowerShell or cmd.exe.
+newer). The project is Windows-only. Every command in this guide is for **PowerShell**, run in the
+project folder, which is the one that contains `package.json`:
+
+```powershell
+cd D:\Programs\dcs-map-server\dcs-map-server   # wherever you cloned or unzipped it
+```
 
 1. Install and prepare the map data (one-time, a couple of minutes):
 
-   ```bash
+   ```powershell
    npm install
-   cp node_modules/maplibre-gl/dist/maplibre-gl.css public/
+   Copy-Item node_modules\maplibre-gl\dist\maplibre-gl.css public\
    npm run fetch-assets        # map labels and symbols, ~2.3 MB
    npm run fetch-tiles -- caucasus  # the map itself, ~131 MB — swap in another theater if you fly elsewhere
    npm run install-hook        # copies the DCS export hook into Saved Games, see below
    ```
 
-   > In cmd.exe (not PowerShell), `cp` isn't a command — use
-   > `copy node_modules\maplibre-gl\dist\maplibre-gl.css public\` instead.
-
    `fetch-tiles` downloads the `pmtiles` tool it needs by itself the first time it runs, into this
-   project's own `runtime/` folder — nothing to put on `PATH`.
+   project's own `runtime\` folder — nothing to put on `PATH`.
 
    `install-hook` copies `dcs/Scripts/Hooks/dcs-map-server.lua` into every DCS installation it finds
    under `Saved Games\` (stable and open beta). It never overwrites a hook file that's already
@@ -54,7 +55,7 @@ work in PowerShell or cmd.exe.
 
 3. Start the server:
 
-   ```bash
+   ```powershell
    npm run dev
    ```
 
@@ -233,9 +234,11 @@ problem entirely by replacing commas with spaces when it writes schema 1.
 
 Check the hook against mocked export APIs:
 
-```bash
-lua dcs/test/hook_harness.lua 300 optview_all 150
+```powershell
+lua dcs\test\hook_harness.lua 300 optview_all 150
 ```
+
+This needs a Lua interpreter on `PATH` (for example `winget install DEVCOM.Lua`).
 
 It writes the datagrams to stdout and checks them: header per datagram, schema version, the
 configured `optionsView` coming back out, the field count of every line type, a `D` line once
@@ -243,28 +246,56 @@ objects disappear, the own aircraft not also sent as an ordinary unit, and a com
 surviving while a tab does not. It exits non-zero and says what broke, so it belongs in CI rather
 than in a careful read of its output — which is where it runs.
 
-Synthetic telemetry:
+Each of the routes below needs **two PowerShell windows**, both in the project folder. Each window
+runs a process that keeps going until you stop it with Ctrl+C.
 
-```bash
+**Replaying a recorded session** is the route to use when you're changing the client. It puts real
+objects of every category on the map, with real movement, without starting DCS. The recording is
+fed through the server as if it came from a second live instance.
+
+Window 1, the recording:
+
+```powershell
+npm run replay-ws -- dcs\test\fixtures\real-session-2026-11-23.jsonl --port 8766
+```
+
+Window 2, the server, pointed at the recording instead of the DCS hook:
+
+```powershell
+$env:MM_UPSTREAM = "ws://127.0.0.1:8766/ws"
+npm run dev
+```
+
+Then open `http://localhost:8080`. The recording loops by default; add `--once` to the first
+command to play it a single time. Two recordings ship in `dcs\test\fixtures\` (see the
+[README](../dcs/test/fixtures/README.md) there):
+
+| File | Content |
+|---|---|
+| `real-session-2026-11-23.jsonl` | Single-player, one A-10A, 245 objects, 90 seconds |
+| `real-session-2026-11-23-multiplayer.jsonl` | Multiplayer, 301 objects, 30 seconds |
+
+`$env:MM_UPSTREAM` stays set for as long as that PowerShell window is open. To go back to the
+DCS hook in the same window, clear it first:
+
+```powershell
+Remove-Item Env:MM_UPSTREAM
+```
+
+**Synthetic telemetry** goes to the server's normal UDP input. Start the server in window 1
+without `MM_UPSTREAM` (`npm run dev`), then in window 2:
+
+```powershell
 npm run telemetry -- --send --units 20
 ```
 
-A real recording — DCS/Tacview writes one after every flight:
+**A Tacview recording** goes the same way. DCS/Tacview writes one after every flight. Window 1
+runs `npm run dev`, window 2 runs:
 
-```bash
+```powershell
 npm run acmi -- flight.zip.acmi --list    # show objects
 npm run acmi -- flight.zip.acmi --send
 ```
-
-Or replay a previously captured session through the server as if it were a second live instance:
-
-```bash
-npm run replay-ws -- dcs/test/fixtures/real-session-2026-11-23.jsonl --port 8766
-MM_UPSTREAM=ws://127.0.0.1:8766/ws npm run dev
-```
-
-The replay route is the one to use when you're changing the client: it puts 245 real objects of
-every category on the map, with real movement, without starting DCS.
 
 ## Recording what actually goes over the wire
 
@@ -272,9 +303,11 @@ When the log isn't enough, record the raw datagrams and have them summarised. Th
 identical from outside — nothing arrives, something arrives unreadably, or the mission withholds
 it — and this tells them apart:
 
-```bash
-MM_CAPTURE=/tmp/hook.jsonl npm run dev     # fly for a minute
-npm run capture -- /tmp/hook.jsonl
+```powershell
+$env:MM_CAPTURE = "$env:TEMP\hook.jsonl"
+npm run dev                                # fly for a minute, then Ctrl+C
+Remove-Item Env:MM_CAPTURE
+npm run capture -- "$env:TEMP\hook.jsonl"
 ```
 
 It reports line types, the reported visibility rule, parse errors, the type levels DCS supplied
@@ -282,16 +315,18 @@ and the unit names seen, then states which of the three cases applies.
 
 To capture what the *server* sends to browsers instead — for a test fixture, or to replay later:
 
-```bash
-npm run capture-ws -- wss://<host>:8443/ws --out session.jsonl --seconds 90 --insecure
+```powershell
+npm run capture-ws -- wss://192.168.1.23:8443/ws --out session.jsonl --seconds 90 --insecure
 ```
+
+Replace the address with the one the server prints.
 
 Recordings committed as fixtures are described in
 [`dcs/test/fixtures/README.md`](../dcs/test/fixtures/README.md), including what was anonymised.
 
 ## Tests
 
-```bash
+```powershell
 npm run typecheck   # all four TS projects, including the tests
 npm test            # compiles the tests, then runs them
 ```
@@ -324,9 +359,9 @@ as a list of units whose symbol just changed on the map, rather than as a surpri
 So when a classification change makes that test fail, **read the diff before regenerating it** —
 it is the actual effect of your change, spelled out. To regenerate after you've accepted it:
 
-```bash
+```powershell
 npm run build:test --silent
-node --input-type=module -e '
+@'
   import fs from "node:fs";
   const { classify } = await import("./dist-test/src/server/classify.js");
   const { threatOf } = await import("./dist-test/src/server/threats.js");
@@ -338,8 +373,11 @@ node --input-type=module -e '
     if (t) { e.threatM = t.rangeM; e.threatLabel = t.label; }
   }
   fs.writeFileSync("test/classification-baseline.json", JSON.stringify(entries, null, 2) + "\n");
-'
+'@ | node --input-type=module
 ```
+
+The script goes to Node through the pipe because PowerShell 5.1 strips the double quotes from an
+argument passed with `node -e`. The closing `'@` has to start at the beginning of its line.
 
 ### What the tests don't cover
 
@@ -368,13 +406,25 @@ Not for confidentiality — that is secondary on a home network — but because 
 API requires a secure context. Over `http://<LAN-IP>` there is none, and a tablet whose display
 sleeps mid-flight is useless.
 
-```bash
-./tools/make-cert.sh
+Use [mkcert](https://github.com/FiloSottile/mkcert) to create the certificate. It sets up a small
+certificate authority of your own and issues the certificate from it:
+
+```powershell
+winget install FiloSottile.mkcert
+mkcert -install
+New-Item -ItemType Directory -Force certs | Out-Null
+mkcert -key-file certs\key.pem -cert-file certs\cert.pem localhost 127.0.0.1 192.168.1.23
 ```
 
-puts the LAN IP into the `subjectAltName`; iOS and Android check only that, never the common name.
-The server picks the certificate up from `certs/` on its next start and serves HTTPS on
+Replace `192.168.1.23` with the PC's LAN IP (`ipconfig` lists it). The IP has to be in the
+certificate, because iOS and Android check only the `subjectAltName`, never the common name.
+
+The server picks the certificate up from `certs\` on its next start and serves HTTPS on
 `MM_HTTPS_PORT`, redirecting plain HTTP to it.
+
+To stop the tablet from showing a warning, install the CA there too. `mkcert -CAROOT` shows the
+folder that holds `rootCA.pem`. Copy that file to the device and trust it there. Otherwise accept
+the browser's warning once; after that the page counts as a secure context and Wake Lock works.
 
 ## Performance
 
@@ -433,7 +483,7 @@ the type name as DCS spells it (the contact label shows it) and, if you can, a r
 
 Fork, branch, and before sending anything:
 
-```bash
+```powershell
 npm run typecheck
 npm test
 ```
@@ -484,7 +534,7 @@ Versions are `MAJOR.MINOR.BUILD`. `MAJOR.MINOR` is set by hand as an annotated g
 is the number of commits since that tag and counts up by itself — nothing is committed to bump it.
 The server prints the version on startup and serves it at `/api/version`.
 
-```bash
+```powershell
 git tag -a v0.4320 -m "Version 0.4320"   # new minor (or major), build starts again at 0
 git push origin v0.4320
 ```

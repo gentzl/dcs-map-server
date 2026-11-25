@@ -1441,7 +1441,7 @@ bindControls();
 //
 // Without a wake lock the tablet's display turns off mid-flight. The API is
 // only available in a secure context -- so not over http://<LAN-IP>, see
-// tools/make-cert.sh. The lock object is released by the browser on
+// "HTTPS on a LAN" in docs/DEVELOPERS.md. The lock object is released by the browser on
 // backgrounding and has to be re-requested afterwards.
 
 let wakeLock: WakeLockSentinel | null = null;
