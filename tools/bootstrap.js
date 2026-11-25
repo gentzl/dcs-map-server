@@ -2,6 +2,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ok } from './cli-log.js';
 import { detectOwnedTheaters } from './detect-owned-theaters.js';
 import { npmCliPath, npmEnv, runNpm } from './npm-runtime.js';
 import { promptTheaters, readOwnedTheaters, saveOwnedTheaters } from './theater-config.js';
@@ -13,34 +14,58 @@ import { promptTheaters, readOwnedTheaters, saveOwnedTheaters } from './theater-
  * typescript as a devDependency) can be relied on yet.
  */
 
+const BANNER = String.raw`
+==============================================================
+ ___   ___ ___   __  __   _   ___   ___ ___ _____   _____ ___
+|   \ / __/ __| |  \/  | /_\ | _ \ / __| __| _ \ \ / / __| _ \
+| |) | (__\__ \ | |\/| |/ _ \|  _/ \__ \ _||   /\ V /| _||   /
+|___/ \___|___/ |_|  |_/_/ \_\_|   |___/___|_|_\ \_/ |___|_|_\
+        your cockpit position, live, on a real map
+==============================================================
+`;
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(root);
 
 async function main() {
+  console.log(BANNER);
+
   console.log('Installing dependencies (first run only, a couple of minutes)...');
   runNpm(['install']);
+  ok('Dependencies installed');
 
   const cssDest = path.join(root, 'public', 'maplibre-gl.css');
   if (!existsSync(cssDest)) {
+    console.log(`Copying MapLibre GL stylesheet to ${cssDest}...`);
     mkdirSync(path.dirname(cssDest), { recursive: true });
     copyFileSync(path.join(root, 'node_modules', 'maplibre-gl', 'dist', 'maplibre-gl.css'), cssDest);
+    ok('Stylesheet copied');
+  } else {
+    ok('Stylesheet already present');
   }
 
   console.log('Fetching map labels and symbols...');
   runNpm(['run', 'fetch-assets']);
+  ok('Map labels and symbols ready');
 
   let theaters = detectOwnedTheaters();
   if (theaters) {
-    console.log(`Maps you own, detected from your DCS installation: ${theaters.join(', ')}`);
+    ok(`Maps detected from your DCS installation: ${theaters.join(', ')}`);
   } else {
+    console.log('Could not detect installed maps from your DCS installation.');
     theaters = readOwnedTheaters(root) ?? (await promptTheaters());
     saveOwnedTheaters(root, theaters);
+    ok(`Will fetch tiles for: ${theaters.join(', ')}`);
   }
 
   for (const theater of theaters) {
-    if (!existsSync(path.join(root, 'tiles', `${theater}.pmtiles`))) {
-      console.log(`Downloading map tiles for ${theater} (one-time, roughly 100-150 MB)...`);
+    const tilePath = path.join(root, 'tiles', `${theater}.pmtiles`);
+    if (!existsSync(tilePath)) {
+      console.log(`Downloading map tiles for ${theater} to ${tilePath} (one-time, roughly 100-150 MB)...`);
       runNpm(['run', 'fetch-tiles', '--', theater]);
+      ok(`Tiles ready for ${theater}`);
+    } else {
+      ok(`Tiles already present for ${theater}`);
     }
   }
 

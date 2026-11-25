@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ok } from './cli-log.js';
 import { readEntries } from './zip.js';
 
 /**
@@ -81,7 +82,7 @@ async function ensurePmtiles(): Promise<string> {
   }
 
   const { url } = releaseAsset();
-  console.log(`pmtiles binary not found, downloading from ${url}`);
+  console.log(`Downloading pmtiles tool from ${url} to ${binPath}...`);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`download failed: ${res.status} ${res.statusText}`);
   const archive = Buffer.from(await res.arrayBuffer());
@@ -91,6 +92,7 @@ async function ensurePmtiles(): Promise<string> {
 
   await mkdir(runtimeDir, { recursive: true });
   await writeFile(binPath, entry.data);
+  ok(`pmtiles tool ready at ${binPath}`);
   return binPath;
 }
 
@@ -108,10 +110,10 @@ const planet = await findPlanet();
 
 await mkdir(path.join(root, 'tiles'), { recursive: true });
 const out = path.join(root, 'tiles', `${theater}.pmtiles`);
-console.log(`Source:  ${planet}`);
-console.log(`Region:  ${theater}  bbox ${bbox}  maxzoom ${maxzoom}`);
+console.log(`Downloading tiles for ${theater} from ${planet}`);
+console.log(`Region:  bbox ${bbox}  maxzoom ${maxzoom}  -> ${out}`);
 execFileSync(pmtilesPath, ['extract', planet, out, `--bbox=${bbox}`, `--maxzoom=${maxzoom}`], {
   stdio: 'inherit',
 });
 const size = (await stat(out)).size;
-console.log(`${out}  (${(size / 1024 / 1024).toFixed(1)} MB)`);
+ok(`${out}  (${(size / 1024 / 1024).toFixed(1)} MB)`);

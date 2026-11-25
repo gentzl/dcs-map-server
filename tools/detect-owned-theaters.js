@@ -55,14 +55,19 @@ function registryPath(key) {
 }
 
 function installPaths() {
-  return Object.values(REGISTRY_VARIANTS)
-    .map((sub) => registryPath(`HKCU\\Software\\Eagle Dynamics\\${sub}`))
-    .filter((p) => p !== null);
+  const paths = Object.entries(REGISTRY_VARIANTS)
+    .map(([variant, sub]) => [variant, registryPath(`HKCU\\Software\\Eagle Dynamics\\${sub}`)])
+    .filter(([, p]) => p !== null);
+  for (const [variant, p] of paths) console.log(`Found ${variant} installed at ${p}`);
+  return paths.map(([, p]) => p);
 }
 
 function installedTerrainFolders(installPath) {
+  const terrainsDir = path.join(installPath, 'Mods', 'terrains');
   try {
-    return readdirSync(path.join(installPath, 'Mods', 'terrains')).map((name) => name.toLowerCase());
+    const names = readdirSync(terrainsDir);
+    console.log(`${terrainsDir}: ${names.join(', ')}`);
+    return names.map((name) => name.toLowerCase());
   } catch {
     return null;
   }

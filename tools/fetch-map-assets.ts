@@ -1,6 +1,7 @@
 import { mkdir, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ok } from './cli-log.js';
 
 /**
  * Fetches glyphs and sprites for map labelling into public/.
@@ -70,6 +71,7 @@ for (const font of FONTS) {
   for (const r of RANGES) {
     const out = path.join(dir, `${r}.pbf`);
     if (await exists(out)) continue;
+    console.log(`Downloading glyphs: ${font} ${r} -> ${out}`);
     if (!(await fetchTo(`${BASE}/fonts/${enc}/${r}.pbf`, out))) {
       console.error(`  missing: ${font} ${r}`);
     }
@@ -81,6 +83,7 @@ await mkdir(spritesDir, { recursive: true });
 for (const f of ['light.json', 'light.png', 'light@2x.json', 'light@2x.png']) {
   const out = path.join(spritesDir, f);
   if (await exists(out)) continue;
+  console.log(`Downloading sprite: ${f} -> ${out}`);
   if (!(await fetchTo(`${BASE}/sprites/v4/${f}`, out))) {
     console.error(`  missing: ${f}`);
   }
@@ -89,4 +92,4 @@ for (const f of ['light.json', 'light.png', 'light@2x.json', 'light@2x.png']) {
 const fontFiles = (await readdir(path.join(root, 'public/fonts'), { recursive: true })).filter((f) =>
   f.endsWith('.pbf'),
 );
-console.log(`Glyphs: ${fontFiles.length} files`);
+ok(`Glyphs ready: ${fontFiles.length} files`);

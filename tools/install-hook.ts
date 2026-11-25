@@ -2,6 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ok } from './cli-log.js';
 
 /**
  * Copies the DCS export hook into every installed DCS variant's Hooks folder.
@@ -67,7 +68,7 @@ function describe(r: HookResult): string {
     case 'installed':
       return `${r.variant}: hook installed to ${r.dest}`;
     case 'already-current':
-      return `${r.variant}: hook already up to date`;
+      return `${r.variant}: hook already up to date at ${r.dest}`;
     case 'left-alone':
       return (
         `${r.variant}: a different file is already at ${r.dest} -- left untouched. ` +
@@ -91,6 +92,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`No DCS installation found under ${savedGamesDir}.`);
     console.log(`Once it's installed, copy ${source} into its Scripts\\Hooks\\ folder yourself.`);
   } else {
-    for (const r of results) console.log(describe(r));
+    for (const r of results) {
+      if (r.action === 'installed' || r.action === 'already-current') {
+        ok(describe(r));
+      } else {
+        console.log(describe(r));
+      }
+    }
   }
 }
