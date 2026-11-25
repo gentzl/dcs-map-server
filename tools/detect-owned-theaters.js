@@ -1,19 +1,22 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { THEATERS } from './theater-config.js';
 
 /**
- * Reads which DCS maps are installed straight from the game's own records,
- * so bootstrap.js doesn't have to ask -- checked fresh on every run rather
- * than asked once, so a map bought later just shows up on the next start.
+ * Reads which DCS maps are installed straight from the game's own files, so
+ * bootstrap.js doesn't have to ask -- checked fresh on every run rather than
+ * asked once, so a map bought later just shows up on the next start.
  *
- * DCS registers each variant's install path in the registry, and its
- * installer/updater tracks installed terrains in autoupdate.cfg at that
- * path's root, under the same module IDs `DCS_updater.exe install` takes.
- * Neither is officially documented, so every failure mode here -- missing
- * key, missing file, a shape we don't recognise -- falls back to null
- * rather than guessing; the caller then falls back to asking.
+ * DCS registers each variant's install path in the registry. Every terrain
+ * that's actually playable ships a folder under that path's
+ * `Mods\terrains\`, named after the map -- the ground truth for what's
+ * installed, unlike the installer's own undocumented `autoupdate.cfg`
+ * bookkeeping, which can list a terrain that failed to install or omit one
+ * installed by other means. Neither the registry key nor the folder names
+ * are officially documented, so every failure mode here -- missing registry
+ * key, missing `Mods\terrains`, a name we don't recognise -- falls back to
+ * null rather than guessing; the caller then falls back to asking.
  */
 
 // Saved Games subfolder name (install-hook.ts's DCS_VARIANTS) -> registry
@@ -25,17 +28,18 @@ const REGISTRY_VARIANTS = {
   'DCS.openalpha': 'DCS World 2 OpenAlpha',
 };
 
-// DCS_updater.exe's module ID for each theater this project supports.
-const TERRAIN_MODULE_IDS = {
-  caucasus: 'CAUCASUS_terrain',
-  syria: 'SYRIA_terrain',
-  persiangulf: 'PERSIANGULF_terrain',
-  sinai: 'SINAIMAP_terrain',
-  normandy: 'NORMANDY_terrain',
-  marianas: 'MARIANAISLANDS_terrain',
-  kola: 'KOLA_terrain',
-  iraq: 'IRAQ_terrain',
-  afghanistan: 'AFGHANISTAN_terrain',
+// Folder name under Mods\terrains for each theater this project supports,
+// matched case-insensitively.
+const TERRAIN_FOLDER_NAMES = {
+  caucasus: 'caucasus',
+  syria: 'syria',
+  persiangulf: 'persiangulf',
+  sinai: 'sinaimap',
+  normandy: 'normandy',
+  marianas: 'marianaislands',
+  kola: 'kola',
+  iraq: 'iraq',
+  afghanistan: 'afghanistan',
 };
 
 function registryPath(key) {
@@ -56,12 +60,9 @@ function installPaths() {
     .filter((p) => p !== null);
 }
 
-function installedModules(installPath) {
-  const cfgPath = path.join(installPath, 'autoupdate.cfg');
-  if (!existsSync(cfgPath)) return null;
+function installedTerrainFolders(installPath) {
   try {
-    const modules = JSON.parse(readFileSync(cfgPath, 'utf8')).modules;
-    return Array.isArray(modules) ? modules : null;
+    return readdirSync(path.join(installPath, 'Mods', 'terrains')).map((name) => name.toLowerCase());
   } catch {
     return null;
   }
@@ -69,25 +70,26 @@ function installedModules(installPath) {
 
 /**
  * The theaters this player owns, or null if that can't be determined (no
- * DCS install found via the registry, or none of their autoupdate.cfg files
- * could be read) -- null means "fall back to asking", not "owns nothing".
+ * DCS install found via the registry, or none of their `Mods\terrains`
+ * folders could be read) -- null means "fall back to asking", not "owns
+ * nothing".
  */
 export function detectOwnedTheaters() {
   const paths = installPaths();
   if (paths.length === 0) return null;
 
-  const modules = new Set();
+  const folders = new Set();
   let readAny = false;
   for (const installPath of paths) {
-    const found = installedModules(installPath);
+    const found = installedTerrainFolders(installPath);
     if (found) {
       readAny = true;
-      for (const m of found) modules.add(m);
+      for (const name of found) folders.add(name);
     }
   }
   if (!readAny) return null;
 
-  const owned = THEATERS.filter((t) => modules.has(TERRAIN_MODULE_IDS[t]));
+  const owned = THEATERS.filter((t) => folders.has(TERRAIN_FOLDER_NAMES[t]));
   if (!owned.includes('caucasus')) owned.unshift('caucasus'); // free for everyone
   return owned;
 }
