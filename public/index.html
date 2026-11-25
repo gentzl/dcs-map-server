@@ -100,7 +100,8 @@
        anyway, so this costs nothing and lets a tap in that empty area (where
        the attribution icon lives) reach what's actually underneath it. */
     #controls { position: absolute; bottom: max(12px, env(safe-area-inset-bottom));
-                z-index: 2; right: 12px; left: 12px; display: flex; gap: 8px;
+                z-index: 2; right: max(12px, env(safe-area-inset-right));
+                left: max(12px, env(safe-area-inset-left)); display: flex; gap: 8px;
                 flex-wrap: wrap; justify-content: flex-end; align-items: center;
                 pointer-events: none; }
     #controls > * { pointer-events: auto; }
@@ -123,6 +124,16 @@
     /* Seven steps have to fit side by side at phone width, hence narrow;
        the bar also wraps on top of that. */
     .seg button.preset { min-width: 40px; padding: 12px 6px; }
+
+    /* On a phone the range group (two step buttons plus seven presets) is
+       wider than the screen. With flex-end packing it then overflowed past
+       the left edge while keeping its margin on the right. Instead it gets a
+       row of its own across the full width, with equal-width buttons, so
+       both edges keep the same margin. */
+    @media (max-width: 480px) {
+      .seg.range { flex: 1 1 100%; }
+      .seg.range button { flex: 1 1 0; min-width: 0; padding-left: 0; padding-right: 0; }
+    }
 
     #settings { position: absolute; bottom: 70px; right: 12px; width: min(300px, calc(100vw - 24px));
                 max-height: calc(100vh - 140px); overflow-y: auto;
@@ -239,7 +250,7 @@
 
   <div id="controls">
     <button id="toggle-settings" title="Settings">⚙</button>
-    <div class="seg" role="group" aria-label="Range in nautical miles">
+    <div class="seg range" role="group" aria-label="Range in nautical miles">
       <button id="range-out" title="Range out">−</button>
       <button id="range-1" class="preset" aria-pressed="false">1</button>
       <button id="range-5" class="preset" aria-pressed="false">5</button>
