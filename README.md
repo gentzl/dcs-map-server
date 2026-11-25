@@ -26,6 +26,19 @@ tablet on the same Wi-Fi, use one of the other addresses it lists instead — so
 `http://192.168.1.23:8080` or `http://<your-pc-name>.local:8080`. Start or join a flight in DCS and
 the map comes alive.
 
+## Where the map comes from
+
+The map is the real world, not DCS's own map. Roads, towns, rivers, runways and airfield names
+come from [OpenStreetMap](https://www.openstreetmap.org/). [Protomaps](https://protomaps.com/)
+turns that into a worldwide map file, and setup downloads the part each theater covers into
+`tiles\<theater>.pmtiles`. Airports have no separate source: runways and airfields are part of
+that same file. The terrain shading is public-domain elevation data, loaded from the internet
+while the map is open.
+
+Most of the time this matches DCS, but not always. An airfield that DCS has but that was closed,
+rebuilt or never built in reality is shown the way OpenStreetMap has it today. Nothing on the map
+is checked against DCS's own data. Only the aircraft, ships and ground units come from the game.
+
 ## Documentation
 
 - **[Handbook](docs/MANUAL.md)** — using it: the controls, keeping a tablet's screen awake, other
