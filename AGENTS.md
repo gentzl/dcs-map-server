@@ -76,3 +76,26 @@ BRA readout" doesn't belong in the technical guide.
 One concern per commit. Subject in the imperative, sentence case, no prefix or ticket number
 ("Fix range rings not updating during pinch/wheel zoom"). The body explains *why* — what was
 wrong, what it does now — and wraps at roughly 72 columns.
+
+## Versioning workflow
+
+Versions are `MAJOR.MINOR.BUILD` (details: [docs/DEVELOPERS.md](docs/DEVELOPERS.md#versioning)).
+
+- **BUILD is automatic.** It is the number of commits since the last `vMAJOR.MINOR` tag, read via
+  `git describe` (clone) or `VERSION_ARCHIVE` (GitHub ZIP). Never bump it by hand, never commit a
+  build number anywhere, and never add a CI step that commits version bumps.
+- **MAJOR/MINOR only on the user's request.** Don't decide on your own that a change deserves a new
+  minor. When asked:
+  1. Commit the work first, so the tag lands on it.
+  2. `git tag -a vMAJOR.MINOR -m "Version MAJOR.MINOR"` on that commit.
+  3. Set `version` in `package.json` and `package-lock.json` (both top-level entries) to
+     `MAJOR.MINOR.0`, commit that.
+  4. Push the branch **and** the tag (`git push origin main vMAJOR.MINOR`) — only when the user
+     asked to push. An unpushed tag means ZIP downloads report `0.0.0-unknown`.
+- **Don't touch** `VERSION_ARCHIVE` or the `export-subst` line in `.gitattributes`: GitHub fills in
+  the placeholder when it builds the ZIP, and it has to stay a literal `$Format:...$` in the repo.
+- **Checking the version:** the server prints it on startup and serves it at `/api/version`; the
+  web UI shows it at the bottom of the settings panel. A `-dirty` suffix just means uncommitted
+  changes in the working tree.
+- In a handoff note, name the version you left the repository at (from `/api/version` or
+  `git describe --tags`), not only the commit hash.

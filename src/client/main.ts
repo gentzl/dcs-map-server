@@ -58,6 +58,15 @@ const available: string[] = await fetch('/api/theaters')
   .then((j) => j.theaters)
   .catch(() => []);
 
+// Shown at the bottom of the settings panel, so a user reporting a problem
+// can say which build they run. Not awaited: nothing else depends on it.
+void fetch('/api/version')
+  .then((r) => r.json() as Promise<{ version: string }>)
+  .then((v) => {
+    document.getElementById('version')!.textContent = `DCS Map Server ${v.version}`;
+  })
+  .catch(() => {});
+
 if (available.length > 0 && !available.includes(settings.theater)) {
   settings = { ...settings, theater: available[0]! };
   cfg.save(settings);

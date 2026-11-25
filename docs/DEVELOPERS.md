@@ -477,3 +477,23 @@ derivative database in the sense of the ODbL, so they are fetched by script rath
 redistributed here. Anyone publishing prebuilt tiles takes on the ODbL share-alike obligations.
 
 This project is not affiliated with or endorsed by Eagle Dynamics.
+
+## Versioning
+
+Versions are `MAJOR.MINOR.BUILD`. `MAJOR.MINOR` is set by hand as an annotated git tag; `BUILD`
+is the number of commits since that tag and counts up by itself — nothing is committed to bump it.
+The server prints the version on startup and serves it at `/api/version`.
+
+```bash
+git tag -a v0.4320 -m "Version 0.4320"   # new minor (or major), build starts again at 0
+git push origin v0.4320
+```
+
+Also update `version` in `package.json` to `MAJOR.MINOR.0` so npm agrees; the build number itself
+is never written there.
+
+A git clone gets the version from `git describe`. GitHub's "Download ZIP" has no `.git`, but GitHub
+builds it with `git archive`, which fills in the placeholder in `VERSION_ARCHIVE`
+(`export-subst` in `.gitattributes`). Tags have to be pushed for either to see them; without one
+the version reads `0.0.0-unknown`. The first version, `0.4319`, is D-C-S as alphabet positions
+(4, 3, 19).

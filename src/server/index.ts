@@ -9,6 +9,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { World } from './world.js';
 import { startIngest } from './ingest.js';
 import { startRelay } from './relay.js';
+import { resolveVersion } from './version.js';
 
 const HTTP_PORT = Number(process.env.MM_HTTP_PORT ?? 8080);
 const HTTPS_PORT = Number(process.env.MM_HTTPS_PORT ?? 8443);
@@ -23,6 +24,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(here, '../../public');
 const tilesDir = path.resolve(here, '../../tiles');
 const certsDir = path.resolve(here, '../../certs');
+const VERSION = resolveVersion(path.resolve(here, '../..'));
 
 /**
  * HTTPS as soon as a certificate is present.
@@ -81,8 +83,11 @@ app.get('/api/theaters', async () => {
   }
 });
 
+app.get('/api/version', async () => VERSION);
+
 app.get('/health', async () => ({
   ok: true,
+  version: VERSION.version,
   ...world.stats,
   lastPacketAgeMs: world.lastPacketAt ? Date.now() - world.lastPacketAt : null,
 }));
@@ -185,6 +190,7 @@ function lanAddresses(): string[] {
 }
 
 const scheme = certs ? 'https' : 'http';
+console.log(`DCS Map Server ${VERSION.version}${VERSION.commit ? ` (${VERSION.commit})` : ''}`);
 console.log(`${scheme.toUpperCase().padEnd(5)} ${scheme}://localhost:${port}`);
 for (const addr of lanAddresses()) console.log(`      ${scheme}://${addr}:${port}  (from another device)`);
 // hostname() can already come back fully-qualified (e.g. a router-assigned
