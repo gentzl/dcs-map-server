@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initLogFile, ok, warn } from './cli-log.js';
@@ -18,6 +19,10 @@ process.chdir(root);
 async function main() {
   initLogFile({ truncate: true });
   console.log(`Logging this run in detail to ${path.join(root, 'setup.log')}`);
+  console.log(
+    `Node ${process.version}  ${process.platform}/${process.arch}  user ${os.userInfo().username}  ` +
+      `home ${os.homedir()}  project ${root}`,
+  );
 
   const detected = detectOwnedTheaters();
   let theaters;

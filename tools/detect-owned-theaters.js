@@ -42,24 +42,30 @@ const TERRAIN_FOLDER_NAMES = {
   afghanistan: 'afghanistan',
 };
 
-function registryPath(key) {
+function registryPath(variant, key) {
   try {
     const out = execFileSync('reg', ['query', key, '/v', 'Path'], {
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-    return /Path\s+REG_SZ\s+(.+)/.exec(out)?.[1]?.trim() ?? null;
-  } catch {
+    const found = /Path\s+REG_SZ\s+(.+)/.exec(out)?.[1]?.trim() ?? null;
+    if (found) {
+      console.log(`Found ${variant} installed at ${found} (registry key ${key})`);
+    } else {
+      console.log(`${variant}: registry key ${key} has no readable Path value, raw output: ${out.trim()}`);
+    }
+    return found;
+  } catch (err) {
+    const reason = err.stderr?.toString().trim() || err.message;
+    console.log(`${variant}: registry key ${key} not found (${reason})`);
     return null;
   }
 }
 
 function installPaths() {
-  const paths = Object.entries(REGISTRY_VARIANTS)
-    .map(([variant, sub]) => [variant, registryPath(`HKCU\\Software\\Eagle Dynamics\\${sub}`)])
-    .filter(([, p]) => p !== null);
-  for (const [variant, p] of paths) console.log(`Found ${variant} installed at ${p}`);
-  return paths.map(([, p]) => p);
+  return Object.entries(REGISTRY_VARIANTS)
+    .map(([variant, sub]) => registryPath(variant, `HKCU\\Software\\Eagle Dynamics\\${sub}`))
+    .filter((p) => p !== null);
 }
 
 function installedTerrainFolders(installPath) {
@@ -68,7 +74,8 @@ function installedTerrainFolders(installPath) {
     const names = readdirSync(terrainsDir);
     console.log(`${terrainsDir}: ${names.join(', ')}`);
     return names.map((name) => name.toLowerCase());
-  } catch {
+  } catch (err) {
+    console.log(`${terrainsDir}: could not read (${err.message})`);
     return null;
   }
 }
@@ -94,7 +101,15 @@ export function detectOwnedTheaters() {
   }
   if (!readAny) return null;
 
+  const unrecognised = [...folders].filter((f) => !Object.values(TERRAIN_FOLDER_NAMES).includes(f));
+  if (unrecognised.length > 0) {
+    console.log(
+      `Terrain folder(s) found but not recognised by this tool, so not auto-detected: ${unrecognised.join(', ')}`,
+    );
+  }
+
   const owned = THEATERS.filter((t) => folders.has(TERRAIN_FOLDER_NAMES[t]));
   if (!owned.includes('caucasus')) owned.unshift('caucasus'); // free for everyone
+  console.log(`Detected theaters: ${owned.join(', ')}`);
   return owned;
 }

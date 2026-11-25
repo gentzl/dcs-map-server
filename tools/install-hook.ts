@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,15 +80,28 @@ function describe(r: HookResult): string {
 }
 
 // Only run as a CLI when executed directly, not when imported for its pure
-// functions by tests.
-if (import.meta.url === `file://${process.argv[1]}`) {
+// functions by tests. Compared as resolved native paths, not raw
+// `file://${process.argv[1]}` strings: on Windows that comparison can never
+// match (backslashes, no `file:///` scheme/encoding), which silently turned
+// this whole block into a no-op -- no output, no hook installed, exit 0.
+const isMain =
+  process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMain) {
   initLogFile();
   const here = path.dirname(fileURLToPath(import.meta.url));
   const root = path.resolve(here, '..', '..');
   const source = path.join(root, 'dcs/Scripts/Hooks', HOOK_NAME);
   const savedGamesDir = path.join(os.homedir(), 'Saved Games');
 
+  console.log(`Checking for DCS variants (${DCS_VARIANTS.join(', ')}) under ${savedGamesDir}`);
   const results = installHook(source, savedGamesDir);
+
+  const checked = new Set(results.map((r) => r.variant));
+  for (const variant of DCS_VARIANTS) {
+    if (!checked.has(variant)) console.log(`${variant}: not installed, skipped`);
+  }
+
   if (results.length === 0) {
     warn(`No DCS installation found under ${savedGamesDir}.`);
     console.log(`Once it's installed, copy ${source} into its Scripts\\Hooks\\ folder yourself.`);

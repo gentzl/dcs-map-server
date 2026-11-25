@@ -1,5 +1,6 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initLogFile, ok, warn } from './cli-log.js';
@@ -31,6 +32,10 @@ async function main() {
   initLogFile({ truncate: true });
   console.log(BANNER);
   console.log(`Logging this run in detail to ${path.join(root, 'setup.log')}`);
+  console.log(
+    `Node ${process.version}  ${process.platform}/${process.arch}  user ${os.userInfo().username}  ` +
+      `home ${os.homedir()}  project ${root}`,
+  );
 
   console.log('Installing dependencies (first run only, a couple of minutes)...');
   runNpm(['install']);
