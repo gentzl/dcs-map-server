@@ -140,7 +140,7 @@ export function buildBullseye(lat: number, lon: number): GeoJSON.FeatureCollecti
  * several hundred vehicles, and a stub on every parked truck would bury the
  * picture it is meant to clarify.
  *
- * The 60 seconds of travel is a real geographic distance, so at a close
+ * The 30 seconds of travel is a real geographic distance, so at a close
  * range step a fast jet's stub can stretch many times its own icon size --
  * technically correct, but reads as a stray line rather than a contact.
  * Capped at a few icon-widths on screen (LEADER_MAX_ICONS), independent of
@@ -148,8 +148,9 @@ export function buildBullseye(lat: number, lon: number): GeoJSON.FeatureCollecti
  * real-world distance, the same conversion rangeForZoom already does for
  * the range rings.
  */
-const LEADER_SECONDS = 60;
-const LEADER_MAX_ICONS = 3;
+// Halved from 60 s / 3 icons: at full length the stubs dominated the picture.
+const LEADER_SECONDS = 30;
+const LEADER_MAX_ICONS = 1.5;
 
 export function buildLeaders(
   units: Array<{ unit: Unit; lat: number; lon: number; hdg: number; ageMs: number; spdMs: number }>,
