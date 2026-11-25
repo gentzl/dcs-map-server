@@ -11,6 +11,7 @@
     "build:server": "tsc -p tsconfig.json",
     "build": "npm run typecheck && npm run build:server && npm run build:client",
     "dev": "npm run build && node dist/server/index.js",
+    "demo": "npm run build --silent && npm run build:tools --silent && node dist-tools/tools/demo.js",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json && tsc -p tsconfig.tools.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "test": "npm run build:test --silent && npm run build:server --silent && node --test \"dist-test/test/**/*.test.js\"",
     "build:test": "node -e \"require('fs').rmSync('dist-test',{recursive:true,force:true})\" && tsc -p tsconfig.test.json",

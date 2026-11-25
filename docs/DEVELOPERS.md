@@ -143,6 +143,7 @@ tools/wire.ts            Datagram writer, counterpart to protocol.ts
 tools/zip.ts             Minimal ZIP reader for Tacview archives
 tools/capture-ws.ts      Records a live server's WebSocket feed to a file
 tools/replay-ws.ts       Replays such a recording as a relay source
+tools/demo.ts            npm run demo: replay plus server in one window
 tools/                   Telemetry generator and ACMI converter
 ```
 
@@ -246,12 +247,26 @@ objects disappear, the own aircraft not also sent as an ordinary unit, and a com
 surviving while a tab does not. It exits non-zero and says what broke, so it belongs in CI rather
 than in a careful read of its output — which is where it runs.
 
-Each of the routes below needs **two PowerShell windows**, both in the project folder. Each window
-runs a process that keeps going until you stop it with Ctrl+C.
-
 **Replaying a recorded session** is the route to use when you're changing the client. It puts real
 objects of every category on the map, with real movement, without starting DCS. The recording is
 fed through the server as if it came from a second live instance.
+
+The quickest way is one command in one PowerShell window:
+
+```powershell
+npm run demo
+```
+
+It builds the project, starts the replay and the server together, and prints the address to open,
+normally `http://localhost:8080`. Ctrl+C stops both. To play the other recording instead:
+
+```powershell
+npm run demo -- dcs\test\fixtures\real-session-2026-11-23-multiplayer.jsonl
+```
+
+To run the two halves separately, for example to restart only the server while the replay keeps
+going, use **two PowerShell windows**, both in the project folder. Each window runs a process that
+keeps going until you stop it with Ctrl+C.
 
 Window 1, the recording:
 
@@ -267,7 +282,7 @@ npm run dev
 ```
 
 Then open `http://localhost:8080`. The recording loops by default; add `--once` to the first
-command to play it a single time. Two recordings ship in `dcs\test\fixtures\` (see the
+command to play it a single time. On start, `replay-ws` prints the window 2 commands ready to copy. Two recordings ship in `dcs\test\fixtures\` (see the
 [README](../dcs/test/fixtures/README.md) there):
 
 | File | Content |
