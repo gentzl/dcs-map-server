@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { initLogFile, ok } from './cli-log.js';
+import { initLogFile, ok, warn } from './cli-log.js';
 
 /**
  * Copies the DCS export hook into every installed DCS variant's Hooks folder.
@@ -90,7 +90,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   const results = installHook(source, savedGamesDir);
   if (results.length === 0) {
-    console.log(`No DCS installation found under ${savedGamesDir}.`);
+    warn(`No DCS installation found under ${savedGamesDir}.`);
     console.log(`Once it's installed, copy ${source} into its Scripts\\Hooks\\ folder yourself.`);
   } else {
     for (const r of results) {

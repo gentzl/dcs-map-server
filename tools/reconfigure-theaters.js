@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { initLogFile, ok } from './cli-log.js';
+import { initLogFile, ok, warn } from './cli-log.js';
 import { detectOwnedTheaters } from './detect-owned-theaters.js';
 import { runNpm } from './npm-runtime.js';
 import { promptTheaters, readOwnedTheaters, saveOwnedTheaters } from './theater-config.js';
@@ -48,6 +48,6 @@ async function main() {
 try {
   await main();
 } catch (err) {
-  console.error('\nReconfiguration failed:', err.message ?? err);
+  warn(`Reconfiguration failed: ${err.message ?? err}`);
   process.exitCode = 1;
 }

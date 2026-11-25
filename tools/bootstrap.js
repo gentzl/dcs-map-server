@@ -2,7 +2,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { initLogFile, ok } from './cli-log.js';
+import { initLogFile, ok, warn } from './cli-log.js';
 import { detectOwnedTheaters } from './detect-owned-theaters.js';
 import { npmCliPath, npmEnv, runNpm } from './npm-runtime.js';
 import { promptTheaters, readOwnedTheaters, saveOwnedTheaters } from './theater-config.js';
@@ -54,7 +54,7 @@ async function main() {
   if (theaters) {
     ok(`Maps detected from your DCS installation: ${theaters.join(', ')}`);
   } else {
-    console.log('Could not detect installed maps from your DCS installation.');
+    warn('Could not detect installed maps from your DCS installation.');
     theaters = readOwnedTheaters(root) ?? (await promptTheaters());
     saveOwnedTheaters(root, theaters);
     ok(`Will fetch tiles for: ${theaters.join(', ')}`);
@@ -104,6 +104,6 @@ async function main() {
 try {
   await main();
 } catch (err) {
-  console.error('\nSetup failed:', err.message ?? err);
+  warn(`Setup failed: ${err.message ?? err}`);
   process.exitCode = 1;
 }

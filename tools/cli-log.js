@@ -46,3 +46,7 @@ export function initLogFile({ truncate = false } = {}) {
 export function ok(msg) {
   console.log(supportsColor ? `\x1b[32m✓\x1b[0m ${msg}` : `✓ ${msg}`);
 }
+
+export function warn(msg) {
+  console.error(supportsColor ? `\x1b[31m✗\x1b[0m ${msg}` : `✗ ${msg}`);
+}
