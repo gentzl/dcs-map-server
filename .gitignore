@@ -12,3 +12,4 @@ dist-tools/
 dist-test/
 runtime/
 theaters.json
+setup.log

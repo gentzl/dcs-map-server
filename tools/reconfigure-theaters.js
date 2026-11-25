@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ok } from './cli-log.js';
+import { initLogFile, ok } from './cli-log.js';
 import { detectOwnedTheaters } from './detect-owned-theaters.js';
 import { runNpm } from './npm-runtime.js';
 import { promptTheaters, readOwnedTheaters, saveOwnedTheaters } from './theater-config.js';
@@ -16,6 +16,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(root);
 
 async function main() {
+  initLogFile({ truncate: true });
+  console.log(`Logging this run in detail to ${path.join(root, 'setup.log')}`);
+
   const detected = detectOwnedTheaters();
   let theaters;
   if (detected) {

@@ -46,7 +46,9 @@ for each one, every time it runs — so a map you buy later just shows up the ne
 double-click it, nothing to redo by hand.
 
 If it can't tell automatically (an unusual install setup), it asks once instead, and
-**`configure-maps.bat`** lets you change that answer any time.
+**`configure-maps.bat`** lets you change that answer any time. Every run writes exactly what it
+checked and found to **`setup.log`** next to `start.bat` — if map detection looks wrong, that file
+is the first thing to check (or to send along when asking for help).
 
 Available: `caucasus`, `syria`, `persiangulf`, `sinai`, `normandy`, `marianas`, `kola`, `iraq`,
 `afghanistan` — each one roughly 100–150 MB on disk. If you own more than one, switch between the

@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ok } from './cli-log.js';
+import { initLogFile, ok } from './cli-log.js';
 
 /**
  * Copies the DCS export hook into every installed DCS variant's Hooks folder.
@@ -82,6 +82,7 @@ function describe(r: HookResult): string {
 // Only run as a CLI when executed directly, not when imported for its pure
 // functions by tests.
 if (import.meta.url === `file://${process.argv[1]}`) {
+  initLogFile();
   const here = path.dirname(fileURLToPath(import.meta.url));
   const root = path.resolve(here, '..', '..');
   const source = path.join(root, 'dcs/Scripts/Hooks', HOOK_NAME);

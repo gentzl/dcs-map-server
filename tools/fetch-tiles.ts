@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ok } from './cli-log.js';
+import { initLogFile, ok } from './cli-log.js';
 import { readEntries } from './zip.js';
 
 /**
@@ -18,6 +18,8 @@ import { readEntries } from './zip.js';
  * DCS only runs on Windows, so this (like every tool and script here) only
  * needs to run there -- no cross-platform fallback.
  */
+
+initLogFile();
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
