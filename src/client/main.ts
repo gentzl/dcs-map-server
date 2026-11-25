@@ -1084,7 +1084,11 @@ function frame(now: number): void {
       // leaving the mode, only panning is.
       const shortSide = Math.min(map.getCanvas().clientWidth, map.getCanvas().clientHeight);
       zoom = manualZoom ?? zoomForRange(currentRange(), own.lat, shortSide);
-      map.jumpTo({ center: [own.lon, own.lat], bearing: headingUp ? -toDeg(own.hdg) : 0, zoom });
+      // Heading-up: the aircraft sits in the lower third, so more of the view
+      // lies ahead. A third of the height as top padding moves the padded
+      // centre there. North-up stays centred.
+      const top = headingUp ? Math.round(map.getCanvas().clientHeight / 3) : 0;
+      map.jumpTo({ center: [own.lon, own.lat], bearing: headingUp ? -toDeg(own.hdg) : 0, zoom, padding: { top, bottom: 0, left: 0, right: 0 } });
     }
 
     // The symbol's own heading plus however much the map itself is already
@@ -1249,7 +1253,7 @@ function placeOwnship(): void {
 
   if (follow) {
     ownshipEl.style.left = '50%';
-    ownshipEl.style.top = '50%';
+    ownshipEl.style.top = headingUp ? `${200 / 3}%` : '50%';
     edgeEl.hidden = true;
     return;
   }

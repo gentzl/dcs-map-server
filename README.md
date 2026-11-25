@@ -7,9 +7,12 @@ It runs once, on the same PC where DCS is installed. Every other device just ope
 nothing to install on the tablet, no app store, no account. Your flight data stays on your own
 home network; only the terrain shading is loaded from the internet while the map is open.
 
-![The map in flight: an airfield picked for its frequencies and navaids, DCS's own airfields, mission zones and contacts](docs/screenshot.jpg)
-
-![The menu with search, tools and settings, and a mission zone picked for a BRA readout](docs/screenshot-menu.jpg)
+<p align="center">
+  <img src="docs/screenshot-1.jpg" width="24%" alt="Flight over the Caucasus: aero chart, airfields, zones and contacts">
+  <img src="docs/screenshot-2.jpg" width="24%" alt="Zoomed in at 5 nm with a BRA readout to a mission zone">
+  <img src="docs/screenshot-3.jpg" width="24%" alt="The Syria map at 50 nm with range rings">
+  <img src="docs/screenshot-4.jpg" width="24%" alt="The menu with search, tools and display settings">
+</p>
 
 ![How it works: the DCS PC reads your flight, the map server turns it into a live map, any screen on your Wi-Fi can open it](docs/overview.svg)
 
