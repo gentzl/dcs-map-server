@@ -23,6 +23,10 @@ import {
  *   Dimension    air open at the bottom, land and sea surface closed,
  *                underwater open at the top
  *
+ * Departure: hostile aircraft use the closed diamond, not the open-bottom
+ * arch. That is how hostile aviation is commonly drawn and what was asked
+ * for; the icon (fixed-wing bow tie, rotor, letter) still says it flies.
+ *
  * Important consequence: a hostile tank and a hostile ship are both a
  * diamond -- distinguished only by the icon. That's intentional, because in
  * combat affiliation is the more important piece of information.
@@ -101,13 +105,8 @@ const FRAMES: Record<Affiliation, Record<Dimension, Draw>> = {
     },
   },
   hostile: {
-    // Pointed arch, also open at the bottom.
-    air: (c, s) => {
-      c.beginPath();
-      c.moveTo(s * 0.14, s * 0.76);
-      c.lineTo(s * 0.5, s * 0.16);
-      c.lineTo(s * 0.86, s * 0.76);
-    },
+    // Closed diamond, same as land -- see the departure noted at the top.
+    air: (c, s) => FRAMES.hostile.land(c, s),
     land: (c, s) => {
       c.beginPath();
       c.moveTo(s * 0.5, s * 0.12);
@@ -187,30 +186,40 @@ const LETTERS: Partial<Record<Category, string>> = {
 };
 
 /** Icons by object type. Empty where the standard calls for "unspecified". */
-// Propeller: two counter-rotating blades. Also covers transport/tanker/
-// AWACS -- the standard has no dedicated pictogram for those, just the
-// general fixed-wing symbol.
+// Fixed wing: the rounded bow tie (two lobes pinched together in the
+// middle), the standard's fixed-wing aviation icon.
 const fixedWingIcon: Draw = (c, s) => {
+  const cx = s * 0.5;
+  const cy = s * 0.49;
+  const w = s * 0.22; // half width, centre to lobe end
+  const h = s * 0.12; // half height of a lobe at its widest
   c.beginPath();
-  c.ellipse(s * 0.5, s * 0.47, s * 0.2, s * 0.07, 0, 0, Math.PI * 2);
+  for (const dir of [-1, 1]) {
+    c.moveTo(cx, cy);
+    c.bezierCurveTo(cx + dir * w * 0.35, cy - h, cx + dir * w, cy - h, cx + dir * w, cy);
+    c.bezierCurveTo(cx + dir * w, cy + h, cx + dir * w * 0.35, cy + h, cx, cy);
+  }
 };
 
 const ICONS: Partial<Record<Category, Draw>> = {
   // Plain fixed wing only -- the roles above carry a letter instead, and an
   // icon drawn after it would paint straight over it.
   air: fixedWingIcon,
-  // Rotor disc, as a ring with the blades across it. Filled it swallowed the
-  // frame -- a disc that wide in near-black leaves a dark blob where the
-  // affiliation colour should be, which is the whole thing you read first.
-  // Kept small and low: the hostile air frame is a triangle, so anything
-  // centred and wide crosses its edges near the apex.
+  // Rotary wing: the standard's angular bow tie, two triangles tip to tip
+  // ("blurred, spinning helicopter blades") -- the straight-edged sibling of
+  // the fixed-wing icon's rounded lobes.
   helo: (c, s) => {
+    const cx = s * 0.5;
+    const cy = s * 0.49;
+    const w = s * 0.21;
+    const h = s * 0.11;
     c.beginPath();
-    c.ellipse(s * 0.5, s * 0.53, s * 0.16, s * 0.16, 0, 0, Math.PI * 2);
-    c.moveTo(s * 0.39, s * 0.42);
-    c.lineTo(s * 0.61, s * 0.64);
-    c.moveTo(s * 0.61, s * 0.42);
-    c.lineTo(s * 0.39, s * 0.64);
+    for (const dir of [-1, 1]) {
+      c.moveTo(cx, cy);
+      c.lineTo(cx + dir * w, cy - h);
+      c.lineTo(cx + dir * w, cy + h);
+      c.closePath();
+    }
   },
   // Track suggestion: a lying oval. Under the standard this belongs to main
   // battle tanks alone; other ground targets carry an empty frame, which
@@ -255,7 +264,7 @@ const ICONS: Partial<Record<Category, Draw>> = {
 };
 
 /** Icons that get filled; the rest stay strokes. */
-const FILLED = new Set<Category>(['armor', 'sam', 'weapon', 'air', 'naval']);
+const FILLED = new Set<Category>(['armor', 'sam', 'weapon', 'air', 'helo', 'naval']);
 
 function render(category: Category, affiliation: Affiliation): ImageData {
   const { ctx, px } = newCanvas();
@@ -291,7 +300,9 @@ function render(category: Category, affiliation: Affiliation): ImageData {
     // Air frames taper towards the top, so the letter sits a little higher
     // than in the straight-sided land and sea frames: at the same height it
     // crowds the lower edge while the space under the apex goes unused.
-    ctx.fillText(letter, SIZE * 0.5, SIZE * (dim === 'air' ? 0.48 : 0.52));
+    // The hostile air frame is the closed diamond, so it sits like land.
+    const arched = dim === 'air' && affiliation !== 'hostile';
+    ctx.fillText(letter, SIZE * 0.5, SIZE * (arched ? 0.48 : 0.52));
   }
 
   const icon = ICONS[category];

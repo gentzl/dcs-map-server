@@ -72,8 +72,9 @@ a dimmed night presentation for flying after dark.
 - *NATO* (the default) is based on APP-6 / MIL-STD-2525. Close to the standard, but not strictly
   conforming: the frames are filled here where the standard leaves them open, because a tinted
   outline is unreadable over cluttered terrain at arm's length. The frame tells you who and where:
-  a rectangle is friendly, a diamond is hostile, a frame open at the bottom means airborne. The
-  icon inside tells you what: an air screw, rotor blades, tank treads, a protective dome for air
+  a rectangle is friendly, a diamond is hostile, a frame open at the bottom means airborne (hostile
+  aircraft keep the closed diamond; the icon shows they fly). The icon inside tells you what: a
+  rounded bow tie for fixed-wing aircraft, an angular one for helicopters, tank treads, a protective dome for air
   defence, a hull for ships. Where the shape can't say it, a letter does — `C` transport,
   `K` tanker, `W` AWACS, `CV` carrier. Friend and hostile are relative to *you* — your own
   coalition is always the friendly shape, whichever side you're flying.
