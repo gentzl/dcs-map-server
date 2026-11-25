@@ -3,6 +3,7 @@
   "compilerOptions": {
     "rootDir": ".",
     "outDir": "dist-test",
+    "allowJs": true,
     "types": [
       "node",
       "geojson"

@@ -3,13 +3,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initLogFile, ok, warn } from './cli-log.js';
+import { resolveInstallDirs } from './dcs-paths.js';
 import { detectOwnedTheaters } from './detect-owned-theaters.js';
 import { runNpm } from './npm-runtime.js';
 import { promptTheaters, readOwnedTheaters, saveOwnedTheaters } from './theater-config.js';
 
 /**
  * Manual fallback for the rare case bootstrap.js can't detect which maps are
- * owned by itself (an install the registry doesn't know about, say). Run via
+ * owned by itself (no DCS install found and the folder prompt skipped, say). Run via
  * configure-maps.bat.
  */
 
@@ -24,7 +25,7 @@ async function main() {
       `home ${os.homedir()}  project ${root}`,
   );
 
-  const detected = detectOwnedTheaters();
+  const detected = detectOwnedTheaters(await resolveInstallDirs(root));
   let theaters;
   if (detected) {
     ok(`Your DCS installation already reports which maps you own: ${detected.join(', ')}`);

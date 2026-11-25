@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { THEATERS } from './theater-config.js';
@@ -8,25 +7,13 @@ import { THEATERS } from './theater-config.js';
  * bootstrap.js doesn't have to ask -- checked fresh on every run rather than
  * asked once, so a map bought later just shows up on the next start.
  *
- * DCS registers each variant's install path in the registry. Every terrain
- * that's actually playable ships a folder under that path's
+ * Every terrain that's actually playable ships a folder under the install's
  * `Mods\terrains\`, named after the map -- the ground truth for what's
  * installed, unlike the installer's own undocumented `autoupdate.cfg`
- * bookkeeping, which can list a terrain that failed to install or omit one
- * installed by other means. Neither the registry key nor the folder names
- * are officially documented, so every failure mode here -- missing registry
- * key, missing `Mods\terrains`, a name we don't recognise -- falls back to
- * null rather than guessing; the caller then falls back to asking.
+ * bookkeeping. Finding the install folder itself is dcs-paths.js's job.
+ * Folder names aren't officially documented, so anything unreadable or
+ * unrecognised falls back to null rather than guessing; the caller then asks.
  */
-
-// Saved Games subfolder name (install-hook.ts's DCS_VARIANTS) -> registry
-// subkey under HKCU\Software\Eagle Dynamics\<name>\Path. OpenAlpha is
-// branded "DCS World 2", unlike the other two -- not a typo.
-const REGISTRY_VARIANTS = {
-  DCS: 'DCS World',
-  'DCS.openbeta': 'DCS World OpenBeta',
-  'DCS.openalpha': 'DCS World 2 OpenAlpha',
-};
 
 // Folder name under Mods\terrains for each theater this project supports,
 // matched case-insensitively.
@@ -42,32 +29,6 @@ const TERRAIN_FOLDER_NAMES = {
   afghanistan: 'afghanistan',
 };
 
-function registryPath(variant, key) {
-  try {
-    const out = execFileSync('reg', ['query', key, '/v', 'Path'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    const found = /Path\s+REG_SZ\s+(.+)/.exec(out)?.[1]?.trim() ?? null;
-    if (found) {
-      console.log(`Found ${variant} installed at ${found} (registry key ${key})`);
-    } else {
-      console.log(`${variant}: registry key ${key} has no readable Path value, raw output: ${out.trim()}`);
-    }
-    return found;
-  } catch (err) {
-    const reason = err.stderr?.toString().trim() || err.message;
-    console.log(`${variant}: registry key ${key} not found (${reason})`);
-    return null;
-  }
-}
-
-function installPaths() {
-  return Object.entries(REGISTRY_VARIANTS)
-    .map(([variant, sub]) => registryPath(variant, `HKCU\\Software\\Eagle Dynamics\\${sub}`))
-    .filter((p) => p !== null);
-}
-
 function installedTerrainFolders(installPath) {
   const terrainsDir = path.join(installPath, 'Mods', 'terrains');
   try {
@@ -81,18 +42,14 @@ function installedTerrainFolders(installPath) {
 }
 
 /**
- * The theaters this player owns, or null if that can't be determined (no
- * DCS install found via the registry, or none of their `Mods\terrains`
- * folders could be read) -- null means "fall back to asking", not "owns
- * nothing".
+ * The theaters owned across the given install folders, or null if that can't
+ * be determined (no folders, or none of their `Mods\terrains` readable) --
+ * null means "fall back to asking", not "owns nothing".
  */
-export function detectOwnedTheaters() {
-  const paths = installPaths();
-  if (paths.length === 0) return null;
-
+export function detectOwnedTheaters(installDirs) {
   const folders = new Set();
   let readAny = false;
-  for (const installPath of paths) {
+  for (const installPath of installDirs) {
     const found = installedTerrainFolders(installPath);
     if (found) {
       readAny = true;

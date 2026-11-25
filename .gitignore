@@ -13,3 +13,4 @@ dist-test/
 runtime/
 theaters.json
 setup.log
+dcs-install.json

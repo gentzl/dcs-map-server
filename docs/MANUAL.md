@@ -45,8 +45,10 @@ name sits on.
 for each one, every time it runs — so a map you buy later just shows up the next time you
 double-click it, nothing to redo by hand.
 
-If it can't tell automatically (an unusual install setup), it asks once instead, and
-**`configure-maps.bat`** lets you change that answer any time. Every run writes exactly what it
+If it can't find DCS by itself (for example because DCS has never been started on this PC), it
+asks once for the folder DCS is installed in (the one containing `bin\DCS.exe`) and remembers it.
+If you skip that, it asks which maps you own instead, and **`configure-maps.bat`** lets you change
+that answer any time. Every run writes exactly what it
 checked and found to **`setup.log`** next to `start.bat` — if map detection looks wrong, that file
 is the first thing to check (or to send along when asking for help).
 

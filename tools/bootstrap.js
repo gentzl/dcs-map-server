@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initLogFile, ok, warn } from './cli-log.js';
+import { resolveInstallDirs } from './dcs-paths.js';
 import { detectOwnedTheaters } from './detect-owned-theaters.js';
 import { npmCliPath, npmEnv, runNpm } from './npm-runtime.js';
 import { promptTheaters, readOwnedTheaters, saveOwnedTheaters } from './theater-config.js';
@@ -55,7 +56,7 @@ async function main() {
   runNpm(['run', 'fetch-assets']);
   ok('Map labels and symbols ready');
 
-  let theaters = detectOwnedTheaters();
+  let theaters = detectOwnedTheaters(await resolveInstallDirs(root));
   if (theaters) {
     ok(`Maps detected from your DCS installation: ${theaters.join(', ')}`);
   } else {

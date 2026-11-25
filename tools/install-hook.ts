@@ -1,8 +1,8 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync } from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initLogFile, ok, warn } from './cli-log.js';
+import { DCS_VARIANTS, savedGamesDir as findSavedGamesDir } from './dcs-paths.js';
 
 /**
  * Copies the DCS export hook into every installed DCS variant's Hooks folder.
@@ -16,8 +16,7 @@ import { initLogFile, ok, warn } from './cli-log.js';
 
 export const HOOK_NAME = 'dcs-map-server.lua';
 
-/** DCS variants that write into their own Saved Games subfolder. */
-export const DCS_VARIANTS = ['DCS', 'DCS.openbeta', 'DCS.openalpha'];
+export { DCS_VARIANTS };
 
 export type HookAction = 'installed' | 'already-current' | 'left-alone' | 'not-found';
 
@@ -92,7 +91,8 @@ if (isMain) {
   const here = path.dirname(fileURLToPath(import.meta.url));
   const root = path.resolve(here, '..', '..');
   const source = path.join(root, 'dcs/Scripts/Hooks', HOOK_NAME);
-  const savedGamesDir = path.join(os.homedir(), 'Saved Games');
+  // Honours a Saved Games folder moved to another drive, not just the default.
+  const savedGamesDir = findSavedGamesDir();
 
   console.log(`Checking for DCS variants (${DCS_VARIANTS.join(', ')}) under ${savedGamesDir}`);
   const results = installHook(source, savedGamesDir);

@@ -64,26 +64,40 @@ work in PowerShell or cmd.exe.
 This path doesn't touch `theaters.json` -- `fetch-tiles` just downloads whatever theater you pass
 it, as many times as you like.
 
-## Detecting owned maps
+## Finding DCS and detecting owned maps
 
-`tools/detect-owned-theaters.js` reads which DCS maps are installed straight from the game's own
-records, so bootstrap.js doesn't have to ask -- checked fresh on every run, so a map bought later
-just shows up on the next start, rather than once at first setup:
+`tools/dcs-paths.js` finds where DCS lives; `tools/detect-owned-theaters.js` then reads which maps
+are installed straight from the game's own files, so bootstrap.js doesn't have to ask -- checked
+fresh on every run, so a map bought later just shows up on the next start.
 
-1. Each installed DCS variant registers its install path at
-   `HKCU\Software\Eagle Dynamics\<variant>\Path` (`DCS World`, `DCS World OpenBeta`, or the
-   oddly-branded `DCS World 2 OpenAlpha`) -- read via `reg query`.
-2. Every terrain that's actually playable ships a folder under that path's `Mods\terrains\`,
-   named after the map (e.g. `SinaiMap`, `MarianaIslands`). `TERRAIN_FOLDER_NAMES` in that file
-   maps those back to this project's theater keys. That's the ground truth for what's installed,
-   unlike the installer's own `autoupdate.cfg` bookkeeping, which can list a terrain that failed
-   to install or omit one installed by other means.
+**Saved Games folder** (hook, `dcs.log`): read from Windows' known-folder entry
+(`HKCU\...\Explorer\User Shell Folders`, value `{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}`), so a
+Saved Games folder moved to another drive is honoured. Absent means the default
+`%USERPROFILE%\Saved Games`. `install-hook` uses the same lookup.
 
-Neither the registry key nor the folder names are officially documented, so every failure mode --
-missing registry key, missing `Mods\terrains`, a folder name we don't recognise -- returns `null`
-rather than guessing, and the caller falls back to `theaters.json` and then to asking
-(`tools/theater-config.js`). Caucasus is always included once detection succeeds at all, since
-it ships free with the base game.
+**Install folder**, per DCS variant (`DCS`, `DCS.openbeta`, `DCS.openalpha`), first hit wins:
+
+1. `Saved Games\<variant>\Logs\dcs.log` (or `dcs.log.old`): DCS writes
+   `Command line: "...\bin\DCS.exe"` there on every launch, so it stays correct when the registry
+   doesn't -- most commonly after Windows was reinstalled with the game drive kept, which wipes
+   the registry while DCS and its updater keep working fine.
+2. `HKCU\Software\Eagle Dynamics\<DCS World | DCS World OpenBeta | DCS World 2 OpenAlpha>\Path`,
+   written once by the ED installer.
+
+Plus a folder the player typed in earlier (`dcs-install.json`, git-ignored). Every candidate must
+contain `bin\DCS.exe` (or `bin-mt\DCS.exe`), otherwise it's ignored as stale. If nothing is found,
+setup asks once for the folder and remembers the answer; Enter skips.
+
+**Maps**: every playable terrain ships a folder under `Mods\terrains\` (e.g. `SinaiMap`,
+`MarianaIslands`); `TERRAIN_FOLDER_NAMES` maps those back to this project's theater keys. That's
+the ground truth, unlike the installer's own `autoupdate.cfg` bookkeeping, which can list a terrain
+that failed to install or omit one installed by other means.
+
+None of this is officially documented, so every failure mode -- no install found, prompt skipped,
+unreadable `Mods\terrains`, an unknown folder name -- returns `null` rather than guessing, and the
+caller falls back to `theaters.json` and then to asking which maps you own
+(`tools/theater-config.js`). Caucasus is always included once detection succeeds at all, since it
+ships free with the base game.
 
 `configure-maps.bat` (`tools/reconfigure-theaters.js`) exists only for when detection fails -- it
 tries detection first too, and only prompts if that also comes back empty.

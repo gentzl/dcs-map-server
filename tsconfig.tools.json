@@ -3,7 +3,8 @@
   "compilerOptions": {
     "rootDir": ".",
     "outDir": "dist-tools",
-    "noUnusedLocals": true
+    "noUnusedLocals": true,
+    "allowJs": true
   },
-  "include": ["tools", "src/shared", "src/server", "src/client/geo.ts"]
+  "include": ["tools/**/*.ts", "src/shared", "src/server", "src/client/geo.ts"]
 }
