@@ -53,8 +53,8 @@ checked and found to **`setup.log`** next to `start.bat` — if map detection lo
 is the first thing to check (or to send along when asking for help).
 
 Available: `caucasus`, `syria`, `persiangulf`, `sinai`, `normandy`, `marianas`, `kola`, `iraq`,
-`afghanistan` — each one roughly 100–150 MB on disk. If you own more than one, switch between the
-ones you've downloaded in the settings panel.
+`afghanistan` — each one roughly 100–150 MB on disk. The map switches to the theater your aircraft
+is in by itself. Picking one by hand in the settings panel holds until you fly into another one.
 
 If the map is blank but your aircraft symbol moves correctly, the tiles for the theater you're
 flying in haven't been fetched yet, or the settings panel is pointed at a different one.

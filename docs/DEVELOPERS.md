@@ -4,8 +4,9 @@ For working on the code, running it without DCS, or driving it beyond what the s
 exposes. If you just want to fly with it, the [handbook](MANUAL.md) is the one you want.
 
 - [Manual setup](#manual-setup)
-- [Detecting owned maps](#detecting-owned-maps)
+- [Finding DCS and detecting owned maps](#finding-dcs-and-detecting-owned-maps)
 - [How it fits together](#how-it-fits-together)
+- [Where the map comes from](#where-the-map-comes-from)
 - [Source layout](#source-layout)
 - [The DCS hook](#the-dcs-hook)
 - [Wire protocol](#wire-protocol)
@@ -22,7 +23,8 @@ exposes. If you just want to fly with it, the [handbook](MANUAL.md) is the one y
 ## Manual setup
 
 The [README](../README.md) points players at `start.bat`, a one-click installer that works out
-which maps they own by itself on every run (see [Detecting owned maps](#detecting-owned-maps)) and
+which maps they own by itself on every run (see
+[Finding DCS and detecting owned maps](#finding-dcs-and-detecting-owned-maps)) and
 downloads tiles for each one. For development, or if you'd rather run the steps yourself:
 
 Clone the repo (`git clone`). You'll need [Node.js](https://nodejs.org) installed (version 22 or
@@ -67,7 +69,13 @@ it, as many times as you like.
 
 ## Finding DCS and detecting owned maps
 
-`tools/dcs-paths.js` finds where DCS lives; `tools/detect-owned-theaters.js` then reads which maps
+In the normal case a player never deals with any of this. `start.bat` detects the owned maps on
+every run and downloads tiles for each one, so a map bought later just needs another
+double-click on `start.bat`. Only when detection fails does setup ask, once, and
+`configure-maps.bat` changes that answer later. Every run writes what it checked and found to
+`setup.log` next to `start.bat`, the first thing to look at when detection seems wrong.
+
+How it works: `tools/dcs-paths.js` finds where DCS lives; `tools/detect-owned-theaters.js` then reads which maps
 are installed straight from the game's own files, so bootstrap.js doesn't have to ask -- checked
 fresh on every run, so a map bought later just shows up on the next start.
 
@@ -118,6 +126,28 @@ Three pieces, one direction of flow:
 UDP never leaves the DCS PC; `MM_UDP_HOST` is deliberately loopback. The LAN hop is the WebSocket.
 
 Fog of war is applied in step 2 and nowhere else. See [Contributing](#contributing).
+
+## Where the map comes from
+
+The base map is the real world, not DCS's own map. Only the contacts (aircraft, ships, ground
+units) come from the game.
+
+- **Vector data** (roads, towns, rivers, runways, airfield names): OpenStreetMap, via the daily
+  [Protomaps](https://protomaps.com/) planet build. `npm run fetch-tiles -- <theater>`
+  (`tools/fetch-tiles.ts`) cuts each theater's extent (`THEATER_BOUNDS` in
+  `src/shared/theaters.ts`) out of that build into `tiles\<theater>.pmtiles`, and the server serves
+  it under `/tiles/`.
+- **Airports** have no source of their own; they are part of the same file. `src/client/chart.ts`
+  draws runways from the `roads` layer (`kind: aeroway`) and airfield symbols and names from the
+  `pois` layer (`kind: aerodrome`, high zoom levels only), on top of everything else.
+- **Terrain shading and elevation tints**: public-domain SRTM/GMTED from the AWS Terrain Tiles,
+  fetched live by the browser (`TERRAIN_TILES` in `src/client/style.ts`), so they need an internet
+  connection while the map is open.
+
+Most of the time this matches DCS, but not always. An airfield that exists in DCS but was closed,
+rebuilt or never built in reality is shown the way OpenStreetMap has it today. Nothing on the base
+map is checked against DCS's own data. Licenses and attribution are under
+[License and data sources](#license-and-data-sources).
 
 ## Source layout
 
