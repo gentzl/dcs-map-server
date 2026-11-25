@@ -160,6 +160,11 @@ export interface Snapshot {
   seq: number;
   serverTime: number;
   optionsView: OptionsView;
+  /**
+   * The server has DCS's object export switched off, so no other unit will
+   * ever arrive. Absent from older servers and recordings.
+   */
+  objectsBlocked?: boolean;
   own: Ownship | null;
   units: Unit[];
   /** Absent from older servers and recordings. */
@@ -172,6 +177,7 @@ export interface Delta {
   seq: number;
   serverTime: number;
   optionsView: OptionsView;
+  objectsBlocked?: boolean;
   own?: Ownship;
   units?: Unit[];
   removed?: number[];

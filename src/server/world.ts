@@ -30,6 +30,8 @@ export class World {
   private seq = 0;
 
   optionsView: OptionsView = 'optview_all';
+  /** The server has object export switched off: no other units will ever arrive. */
+  objectsBlocked = false;
   lastPacketAt = 0;
 
   upsertUnit(unit: Unit, now = Date.now()): void {
@@ -188,6 +190,7 @@ export class World {
       seq: this.seq,
       serverTime: now,
       optionsView: this.optionsView,
+      objectsBlocked: this.objectsBlocked,
       own: this.own,
       units,
       airbases: [...this.airbases.values()],
@@ -245,6 +248,7 @@ export class World {
       seq: this.seq,
       serverTime: now,
       optionsView: this.optionsView,
+      objectsBlocked: this.objectsBlocked,
     };
     if (hasOwn && this.own) delta.own = this.own;
     if (units.length) delta.units = units;

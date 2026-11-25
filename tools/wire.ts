@@ -158,9 +158,12 @@ export function toDatagrams(
   schema: Schema,
   /** Mission start, seconds after midnight. Omitted gives the older four-field header. */
   missionStart?: number,
+  /** The server blocks object export. Sent as a sixth header field, only when given. */
+  objectsBlocked?: boolean,
 ): string[] {
   if (schema === 1) return lines;
   const start = missionStart === undefined ? '' : `\t${Math.round(missionStart)}`;
-  const header = `MM\t3\t${f(modelTime, 3)}\t${view}${start}`;
+  const blocked = objectsBlocked === undefined ? '' : `${start === '' ? '\t' : ''}\t${objectsBlocked ? '1' : ''}`;
+  const header = `MM\t3\t${f(modelTime, 3)}\t${view}${start}${blocked}`;
   return [`${[header, ...lines].join('\n')}\n`];
 }

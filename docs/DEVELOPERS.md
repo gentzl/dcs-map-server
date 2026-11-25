@@ -57,11 +57,13 @@ cd D:\Programs\dcs-map-server\dcs-map-server   # wherever you cloned or unzipped
    project's own `runtime\` folder — nothing to put on `PATH`.
 
    `install-hook` copies `dcs/Scripts/Hooks/dcs-map-server.lua` into every DCS installation it finds
-   under `Saved Games\` (stable and open beta). It never overwrites a hook file that's already
-   there and differs, so it's always safe to re-run -- which also means **an updated hook has to
-   be copied by hand** over an older one; `install-hook` says when it left one alone. If you'd
-   rather do it by hand anyway, or it doesn't find your DCS install, copy that file into
-   `Saved Games\DCS\Scripts\Hooks\` yourself, and restart DCS.
+   under `Saved Games\` (stable and open beta). An older version of this project's own hook --
+   recognised by its header line, `-- dcs-map-server -- Export Hook` (`Export-Hook` in the
+   earliest versions) -- is replaced, and kept as `dcs-map-server.lua.bak`. Any other file at
+   that path is left alone, so it's always safe to re-run. If you'd rather do it by hand, or it
+   doesn't find your DCS install, copy that file into `Saved Games\DCS\Scripts\Hooks\` yourself.
+   Either way, restart DCS: it only loads hooks at startup. Keep the header line when editing the
+   hook, or the next update won't recognise it.
 
 2. (Re)start DCS, so it picks up the hook.
 
@@ -189,6 +191,7 @@ src/client/overlays.ts   Range rings, threat rings, bullseye, velocity leaders
 src/client/graticule.ts  Lat/lon grid
 src/client/airbases.ts   DCS airfields: symbol, frequency matching, the airfield readout
 src/client/zones.ts      Mission zones: which to draw, and their outlines
+src/client/find.ts       Find in the menu: zones and airfields by name
 src/client/settings.ts   Settings and view, stored in the browser
 src/client/symbols/      Contact symbols, drawn at runtime (nato.ts, dcs.ts)
 src/client/main.ts       MapLibre, render loop, HUD, menu, input
@@ -211,8 +214,9 @@ tools/                   Telemetry generator and ACMI converter
 
 Copy `dcs/Scripts/Hooks/dcs-map-server.lua` into `Saved Games\DCS\Scripts\Hooks\` and restart DCS.
 That is all — **no `Export.lua` is needed and none is modified.** `npm run install-hook`
-(`tools/install-hook.ts`) does this copy automatically for every DCS variant it finds, and never
-overwrites a hook file that's already there.
+(`tools/install-hook.ts`) does this copy automatically for every DCS variant it finds, updating
+an older version of this hook and leaving any other file at that path alone (see
+[Manual setup](#manual-setup)).
 
 This matters because the two mechanisms are easy to confuse:
 
@@ -270,13 +274,16 @@ their first datagram against the server's own parser before sending, and the tes
 every packet type through both.
 
 **Schema 3** is what the hook sends. Tab separated, several records per datagram, behind a header
-line that carries the schema version, the DCS model time, the mission's visibility rule and the
-mission start time (seconds after midnight). Start plus model time is the mission's clock time,
-the one the F10 map shows and the map's status bar displays. The start time was added later: it is
-optional, older hooks send four fields, and an empty field means the hook couldn't find it.
+line that carries the schema version, the DCS model time, the mission's visibility rule, the
+mission start time (seconds after midnight) and a blocked-objects flag. Start plus model time is
+the mission's clock time, the one the F10 map shows and the map's status bar displays. The last
+two fields were added later and are optional: older hooks send four, and an empty start time
+means the hook couldn't find it. The flag is `1` when `LoGetWorldObjects()` returned `nil` instead
+of a list -- the server has object export switched off (`allow_object_export`), so no other unit
+and no airbase will ever arrive -- and the map then says so instead of just looking empty.
 
 ```
-MM<TAB>3<TAB><modelTime><TAB><optionsView><TAB><missionStart>
+MM<TAB>3<TAB><modelTime><TAB><optionsView><TAB><missionStart><TAB><objectsBlocked>
 O<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>unitName<TAB>groupName<TAB>coalition<TAB>tas<TAB>ralt<TAB>wow<TAB>aoa<TAB>accelY<TAB>chaff<TAB>flare<TAB>windX<TAB>windY<TAB>windZ
 A<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>unitName<TAB>groupName<TAB>coalition<TAB>level1<TAB>level2
 W<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>coalition
@@ -345,7 +352,9 @@ npm run demo
 ```
 
 It builds the project, starts the replay and the server together, and prints the address to open,
-normally `http://localhost:8080`. Ctrl+C stops both. To play the other recording instead:
+normally `http://localhost:8080`. Ctrl+C stops both. A recording's path can be given relative to
+the folder you're in, or to the project folder (`tools/user-path.ts`; npm itself always runs the
+script in the project folder). To play the other recording instead:
 
 ```powershell
 npm run demo -- dcs\test\fixtures\real-session-2026-11-23-multiplayer.jsonl
@@ -448,6 +457,8 @@ What's covered, and why those parts:
 | `test/zones.test.ts` | Zone lines round-tripped, which zones count as main zones, circle outlines, the server's handling |
 | `test/navdata.test.ts` | Reading Radio.lua / Beacons.lua, matching airfields, the airfield readout's rows and runway columns |
 | `test/theaters.test.ts` | Which theater a position lies in |
+| `test/find.test.ts` | Find: ordering of hits, airfield over its zone, nothing the map doesn't draw |
+| `test/install-hook.test.ts` | Installing the hook: never someone else's file, updating an older version of our own |
 | `test/classify.test.ts` | Classification of every unit name in the recorded sessions, against a checked-in baseline |
 | `test/threats.test.ts` | Which air defence units get a threat ring and which don't |
 | `test/geo.test.ts` | The geodetic maths and cockpit formatting the BRA readout depends on, the mission clock, runway headings |
@@ -588,10 +599,6 @@ hasn't changed, so the client doesn't dim it as stale.
   (Ticonderoga/Arleigh Burke-class, Aegis; Kirov/Slava-class, SA-N-6) -- see threats.ts. Frigates
   and corvettes with a shorter-range system are deliberately left out until someone can confirm
   the actual in-game numbers; adding a wrong range would be worse than no ring.
-- `start.bat` doesn't update an existing hook (see `install-hook` under
-  [Manual setup](#manual-setup)): after a hook change, players have to copy it by hand. Replacing
-  a file that is byte-for-byte an older version of this project's own hook would be safe, and
-  would need a list of known past versions to recognise one.
 
 ## Contributing
 

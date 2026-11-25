@@ -1,5 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { resolveUserPath } from './user-path.js';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { WebSocketServer } from 'ws';
 import type { ServerMessage } from '../src/shared/types.js';
@@ -32,10 +35,19 @@ const { values, positionals } = parseArgs({
   },
 });
 
-const path = positionals[0];
-if (!path) {
+const asTyped = positionals[0];
+if (!asTyped) {
   console.error('usage: replay-ws <file.jsonl> [--port N] [--once] [--quiet]');
   process.exit(2);
+}
+
+// Compiled to dist-tools/tools/, two levels below the project root. A path
+// typed in a subfolder is found from there too, see resolveUserPath.
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const { found: path, tried } = resolveUserPath(asTyped, root);
+if (!path) {
+  console.error(`replay-ws: recording not found: ${asTyped}\nLooked in:\n${tried.map((t) => `  ${t}`).join('\n')}`);
+  process.exit(1);
 }
 
 // A byte-order mark is stripped first: Notepad and PowerShell 5.1 write one

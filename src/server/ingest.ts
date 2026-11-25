@@ -28,11 +28,12 @@ export function startIngest(world: World, opts: IngestOptions): dgram.Socket {
   sock.on('message', (buf) => {
     opts.onPacket?.();
     capture?.write(`${JSON.stringify({ t: Date.now(), p: buf.toString('utf8') })}\n`);
-    const { optionsView, items } = parseDatagram(buf.toString('utf8'));
+    const { optionsView, objectsBlocked, items } = parseDatagram(buf.toString('utf8'));
 
     // Schema 2 carries the visibility rule in the header, so also when the
     // datagram contains no ownship packet.
     if (optionsView) world.optionsView = optionsView;
+    if (objectsBlocked !== undefined) world.objectsBlocked = objectsBlocked;
 
     for (const parsed of items) {
       if (!parsed) continue;

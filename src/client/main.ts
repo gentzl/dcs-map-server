@@ -32,6 +32,7 @@ import { buildGraticule } from './graticule.js';
 import { AIRBASE_LABEL, airfieldPanel, buildAirbases, matchNav, registerAirbaseImages } from './airbases.js';
 import type { Airbase, AirfieldNav, Zone } from '../shared/types.js';
 import { buildZones } from './zones.js';
+import { findPlaces, type Place } from './find.js';
 import { buildBullseye, buildLeaders, buildRings, buildThreatRings } from './overlays.js';
 import { theaterAt, theaterContains } from '../shared/theaters.js';
 import * as cfg from './settings.js';
@@ -107,6 +108,8 @@ let connected = false;
 let lastSeq = 0;
 /** Visibility rule as DCS reports it. Decides whether contacts come through at all. */
 let optionsView: OptionsView = 'optview_all';
+/** The server has DCS's object export switched off: no other unit will arrive. */
+let objectsBlocked = false;
 /**
  * Range step rather than free zoom. The index points into RANGES_NM; the
  * zoom level is computed from it every frame, so "40 nm" means the same
@@ -175,14 +178,17 @@ let clickedPoint: { lat: number; lon: number } | null = null;
 let groundTarget: GroundTarget | null = null;
 
 /**
- * A fixed point to fly to: a double-tapped spot, or an airfield picked by
- * tapping its symbol, which also brings its name, elevation and runway.
+ * A fixed point to fly to: a double-tapped spot, a zone picked in Find, or
+ * an airfield picked by tapping its symbol, which also brings its name,
+ * elevation and runway.
  */
 interface GroundTarget {
   lat: number;
   lon: number;
   /** Set for an airfield; also what a second tap on it compares against. */
   name?: string;
+  /** A zone's name, shown in place of "GROUND REF". */
+  label?: string;
   /** The airfield itself, as DCS reports it. */
   base?: Airbase;
   /** Tower frequencies and navaids, if the setup could read them from DCS. */
@@ -1043,6 +1049,7 @@ function connect(): void {
     }
     lastSeq = msg.seq;
     optionsView = msg.optionsView;
+    if (msg.objectsBlocked !== undefined) objectsBlocked = msg.objectsBlocked;
   };
   const retry = () => {
     connected = false;
@@ -1347,9 +1354,19 @@ function updateHud(now: number): void {
 
   // If the mission withholds other units, this needs to be shown. Otherwise
   // you'd look for the fault in yourself, even though the display is working correctly.
+  //
+  // Two different causes, said differently: the mission restricting the view
+  // (a setting of the mission), or the server not handing DCS's objects out at
+  // all (a setting of the server) -- there the map is empty of every other
+  // unit, friend and foe, whatever the view.
   const withheld = optionsView === 'optview_onlymap' || optionsView === 'optview_myaircraft';
-  warnEl.hidden = !withheld;
-  if (withheld) warnEl.textContent = `CONTACTS WITHHELD BY MISSION (${optionsView})`;
+  const warning = objectsBlocked
+    ? 'SERVER BLOCKS OTHER UNITS (object export disabled)'
+    : withheld
+      ? `CONTACTS WITHHELD BY MISSION (${optionsView})`
+      : null;
+  warnEl.hidden = warning === null;
+  if (warning !== null && warnEl.textContent !== warning) warnEl.textContent = warning;
 
   updateBraa(now);
   updateRuler();
@@ -1451,6 +1468,36 @@ function updateClickInfo(): void {
   placeFloatingBox(clickInfoBox, clickedPoint.lon, clickedPoint.lat, -30, 130);
 }
 
+/**
+ * Room for a proper readout: on a large monitor the BRA data is laid out as
+ * label/value pairs in two columns, in the order it goes over the radio --
+ * bearing, range, altitude, aspect, then speed, closure, time, bullseye --
+ * the way an MFD page or a kneeboard card shows it. A phone or narrow tablet
+ * keeps the single wrapping line, which costs far less of the map.
+ */
+const wideReadout = window.matchMedia('(min-width: 900px) and (min-height: 560px)');
+
+function renderReadout(title: string, pairs: Array<[string, string]>, position: string): void {
+  const head = document.createElement('div');
+  head.className = 'ro-head';
+  head.textContent = title;
+  const grid = document.createElement('div');
+  grid.className = 'ro-grid';
+  for (const [label, value] of pairs) {
+    const l = document.createElement('span');
+    l.className = 'ro-label';
+    l.textContent = label;
+    const v = document.createElement('span');
+    v.className = 'ro-value';
+    v.textContent = value;
+    grid.append(l, v);
+  }
+  const pos = document.createElement('div');
+  pos.className = 'ro-pos';
+  pos.textContent = position;
+  braaBox.replaceChildren(head, grid, pos);
+}
+
 function updateBraa(now: number): void {
   if (selectedId === null) {
     if (groundTarget) updateGroundTargetBraa(groundTarget);
@@ -1490,10 +1537,21 @@ function updateBraa(now: number): void {
   const roleLabel = CATEGORY_LABELS.find(([cat]) => cat === u.category)?.[1] ?? u.category;
   const aff = affiliationOf(u.coalition, ownCoalition).toUpperCase();
 
+  braaBox.hidden = false;
+  if (wideReadout.matches) {
+    renderReadout(`${u.name} — ${aff} ${roleLabel}`, [
+      ['BRG', `${bearing3(refBearing(brg))}°${refSuffix}`], ['RNG', `${rng.toFixed(1)} nm`],
+      ['ALT', `${contactAltitude(u.category, u.alt)} ${AIRBORNE.has(u.category) ? 'thousand' : 'ft'}`],
+      ['ASPECT', `${aspectLabel(asp)} ${Math.round(asp)}°`],
+      ['SPD', `${Math.round(msToKnots(sel.spdMs))} kt`], ['Vc', `${Math.round(msToKnots(vc))} kt`],
+      ['TIME', ttgMin !== null && ttgMin < 60 ? `${ttgMin.toFixed(1)} min` : '—'],
+      ['BULLS', `${bearing3(refBearing(bullBrg))}${refSuffix}/${Math.round(bullRng)}`],
+    ], `${formatDDM(sel.lat, 'NS')} ${formatDDM(sel.lon, 'EW')}`);
+    return;
+  }
   // Each group non-breaking inside, regular spaces between -- same reason
   // as the HUD bar: wraps to further lines on a narrow screen instead of
   // either tearing a group apart or scrolling sideways.
-  braaBox.hidden = false;
   braaBox.textContent = [
     nbsp(`${u.name}  —  ${aff} ${roleLabel}`),
     nbsp(`${formatDDM(sel.lat, 'NS')} ${formatDDM(sel.lon, 'EW')}`),
@@ -1534,7 +1592,16 @@ function updateGroundTargetBraa(target: GroundTarget): void {
 
   braaBox.hidden = false;
   if (target.name === undefined) {
-    braaBox.textContent = [nbsp('GROUND REF'), coords, braa].join('   ');
+    if (wideReadout.matches) {
+      renderReadout(target.label ?? 'GROUND REF', [
+        ['BRG', `${bearing3(refBearing(brg))}°${refSuffix}`], ['RNG', `${rng.toFixed(1)} nm`],
+        ['Vc', `${Math.round(msToKnots(vc))} kt`],
+        ['TIME', ttgMin !== null && ttgMin < 60 ? `${ttgMin.toFixed(1)} min` : '—'],
+        ['BULLS', `${bearing3(refBearing(bullBrg))}${refSuffix}/${Math.round(bullRng)}`],
+      ], `${formatDDM(target.lat, 'NS')} ${formatDDM(target.lon, 'EW')}`);
+      return;
+    }
+    braaBox.textContent = [nbsp(target.label ?? 'GROUND REF'), coords, braa].join('   ');
     return;
   }
 
@@ -1628,6 +1695,16 @@ canvas.addEventListener('click', (e) => {
       selectedId = null;
       selectedTrail = [];
     }
+  } else if (zoneAt(pt)) {
+    // A mission zone (FOB, objective): BRA to its centre, named. Tapping the
+    // same zone again drops it. Sectors don't count -- they're huge, and a
+    // tap anywhere inside would pick one.
+    const z = zoneAt(pt)!;
+    if (!isDoubleClick) {
+      groundTarget = groundTarget?.label === z.label ? null : z;
+      selectedId = null;
+      selectedTrail = [];
+    }
   } else if (isDoubleClick) {
     // Empty ground. A single stray tap does nothing -- it must never
     // silently drop the BRA line, only clicking the selected contact again
@@ -1643,6 +1720,18 @@ canvas.addEventListener('click', (e) => {
 
 /** Above this ground speed (about 60 kt) an aircraft counts as flying, not taxiing. */
 const FLYING_MS = 30;
+
+/** The objective zone under a screen point, as a ground target at its centre, if any. */
+function zoneAt(pt: [number, number]): GroundTarget | null {
+  if (!map.getLayer('zones-fill') || !settings.zones) return null;
+  const hit = map
+    .queryRenderedFeatures([[pt[0] - 6, pt[1] - 6], [pt[0] + 6, pt[1] + 6]], { layers: ['zones-fill'] })
+    .find((f) => f.properties?.['kind'] !== 'sector');
+  const name = hit?.properties?.['name'];
+  if (typeof name !== 'string') return null;
+  const z = [...zones.values()].find((x) => x.name === name);
+  return z ? { lat: z.lat, lon: z.lon, label: `★ ${z.name.toUpperCase()}` } : null;
+}
 
 /** The airfield whose symbol is under a screen point, if any. */
 function airbaseAt(pt: [number, number]): Airbase | null {
@@ -1768,6 +1857,64 @@ for (const nm of RANGE_PRESETS_NM) {
   document.getElementById(`range-${nm}`)!.addEventListener('click', () => setRange(nm));
 }
 updateRangeLabel();
+
+// --- Find --------------------------------------------------------------------
+//
+// Search box at the top of the menu: zones and airfields by name. Picking a
+// hit jumps there -- free mode, zoomed in on it -- and selects it, so the line
+// and readout point at it at once; CTR brings the view back to the aircraft.
+
+const findInput = document.getElementById('find') as HTMLInputElement;
+const findResults = document.getElementById('find-results')!;
+/** How close a jump zooms in: about 10 nm across the short side of the screen. */
+const FIND_RANGE_NM = 10;
+
+function renderFind(): void {
+  const hits = findPlaces(findInput.value, zones.values(), airbases.values());
+  findResults.replaceChildren(
+    ...hits.map((p) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      const name = document.createElement('span');
+      name.textContent = p.name;
+      const kind = document.createElement('span');
+      kind.className = 'kind';
+      kind.textContent = p.kind === 'airfield' ? 'airfield' : 'zone';
+      b.append(name, kind);
+      b.addEventListener('click', () => jumpTo(p));
+      return b;
+    }),
+  );
+  if (findInput.value.trim() && hits.length === 0) {
+    const none = document.createElement('div');
+    none.className = 'kind';
+    none.textContent = zones.size || airbases.size ? 'nothing found' : 'no zones or airfields yet';
+    findResults.replaceChildren(none);
+  }
+}
+
+function jumpTo(p: Place): void {
+  setFollow(false);
+  const shortSide = Math.min(map.getCanvas().clientWidth, map.getCanvas().clientHeight);
+  manualZoom = Math.max(map.getZoom(), zoomForRange(FIND_RANGE_NM, p.lat, shortSide));
+  map.jumpTo({ center: [p.lon, p.lat], zoom: manualZoom });
+  selectedId = null;
+  selectedTrail = [];
+  if (tool !== 'off') setTool('off');
+  groundTarget = p.base
+    ? { lat: p.lat, lon: p.lon, name: p.base.name, base: p.base, nav: matchNav(p.base, navFields) }
+    : { lat: p.lat, lon: p.lon, label: p.name.toUpperCase() };
+  closeMenu();
+}
+
+findInput.addEventListener('input', renderFind);
+findInput.addEventListener('keydown', (e) => {
+  // Enter takes the first hit, the quick way on a keyboard.
+  if (e.key === 'Enter') {
+    const first = findPlaces(findInput.value, zones.values(), airbases.values(), 1)[0];
+    if (first) jumpTo(first);
+  }
+});
 
 const panel = menuPanel;
 const statusLine = document.getElementById('status')!;

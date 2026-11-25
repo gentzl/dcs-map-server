@@ -7,7 +7,9 @@ It runs once, on the same PC where DCS is installed. Every other device just ope
 nothing to install on the tablet, no app store, no account. Your flight data stays on your own
 home network; only the terrain shading is loaded from the internet while the map is open.
 
-![The map in flight: NATO contact symbols, a BRA line and readout to a selected contact, range rings, and terrain shading](docs/screenshot.jpg)
+![The map in flight: an airfield picked for its frequencies and navaids, DCS's own airfields, mission zones and contacts](docs/screenshot.jpg)
+
+![The menu with search, tools and settings, and a mission zone picked for a BRA readout](docs/screenshot-menu.jpg)
 
 ![How it works: the DCS PC reads your flight, the map server turns it into a live map, any screen on your Wi-Fi can open it](docs/overview.svg)
 
@@ -22,6 +24,11 @@ That's it. It works out which DCS maps you own by itself and sets everything up.
 tablet on the same Wi-Fi, use one of the other addresses it lists instead — something like
 `http://192.168.1.23:8080` or `http://<your-pc-name>.local:8080`. Start or join a flight in DCS and
 the map comes alive.
+
+**Joining a multiplayer server?** Some servers don't let any outside program see the other units —
+then the map shows only your own aircraft and says so at the top (*server blocks other units*).
+That's the server's setting, not a fault; the [handbook](docs/MANUAL.md#my-aircraft-shows-but-no-other-contacts)
+has the details.
 
 ## Documentation
 

@@ -257,3 +257,14 @@ describe('airbases', () => {
     assert.equal(w.snapshot(T0 + 100).airbases?.length, 0);
   });
 });
+
+describe('blocked object export', () => {
+  test('is carried to clients in snapshots and deltas, and defaults to not blocked', () => {
+    const w = worldWith('optview_all');
+    assert.equal(w.snapshot(T0).objectsBlocked, false);
+    w.objectsBlocked = true;
+    w.setOwnship(ownship(), 'optview_all', T0 + 10);
+    assert.equal(w.snapshot(T0 + 10).objectsBlocked, true);
+    assert.equal(w.tick(T0 + 20)?.objectsBlocked, true);
+  });
+});

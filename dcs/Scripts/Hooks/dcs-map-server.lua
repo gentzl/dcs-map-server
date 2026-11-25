@@ -57,12 +57,17 @@ local function load_hook()
     pcall(function() udp:sendto(payload, HOST, PORT) end)
   end
 
-  -- Header: schema, model time, visibility rule, mission start time. The
-  -- start time is what turns model time into the mission's clock time, the
-  -- one the F10 map shows.
+  -- Set when LoGetWorldObjects() returns nil rather than a list: the server
+  -- has object export switched off, so there are no other units to send.
+  local objects_blocked = false
+
+  -- Header: schema, model time, visibility rule, mission start time, and '1'
+  -- when the server blocks object export. The start time is what turns model
+  -- time into the mission's clock time, the one the F10 map shows; the flag
+  -- lets the map say why it is empty instead of just looking broken.
   local function header(model_time)
-    return string.format('MM\t%d\t%.3f\t%s\t%s\n', SCHEMA, model_time,
-                         options_view or '', start_time)
+    return string.format('MM\t%d\t%.3f\t%s\t%s\t%s\n', SCHEMA, model_time,
+                         options_view or '', start_time, objects_blocked and '1' or '')
   end
 
   local function emit(line)
@@ -186,6 +191,7 @@ local function load_hook()
     sweep, seen, current = {}, {}, {}
     buffer, buffer_len = {}, 0
     next_bases = 0
+    objects_blocked = false
     zone_lines = nil
     next_zones = 0
     log('export started -> ' .. HOST .. ':' .. PORT)
@@ -290,7 +296,9 @@ local function load_hook()
           if not current[id] then emit(string.format('D\t%d\n', id)) end
         end
         seen, current = current, {}
-        sweep = Export.LoGetWorldObjects() or {}
+        local ok_objs, objs = pcall(Export.LoGetWorldObjects)
+        objects_blocked = not (ok_objs and type(objs) == 'table')
+        sweep = objects_blocked and {} or objs
         diag_objects = 0
         for _ in pairs(sweep) do diag_objects = diag_objects + 1 end
       end

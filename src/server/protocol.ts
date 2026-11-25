@@ -13,6 +13,12 @@ import { threatOf } from './threats.js';
 
 export interface Datagram {
   optionsView?: OptionsView;
+  /**
+   * From the header's sixth field: the hook asked DCS for the world's objects
+   * and got nothing back at all -- the server has object export switched off.
+   * Absent from datagrams of older hooks.
+   */
+  objectsBlocked?: boolean;
   items: Parsed[];
 }
 
@@ -318,8 +324,11 @@ export function parseDatagram(raw: string): Datagram {
     // Optional fifth field, added later: older hooks send four, and an empty
     // field means the hook couldn't find the start time.
     const missionStart = head[4] !== undefined && isNum(head[4]) ? Number(head[4]) : undefined;
+    // Optional sixth field: '1' when object export is blocked.
+    const objectsBlocked = head[5] === undefined ? undefined : head[5].trim() === '1';
     return {
       optionsView: view,
+      ...(objectsBlocked !== undefined ? { objectsBlocked } : {}),
       items: lines.slice(1).filter(Boolean).map((l) => parseV3Line(l, modelTime, view, missionStart)),
     };
   }

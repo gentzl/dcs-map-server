@@ -181,6 +181,10 @@ for _, payload in ipairs(sent) do
         if f[5] ~= '22800' then
           fail(string.format('header says mission start=%s, expected 22800', tostring(f[5])), line)
         end
+        -- Sixth field: '1' only when the objects are blocked; here they are not.
+        if f[6] ~= '' then
+          fail(string.format('header flags blocked objects (%s) though they were delivered', tostring(f[6])), line)
+        end
         headers = headers + 1
         first = false
       else

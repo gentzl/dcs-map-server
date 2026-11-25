@@ -1,8 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { createServer } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveUserPath } from './user-path.js';
 
 /**
  * One-window demo: replays a recorded session and starts the map server
@@ -19,10 +19,13 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
 
 const DEFAULT_RECORDING = path.join('dcs', 'test', 'fixtures', 'real-session-2026-11-23.jsonl');
-const recording = process.argv[2] ?? DEFAULT_RECORDING;
+const asTyped = process.argv[2] ?? DEFAULT_RECORDING;
 
-if (!existsSync(path.resolve(root, recording))) {
-  console.error(`demo: recording not found: ${recording}`);
+// Resolved here, and handed on as an absolute path: the replay runs in the
+// project root, where a path typed in a subfolder would point elsewhere.
+const { found: recording, tried } = resolveUserPath(asTyped, root);
+if (!recording) {
+  console.error(`demo: recording not found: ${asTyped}\nLooked in:\n${tried.map((t) => `  ${t}`).join('\n')}`);
   process.exit(1);
 }
 

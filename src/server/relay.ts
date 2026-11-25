@@ -41,6 +41,7 @@ function apply(world: World, msg: ServerMessage): void {
   }
   if (msg.own) world.setOwnship(msg.own, msg.optionsView);
   else world.optionsView = msg.optionsView;
+  if (msg.objectsBlocked !== undefined) world.objectsBlocked = msg.objectsBlocked;
 }
 
 export function startRelay(world: World, opts: RelayOptions): void {

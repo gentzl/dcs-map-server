@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import os from 'node:os';
 import path from 'node:path';
 import { test, describe } from 'node:test';
-import { decideHookAction, installHook } from '../tools/install-hook.js';
+import { decideHookAction, installHook, isOwnHook } from '../tools/install-hook.js';
 
 describe('decideHookAction', () => {
   test('installs when nothing is there yet', () => {
@@ -14,8 +14,26 @@ describe('decideHookAction', () => {
     assert.equal(decideHookAction(true, true), 'already-current');
   });
 
-  test('never overwrites a file that differs from this project\'s hook', () => {
-    assert.equal(decideHookAction(true, false), 'left-alone');
+  test('never overwrites someone else\'s file', () => {
+    assert.equal(decideHookAction(true, false, false), 'left-alone');
+  });
+
+  test('updates an older version of this project\'s own hook', () => {
+    assert.equal(decideHookAction(true, false, true), 'updated');
+  });
+});
+
+describe('isOwnHook', () => {
+  test('recognises every header this hook has carried', () => {
+    const dashes = '-'.repeat(79);
+    assert.equal(isOwnHook(`${dashes}\n-- dcs-map-server -- Export Hook\n--\n`), true);
+    // The earliest versions, from when the comments were German.
+    assert.equal(isOwnHook(`${dashes}\r\n-- dcs-map-server -- Export-Hook\r\n--\r\n`), true);
+  });
+
+  test('anything else is not ours -- including our own temporary probes', () => {
+    assert.equal(isOwnHook('-- some other tool\nlocal x = 1\n'), false);
+    assert.equal(isOwnHook('-- dcs-map-server -- TEMPORARY route probe\n'), false);
   });
 });
 
@@ -52,7 +70,25 @@ describe('installHook', () => {
     });
   });
 
-  test('never overwrites an existing hook file, whatever its origin', () => {
+  test('replaces an older version of its own hook, keeping it as .bak', () => {
+    withTmpDir((tmp) => {
+      const source = path.join(tmp, 'source.lua');
+      writeFileSync(source, '-- dcs-map-server -- Export Hook\n-- new version\n');
+
+      const savedGames = path.join(tmp, 'Saved Games');
+      const hooksDir = path.join(savedGames, 'DCS', 'Scripts', 'Hooks');
+      mkdirSync(hooksDir, { recursive: true });
+      const dest = path.join(hooksDir, 'dcs-map-server.lua');
+      writeFileSync(dest, '-- dcs-map-server -- Export-Hook\n-- old version\n');
+
+      const results = installHook(source, savedGames);
+      assert.equal(results[0]!.action, 'updated');
+      assert.equal(readFileSync(dest, 'utf8'), '-- dcs-map-server -- Export Hook\n-- new version\n');
+      assert.equal(readFileSync(`${dest}.bak`, 'utf8'), '-- dcs-map-server -- Export-Hook\n-- old version\n');
+    });
+  });
+
+  test('never overwrites someone else\'s file at that path', () => {
     withTmpDir((tmp) => {
       const source = path.join(tmp, 'source.lua');
       writeFileSync(source, 'the new hook content');
@@ -61,11 +97,11 @@ describe('installHook', () => {
       const hooksDir = path.join(savedGames, 'DCS', 'Scripts', 'Hooks');
       mkdirSync(hooksDir, { recursive: true });
       const dest = path.join(hooksDir, 'dcs-map-server.lua');
-      writeFileSync(dest, 'someone else\'s existing hook, or an old version');
+      writeFileSync(dest, 'someone else\'s existing hook');
 
       const results = installHook(source, savedGames);
       assert.equal(results[0]!.action, 'left-alone');
-      assert.equal(readFileSync(dest, 'utf8'), 'someone else\'s existing hook, or an old version');
+      assert.equal(readFileSync(dest, 'utf8'), 'someone else\'s existing hook');
     });
   });
 

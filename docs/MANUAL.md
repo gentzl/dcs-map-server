@@ -93,6 +93,11 @@ Who actually holds an objective isn't known to the map: missions keep that in th
 which a player's PC can't read. So objectives are red whoever holds them — where F10 shows one
 blue, the map doesn't. Switch zones off in the menu if a mission has too many.
 
+Zones and airfields may take a moment to appear. DCS sends the zones when you get into your
+aircraft and then only every five minutes, the airfields every minute. If the map server was
+started — or restarted — after you jumped in, the zones show up within five minutes, the airfields
+within one.
+
 **Other contacts** are drawn with proper military symbology. Two symbol sets are available:
 
 - *NATO* (the default) is based on APP-6 / MIL-STD-2525. Close to the standard, but not strictly
@@ -132,7 +137,9 @@ truck would bury what it's meant to show.
 coordinates, bearing and range from you, the contact's own bullseye position, altitude, aspect,
 ground speed, closure and the time that leaves. It stays up until you tap that same contact again
 — a stray tap anywhere else never drops it. Aspect tells you where it's pointing relative to you — `HOT`
-straight at you, `FLANK`, `BEAM`, `DRAG`, `COLD` straight away. Closure is how fast the gap is
+straight at you, `FLANK`, `BEAM`, `DRAG`, `COLD` straight away. On a large monitor the readout
+is laid out as a small table in the order it goes over the radio — bearing and range, altitude and
+aspect, then speed, closure, time and bullseye; on a phone it stays a single wrapping line. Closure is how fast the gap is
 actually shutting, which is not the same as how fast either of you is flying: forty miles is two
 and a half minutes head-on and never at all behind someone faster than you.
 
@@ -158,12 +165,14 @@ level, speed in knots, coordinates in degrees and decimal minutes, bearings magn
 | Click/touch and drag, or arrow keys | Pan the map, switches to FREE |
 | `CTR / FREE` | Follow the aircraft (the default), or pan the map freely |
 | `HDG / N` | Heading up, or north up (the default); follow mode only |
-| `☰ MENU` | Tools and settings |
+| `☰ MENU` | Find, tools and settings |
+| `MENU` → Find | Type part of a name — `FOB`, `Damascus`, `Alpha` — and pick a hit (or press Enter for the first): the map jumps there and selects it, line and readout included. `CTR` brings you back to your aircraft |
 | `MENU` → Tools → Measure | Measure between two points: tap the start, tap the end |
 | `MENU` → Tools → Coordinates | Each tap shows coordinates there, plus bearing and range from you and from bullseye |
 | `MENU` → Tools → Off, or `Esc` | Back to normal taps |
 | Tap a contact | Line and readout to it, coordinates included |
 | Tap an airfield | Line to it and its data: elevation, runway, tower frequencies, navaids; tap again to drop it |
+| Tap a mission zone | Line and readout to its centre, named; tap again to drop it (the large sectors can't be tapped) |
 | Double-tap empty ground | Line and readout (bearing, range, bullseye, time) to that fixed point |
 | `MENU` → Symbols | Legend of all contact symbols |
 | Shift + click, or press and hold | Place the bullseye |
@@ -241,7 +250,8 @@ Your tablet and your second monitor can be set up differently.
 
 ### My aircraft shows, but no other contacts
 
-The mission is withholding them. This is normal and not a fault of the display: DCS lets a mission
+There are two possible causes, each with its own banner at the top of the map. If it reads
+`CONTACTS WITHHELD BY MISSION`, the mission is withholding them. This is normal and not a fault of the display: DCS lets a mission
 restrict what the map may show, and two of those settings suppress every other unit.
 
 You'll see a banner reading `CONTACTS WITHHELD BY MISSION`, and the bottom of the menu shows which
@@ -256,8 +266,17 @@ The setting belongs to the mission, not to this tool:
 Filtering happens on the server here by design: doing it in the browser would make this a cheat
 tool, since anyone could switch it off with the developer tools.
 
-On a multiplayer server it can also mean that `allow_object_export` is switched off in *that
-server's* configuration — again, not something you can change unless you run the server yourself.
+**A banner reading `SERVER BLOCKS OTHER UNITS (object export disabled)`** means something else:
+the *server* doesn't hand DCS's list of objects to outside programs at all. Many busy multiplayer
+servers do this on purpose, so that no tool can show where the enemy is. Then no other unit
+arrives — friend or foe, whatever the mission's view — and the airfields, which come through the
+same list, are missing too. Your own aircraft, the mission clock and the mission's zones still
+work, because DCS gives those out separately. F10 inside the game isn't affected, since it's part
+of the game itself.
+
+It's the server's `allow_object_export` setting, switched off in *that server's* configuration,
+so only whoever runs the server can change it. If you run it yourself, set it to `true`. On
+someone else's server there's nothing to do on your side — try a server that allows it.
 
 ### The map is blank, but my aircraft moves
 
@@ -290,12 +309,14 @@ handing out any — see the first question above.
 
 ### The clock reads `--:--:--`, or airfields and zones are missing
 
-Your hook is older than the map. `start.bat` installs the hook, but deliberately never replaces
-one that's already there and differs — it might be an older copy mid-upgrade, or someone else's
-file. It says so when it runs (`a different file is already at … -- left untouched`). After
-updating the map, copy
-`dcs\Scripts\Hooks\dcs-map-server.lua` over the one in `Saved Games\DCS\Scripts\Hooks\` by hand,
-then restart DCS.
+First give it a few minutes: zones can take up to five, airfields up to one, if the map server
+was started after you got into your aircraft (see [What's on the map](#whats-on-the-map)).
+
+If they still don't come, your hook is older than the map. Run `start.bat` again: it replaces an
+older version of this hook by itself (keeping the old one as `dcs-map-server.lua.bak`) and says
+`hook updated`. Then restart DCS — it only loads hooks when it starts. If `start.bat` reports
+`a different file is already at … -- left untouched`, the file there isn't this project's hook;
+it's left alone on purpose, and you'd have to sort that out by hand.
 
 ### The tablet can't reach the address
 

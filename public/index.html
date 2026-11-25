@@ -54,6 +54,16 @@
     /* pre-line: an airfield's readout is a block of lines (name, BRAA, COM,
        NAV); a contact's stays one wrapping line. Wider than before, since a
        NAV line holds four or five navaids. */
+    /* BRA readout on a large monitor (renderReadout in main.ts): a title,
+       label/value pairs in two columns, the position underneath. Labels
+       dimmed so the values are what the eye lands on. */
+    #braa .ro-head { font-weight: 600; margin-bottom: 4px; }
+    #braa .ro-grid { display: grid; grid-template-columns: auto auto auto auto;
+                     column-gap: 12px; row-gap: 1px; font-size: 14px; }
+    #braa .ro-label { opacity: .6; }
+    #braa .ro-value { font-weight: 600; text-align: right; min-width: 7ch; }
+    #braa .ro-pos { margin-top: 4px; opacity: .8; }
+
     /* Centred on the tapped spot; never in the way of the next tap. */
     #coordmark { position: absolute; transform: translate(-50%, -50%); pointer-events: none;
                  line-height: 0; }
@@ -154,7 +164,17 @@
     #menu-toggle[aria-pressed="true"] { background: #ffd166; color: #14181c;
                                         border-color: #ffd166; font-weight: 600; }
 
-    /* Tools, first thing in the menu: a segmented row, one choice at a time. */
+    /* Find: a search field and its hits, each a button that jumps there. */
+    #find { width: 100%; box-sizing: border-box; padding: 10px 12px; font: inherit; color: var(--ink);
+            background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 8px;
+            -webkit-user-select: text; user-select: text; touch-action: manipulation; }
+    #find-results { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 4px; }
+    #find-results:empty { display: none; }
+    #find-results button { display: flex; justify-content: space-between; gap: 10px; text-align: left;
+                           padding: 9px 12px; }
+    #find-results .kind { opacity: .55; font-size: 11px; text-transform: uppercase; }
+
+    /* Tools: a segmented row, one choice at a time. */
     #tools-menu { display: flex; margin-bottom: 4px; }
     #tools-menu button { flex: 1 1 0; min-width: 0; padding: 11px 6px; border-radius: 0;
                          border-left-width: 0; }
@@ -235,6 +255,11 @@
   <div id="link" hidden></div>
 
   <div id="settings" hidden>
+    <h3>Find</h3>
+    <input id="find" type="search" placeholder="FOB, town, airfield …" autocomplete="off"
+           spellcheck="false" aria-label="Find a zone or airfield" />
+    <div id="find-results" role="listbox"></div>
+
     <h3>Tools</h3>
     <div id="tools-menu" role="radiogroup" aria-label="Tool for a tap on the map">
       <button role="radio" data-tool="off" aria-checked="true">Off</button>

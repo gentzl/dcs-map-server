@@ -7,18 +7,29 @@ import { DCS_VARIANTS, savedGamesDir as findSavedGamesDir } from './dcs-paths.js
 /**
  * Copies the DCS export hook into every installed DCS variant's Hooks folder.
  *
- * Must never overwrite a hook file that's already there: it might be an
- * older copy of this project's own hook mid-upgrade, or someone else's hook
- * entirely, and guessing wrong would silently break a setup that already
- * works. The only case this ever writes into an existing file is when it's
- * byte-identical to what would be installed anyway.
+ * An existing file is only replaced when it is recognisably an older version
+ * of this project's own hook -- by the header line every version has carried
+ * ("dcs-map-server -- Export Hook", "Export-Hook" in the earliest) -- and the
+ * replaced file is kept next to it as .bak. Anything else at that path is
+ * someone else's file and is left alone: guessing wrong would silently break
+ * a setup that already works. Without the update, a player re-running
+ * start.bat kept the old hook, and with it none of what a newer map needs
+ * (mission clock, airbases, zones).
  */
 
 export const HOOK_NAME = 'dcs-map-server.lua';
 
 export { DCS_VARIANTS };
 
-export type HookAction = 'installed' | 'already-current' | 'left-alone' | 'not-found';
+export type HookAction = 'installed' | 'updated' | 'already-current' | 'left-alone' | 'not-found';
+
+const OWN_HOOK_HEADER = /^--\s*dcs-map-server\s*--\s*Export[- ]Hook/m;
+
+/** Whether a file's content is a version of this project's own hook. */
+export function isOwnHook(content: string): boolean {
+  // Only the head of the file: the marker sits in the opening comment block.
+  return OWN_HOOK_HEADER.test(content.split(/\r?\n/).slice(0, 8).join('\n'));
+}
 
 export interface HookResult {
   variant: string;
@@ -31,9 +42,10 @@ export interface HookResult {
  * happen. Kept separate from the filesystem calls so the one rule that
  * matters -- never clobber someone else's file -- can be tested directly.
  */
-export function decideHookAction(destExists: boolean, destMatchesSource: boolean): HookAction {
+export function decideHookAction(destExists: boolean, destMatchesSource: boolean, destIsOwnHook = false): HookAction {
   if (!destExists) return 'installed';
-  return destMatchesSource ? 'already-current' : 'left-alone';
+  if (destMatchesSource) return 'already-current';
+  return destIsOwnHook ? 'updated' : 'left-alone';
 }
 
 /** Installs the hook into every DCS variant found under `savedGamesDir`. */
@@ -50,10 +62,19 @@ export function installHook(sourcePath: string, savedGamesDir: string): HookResu
     const hooksDir = path.join(dcsDir, 'Scripts', 'Hooks');
     const dest = path.join(hooksDir, HOOK_NAME);
     const destExists = existsSync(dest);
-    const action = decideHookAction(destExists, destExists && readFileSync(dest).equals(source));
+    const current = destExists ? readFileSync(dest) : null;
+    const action = decideHookAction(
+      destExists,
+      current !== null && current.equals(source),
+      current !== null && isOwnHook(current.toString('utf8')),
+    );
 
     if (action === 'installed') {
       mkdirSync(hooksDir, { recursive: true });
+      copyFileSync(sourcePath, dest);
+    } else if (action === 'updated') {
+      // Keep the replaced version, in case it had local edits worth having.
+      copyFileSync(dest, `${dest}.bak`);
       copyFileSync(sourcePath, dest);
     }
     results.push({ variant, action, dest });
@@ -68,6 +89,8 @@ function describe(r: HookResult): string {
       return `${r.variant}: hook installed to ${r.dest}`;
     case 'already-current':
       return `${r.variant}: hook already up to date at ${r.dest}`;
+    case 'updated':
+      return `${r.variant}: hook updated at ${r.dest} (previous version kept as ${HOOK_NAME}.bak) -- restart DCS to load it`;
     case 'left-alone':
       return (
         `${r.variant}: a different file is already at ${r.dest} -- left untouched. ` +
@@ -83,8 +106,15 @@ function describe(r: HookResult): string {
 // `file://${process.argv[1]}` strings: on Windows that comparison can never
 // match (backslashes, no `file:///` scheme/encoding), which silently turned
 // this whole block into a no-op -- no output, no hook installed, exit 0.
-const isMain =
-  process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+// realpathSync throws for a path that doesn't exist (a script piped in on
+// stdin reports "-"); that simply means "not run directly".
+const isMain = (() => {
+  try {
+    return process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+})();
 
 if (isMain) {
   initLogFile();
@@ -107,7 +137,7 @@ if (isMain) {
     console.log(`Once it's installed, copy ${source} into its Scripts\\Hooks\\ folder yourself.`);
   } else {
     for (const r of results) {
-      if (r.action === 'installed' || r.action === 'already-current') {
+      if (r.action === 'installed' || r.action === 'updated' || r.action === 'already-current') {
         ok(describe(r));
       } else {
         console.log(describe(r));

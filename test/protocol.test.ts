@@ -225,6 +225,20 @@ describe('framing and errors', () => {
     assert.equal(items[0].own.missionStart, undefined);
   });
 
+  test('a sixth header field says the server blocks object export', () => {
+    const own = ownshipLine(OWN, 'optview_all', 3);
+    const parse = (blocked?: boolean) =>
+      parseDatagram(toDatagrams([own], 100, 'optview_all', 3, 22_800, blocked)[0]!);
+    assert.equal(parse(true).objectsBlocked, true);
+    assert.equal(parse(false).objectsBlocked, false);
+    // An older hook sends no sixth field: unknown, which must not read as "blocked".
+    assert.equal(parse().objectsBlocked, undefined);
+    // The flag survives a missing start time too.
+    const noStart = parseDatagram(`MM\t3\t1.000\toptview_all\t\t1\n${own}`);
+    assert.equal(noStart.objectsBlocked, true);
+    assert.equal(noStart.items[0]?.kind, 'own');
+  });
+
   test('an airbase survives a write/parse roundtrip, comma in the name included', () => {
     const base = { id: 5001, name: 'Kutaisi, Kopitnari', lat: 42.17915, lon: 42.495684, alt: 45, hdg: 4.43312, coalition: 2, level2: 13 };
     const [item] = roundtrip([airbaseLine(base)], 3);
