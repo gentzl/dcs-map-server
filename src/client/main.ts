@@ -1088,17 +1088,18 @@ function frame(now: number): void {
       // lies ahead. A third of the height as top padding moves the padded
       // centre there. North-up stays centred.
       const top = headingUp ? Math.round(map.getCanvas().clientHeight / 3) : 0;
-      map.jumpTo({ center: [own.lon, own.lat], bearing: headingUp ? -toDeg(own.hdg) : 0, zoom, padding: { top, bottom: 0, left: 0, right: 0 } });
+      map.jumpTo({ center: [own.lon, own.lat], bearing: headingUp ? toDeg(own.hdg) : 0, zoom, padding: { top, bottom: 0, left: 0, right: 0 } });
     }
 
-    // The symbol's own heading plus however much the map itself is already
-    // rotated -- not a fixed per-mode case. Heading-up follow sets the map's
-    // bearing to -heading, which makes this always resolve to 0 there (the
+    // The symbol's own heading minus however much the map itself is already
+    // rotated (the bearing is the compass direction pointing up) -- not a
+    // fixed per-mode case. Heading-up follow sets the map's bearing to the
+    // heading, which makes this always resolve to 0 there (the
     // map rotates under the symbol instead). North-up follow and free mode
     // (which now keeps whatever bearing was active on leaving follow,
     // rather than forcing north-up) fall out of the same formula without
     // needing their own case.
-    const symbolRotation = toDeg(own.hdg) + map.getBearing();
+    const symbolRotation = toDeg(own.hdg) - map.getBearing();
     ownshipEl.style.transform = `translate(-50%, -55%) rotate(${symbolRotation.toFixed(1)}deg)`;
     placeOwnship();
 
@@ -1228,6 +1229,12 @@ function updateGraticule(): void {
 
 const hud = document.getElementById('hud')!;
 const braaBox = document.getElementById('braa')!;
+// On a small screen the readout can cover half the map: a tap folds it down to
+// its title line. The state is the user's, so it survives the refresh that
+// rewrites the content (it only changes the class, not the children).
+braaBox.addEventListener('click', () => {
+  if (window.matchMedia('(max-width: 480px)').matches) braaBox.classList.toggle('min');
+});
 const ownshipEl = document.getElementById('ownship')!;
 const edgeEl = document.getElementById('offscreen')!;
 const warnEl = document.getElementById('warning')!;

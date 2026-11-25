@@ -70,7 +70,8 @@
 
     #braa { position: absolute; top: 44px; left: 12px; padding: 6px 10px;
             max-width: min(460px, calc(100vw - 24px)); line-height: 1.6;
-            background: var(--panel); border: 1px solid #ffd166; border-radius: 6px;
+            background: rgba(10,16,22,.75); border: 1px solid #ffd166; border-radius: 6px;
+            -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
             color: #ffd166; white-space: pre-line; }
 
     /* At phone width the HUD bar wraps to two lines (see #hud) and needs
@@ -191,6 +192,17 @@
     @media (max-width: 480px) {
       .seg.range { flex: 1 1 100%; }
       .seg.range button { flex: 1 1 0; min-width: 0; padding-left: 0; padding-right: 0; }
+
+      /* The readout of a tapped object can fill half of a phone screen: it is
+         see-through (with a light blur to keep the text legible), so the map
+         stays visible behind it. */
+      #braa { background: rgba(10,16,22,.55);
+              -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+      /* A tap folds it down to its title line and back. */
+      #braa { cursor: pointer; position: absolute; padding-right: 28px; }
+      #braa::after { content: '▴'; position: absolute; top: 6px; right: 10px; opacity: .7; }
+      #braa.min { box-sizing: border-box; max-height: calc(1.6em + 10px); overflow: hidden; }
+      #braa.min::after { content: '▾'; }
     }
 
     /* Anchored above the control bar, growing upwards. Its bottom and height
