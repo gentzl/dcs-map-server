@@ -69,6 +69,24 @@ export const toMagnetic = (trueRad: number, magVarDeg: number): number =>
   (trueRad - toRad(magVarDeg) + 2 * Math.PI) % (2 * Math.PI);
 
 /**
+ * Both directions of a runway lying along the given magnetic heading, lower
+ * first: 247.5° gives "067°/247°".
+ *
+ * Headings, not runway numbers: DCS's runways carry fixed names that don't
+ * follow from the heading -- Batumi is 13/31, yet its magnetic heading of
+ * about 119° would round to 12/30. A heading is always right; a derived
+ * number would be wrong exactly where it matters, lining up on the wrong
+ * runway name over the radio.
+ */
+export function runwayHeadings(magRad: number): string {
+  const deg = ((toDeg(magRad) % 360) + 360) % 360;
+  const a = Math.round(deg) % 360;
+  const b = (a + 180) % 360;
+  const [lo, hi] = a < b ? [a, b] : [b, a];
+  return `${String(lo).padStart(3, '0')}°/${String(hi).padStart(3, '0')}°`;
+}
+
+/**
  * Aspect angle: angle between the contact's heading and the line of sight to us.
  * 0 = flying straight at us (hot), 180 = away (cold).
  */
@@ -190,6 +208,18 @@ export function formatMissionTime(seconds: number): string {
   const mm = Math.floor((s % 3600) / 60);
   const ss = s % 60;
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+}
+
+/**
+ * The mission's clock time as HH:MM:SS -- start time plus model time,
+ * wrapped at midnight -- which is what the F10 map shows. Elapsed time alone
+ * means nothing in the cockpit. Without a start time (older hook or
+ * recording) there is no honest clock to show, hence the placeholder.
+ */
+export function formatMissionClock(missionStart: number | undefined, modelTime: number): string {
+  if (missionStart === undefined) return '--:--:--';
+  const day = 24 * 3600;
+  return formatMissionTime((((missionStart + modelTime) % day) + day) % day);
 }
 
 /**

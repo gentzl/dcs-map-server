@@ -43,6 +43,12 @@ export function startIngest(world: World, opts: IngestOptions): dgram.Socket {
         case 'unit':
           world.upsertUnit(parsed.unit);
           break;
+        case 'airbase':
+          world.upsertAirbase(parsed.airbase);
+          break;
+        case 'zone':
+          world.upsertZone(parsed.zone);
+          break;
         case 'remove':
           world.remove(parsed.id);
           break;

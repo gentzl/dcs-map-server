@@ -7,9 +7,14 @@
   <link rel="stylesheet" href="maplibre-gl.css" />
   <style>
     :root { color-scheme: dark; --ink: #e0e1dd; --panel: rgba(10,16,22,.88); --line: #415a77; }
+    /* touch-action: none on the whole page, not just the map canvas: iOS
+       Safari ignores user-scalable=no, and a pinch that started on the HUD,
+       a readout box or the gap between two buttons zoomed the entire page.
+       The map does its own pinch; nothing else should. */
     html, body { margin: 0; height: 100%; background: #0d1b2a; color: var(--ink);
                  font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
-                 -webkit-user-select: none; user-select: none; }
+                 -webkit-user-select: none; user-select: none; touch-action: none;
+                 overscroll-behavior: none; }
     #map { position: absolute; inset: 0; }
 
     #hud { position: absolute; top: 0; left: 0; right: 0; padding: 8px 12px;
@@ -38,24 +43,40 @@
              line-height: 1.6; background: var(--panel); border: 1px solid #4cc9f0;
              border-radius: 6px; color: #4cc9f0; }
 
-    /* Coordinates at wherever you last tapped -- plain ink rather than any
-       of the mode colours (yellow selection, cyan ruler), since this isn't
-       tied to a particular mode, just a quick readout of where you pointed. */
+    /* Coordinates tool readout, at wherever you last tapped -- plain ink
+       rather than the yellow selection or cyan ruler colours. Several lines
+       (coordinates, from own aircraft, from bullseye), hence pre-line. */
     #clickinfo { position: absolute; transform: translate(-50%, -100%); padding: 6px 10px;
                   pointer-events: none; max-width: min(260px, calc(100vw - 24px));
                   line-height: 1.6; background: var(--panel); border: 1px solid var(--line);
-                  border-radius: 6px; color: var(--ink); font-size: 12px; }
+                  border-radius: 6px; color: var(--ink); font-size: 12px; white-space: pre-line; }
+
+    /* pre-line: an airfield's readout is a block of lines (name, BRAA, COM,
+       NAV); a contact's stays one wrapping line. Wider than before, since a
+       NAV line holds four or five navaids. */
+    /* Centred on the tapped spot; never in the way of the next tap. */
+    #coordmark { position: absolute; transform: translate(-50%, -50%); pointer-events: none;
+                 line-height: 0; }
 
     #braa { position: absolute; top: 44px; left: 12px; padding: 6px 10px;
-            max-width: min(360px, calc(100vw - 24px)); line-height: 1.6;
+            max-width: min(460px, calc(100vw - 24px)); line-height: 1.6;
             background: var(--panel); border: 1px solid #ffd166; border-radius: 6px;
-            color: #ffd166; }
+            color: #ffd166; white-space: pre-line; }
 
     /* At phone width the HUD bar wraps to two lines (see #hud) and needs
        correspondingly more room before the warning and BRAA readout start --
        otherwise they'd overlap the second line. */
+    /* Link state: no server, or no data from DCS. Deliberately neutral grey,
+       not a warning colour -- pausing or loading in DCS is normal, and the
+       map itself is fine. Top centre, clear of the warning on the right. */
+    #link { position: absolute; top: 44px; left: 50%; transform: translateX(-50%);
+            padding: 6px 10px; background: rgba(10,14,18,.88);
+            border: 1px solid #8a96a3; border-radius: 6px; color: #c9d1d9;
+            font-size: 11px; letter-spacing: .04em; white-space: nowrap; }
+
     @media (max-width: 480px) {
       #warning, #braa { top: 78px; }
+      #link { top: 78px; }
     }
 
     /* Ownship stays fixed at screen centre while the map moves beneath it.
@@ -125,6 +146,23 @@
        the bar also wraps on top of that. */
     .seg button.preset { min-width: 40px; padding: 12px 6px; }
 
+    /* MENU: one button for tools and settings together, at the end of the
+       bar. Yellow while a tool is active, and then named after it (MEAS /
+       COORD) -- a tap on the map belongs to that tool, and the button says
+       which one. Fixed width, so a label change doesn't nudge the bar. */
+    #menu-toggle { min-width: 104px; }
+    #menu-toggle[aria-pressed="true"] { background: #ffd166; color: #14181c;
+                                        border-color: #ffd166; font-weight: 600; }
+
+    /* Tools, first thing in the menu: a segmented row, one choice at a time. */
+    #tools-menu { display: flex; margin-bottom: 4px; }
+    #tools-menu button { flex: 1 1 0; min-width: 0; padding: 11px 6px; border-radius: 0;
+                         border-left-width: 0; }
+    #tools-menu button:first-child { border-radius: 8px 0 0 8px; border-left-width: 1px; }
+    #tools-menu button:last-child { border-radius: 0 8px 8px 0; }
+    #tools-menu button[aria-checked="true"] { background: #ffd166; color: #14181c;
+                                              border-color: #ffd166; font-weight: 600; }
+
     /* On a phone the range group (two step buttons plus seven presets) is
        wider than the screen. With flex-end packing it then overflowed past
        the left edge while keeping its margin on the right. Instead it gets a
@@ -135,10 +173,19 @@
       .seg.range button { flex: 1 1 0; min-width: 0; padding-left: 0; padding-right: 0; }
     }
 
+    /* Anchored above the control bar, growing upwards. Its bottom and height
+       are set from the visible viewport and the bar's real height when it
+       opens (placeMenu in main.ts); these are only the fallback. 100vh alone
+       counted the area behind a mobile browser's toolbars, so the menu grew
+       taller than the screen and its top -- the tools -- went off it. */
     #settings { position: absolute; bottom: 70px; right: 12px; width: min(300px, calc(100vw - 24px));
-                max-height: calc(100vh - 140px); overflow-y: auto;
+                max-height: calc(100vh - 140px); max-height: calc(100dvh - 140px); overflow-y: auto;
+                /* The one place that scrolls: vertical panning only. */
+                touch-action: pan-y;
                 background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-                padding: 12px 14px; backdrop-filter: blur(6px); }
+                padding: 12px 14px; backdrop-filter: blur(6px);
+                /* max-height must include padding and border, or it runs 26 px over. */
+                box-sizing: border-box; }
     #settings h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase;
                    letter-spacing: .1em; opacity: .65; font-weight: 600; }
     #settings h3:not(:first-child) { margin-top: 16px; }
@@ -172,9 +219,29 @@
   <div id="braa" hidden></div>
   <div id="ruler" hidden></div>
   <div id="clickinfo" hidden></div>
+  <!-- Coordinates tool: a cross on the exact spot. Arms with a gap in the
+       middle, so the spot itself stays visible; white on a dark casing so it
+       reads on any terrain; a red dot for the point itself. -->
+  <div id="coordmark" hidden>
+    <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true">
+      <g stroke-linecap="round" fill="none">
+        <path d="M24 2V17M24 31V46M2 24H17M31 24H46" stroke="#0a0e12" stroke-width="6" />
+        <path d="M24 2V17M24 31V46M2 24H17M31 24H46" stroke="#ffffff" stroke-width="2.6" />
+      </g>
+      <circle cx="24" cy="24" r="3" fill="#ff2d55" stroke="#0a0e12" stroke-width="1.6" />
+    </svg>
+  </div>
   <div id="warning" hidden></div>
+  <div id="link" hidden></div>
 
   <div id="settings" hidden>
+    <h3>Tools</h3>
+    <div id="tools-menu" role="radiogroup" aria-label="Tool for a tap on the map">
+      <button role="radio" data-tool="off" aria-checked="true">Off</button>
+      <button role="radio" data-tool="measure" aria-checked="false">Measure</button>
+      <button role="radio" data-tool="coord" aria-checked="false">Coordinates</button>
+    </div>
+
     <h3>Display</h3>
     <label>Mode
       <select data-key="mode">
@@ -198,6 +265,7 @@
     </label>
     <label>Lat/Lon grid <input type="checkbox" data-key="graticule" /></label>
     <label>Bullseye <input type="checkbox" data-key="bullseye" /></label>
+    <label>Mission zones <input type="checkbox" data-key="zones" /></label>
 
     <h3>Tactical</h3>
     <label>Contacts
@@ -242,15 +310,13 @@
     <div id="status"></div>
     <div id="hint">
       Tap a contact for BRAA.<br />
-      Shift + click (or press and hold, on touch) to set bullseye. MEAS measures between two points you tap.<br />
-      The theater follows your aircraft by itself; picking one here holds until you fly into another.
-      Theaters need the matching tile file (<code>npm run fetch-tiles -- &lt;theater&gt;</code>).
+      Tap an airfield for its frequencies and the line to it.<br />
+      Shift + click (or press and hold, on touch) to set bullseye.
     </div>
     <div id="version"></div>
   </div>
 
   <div id="controls">
-    <button id="toggle-settings" title="Settings">⚙</button>
     <div class="seg range" role="group" aria-label="Range in nautical miles">
       <button id="range-out" title="Range out">−</button>
       <button id="range-1" class="preset" aria-pressed="false">1</button>
@@ -267,12 +333,11 @@
       <button id="mode-free" aria-pressed="false" title="Pan the map freely">FREE</button>
     </div>
     <div class="seg" role="group" aria-label="Map orientation">
-      <button id="mode-hdg" aria-pressed="true" title="Heading up">HDG</button>
-      <button id="mode-north" aria-pressed="false" title="North up">N</button>
+      <button id="mode-hdg" aria-pressed="false" title="Heading up">HDG</button>
+      <button id="mode-north" aria-pressed="true" title="North up">N</button>
     </div>
-    <div class="seg" role="group" aria-label="Measure">
-      <button id="mode-measure" aria-pressed="false" title="Measure between two points">MEAS</button>
-    </div>
+    <button id="menu-toggle" aria-haspopup="true" aria-expanded="false" aria-pressed="false"
+            title="Menu: tools and settings">☰ MENU</button>
   </div>
 
   <script type="module" src="main.js"></script>

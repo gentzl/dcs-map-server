@@ -29,9 +29,15 @@ function apply(world: World, msg: ServerMessage): void {
   if (msg.type === 'snapshot') {
     world.clear();
     for (const u of msg.units) world.upsertUnit(u);
+    for (const b of msg.airbases ?? []) world.upsertAirbase(b);
+    for (const z of msg.zones ?? []) world.upsertZone(z);
   } else {
+    if (msg.airbasesCleared) world.clearAirbases();
+    if (msg.zonesCleared) world.clearZones();
+    for (const z of msg.zones ?? []) world.upsertZone(z);
     for (const u of msg.units ?? []) world.upsertUnit(u);
     for (const id of msg.removed ?? []) world.remove(id);
+    for (const b of msg.airbases ?? []) world.upsertAirbase(b);
   }
   if (msg.own) world.setOwnship(msg.own, msg.optionsView);
   else world.optionsView = msg.optionsView;

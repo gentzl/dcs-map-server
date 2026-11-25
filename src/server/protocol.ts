@@ -1,4 +1,4 @@
-import type { Category, Coalition, OptionsView, Ownship, Unit } from '../shared/types.js';
+import type { Airbase, Category, Coalition, OptionsView, Ownship, Unit, Zone } from '../shared/types.js';
 import { classify } from './classify.js';
 import { threatOf } from './threats.js';
 
@@ -19,6 +19,8 @@ export interface Datagram {
 export type Parsed =
   | { kind: 'own'; own: Ownship; optionsView: OptionsView }
   | { kind: 'unit'; unit: Unit }
+  | { kind: 'airbase'; airbase: Airbase }
+  | { kind: 'zone'; zone: Zone }
   | { kind: 'remove'; id: number }
   | { kind: 'close' }
   | { kind: 'error'; reason: string }
@@ -171,12 +173,29 @@ export function parsePacket(raw: string): Parsed {
 // Compared to schema 2, A lines additionally carry Type.level1 and level2,
 // without which air defence can't be separated from other ground targets.
 
-const V3_LAYOUT = { O: 20, A: 12, W: 8, D: 2 } as const;
+// B (airbase) was added later; it is a separate record type rather than an
+// A line because a base is a map feature, not a contact -- different
+// lifetime, no fog of war, no heartbeat.
+const V3_LAYOUT = { O: 20, A: 12, W: 8, D: 2, B: 9, Z: 10 } as const;
 
-function parseV3Line(line: string, modelTime: number, view: OptionsView): Parsed {
+/** "r,g,b,a" -> numbers, defaulting to the editor's own translucent white. */
+function rgba(v: string | undefined): [number, number, number, number] {
+  const p = (v ?? '').split(',').map(Number);
+  return p.length === 4 && p.every(Number.isFinite) ? [p[0]!, p[1]!, p[2]!, p[3]!] : [1, 1, 1, 0.15];
+}
+
+/** "lat,lon;lat,lon;..." -> pairs; anything unreadable is dropped. */
+function vertexList(v: string | undefined): [number, number][] {
+  return (v ?? '')
+    .split(';')
+    .map((s) => s.split(',').map(Number))
+    .filter((p): p is [number, number] => p.length === 2 && p.every(Number.isFinite));
+}
+
+function parseV3Line(line: string, modelTime: number, view: OptionsView, missionStart?: number): Parsed {
   const f = line.split('\t');
   const type = f[0];
-  if (type !== 'O' && type !== 'A' && type !== 'W' && type !== 'D') {
+  if (type !== 'O' && type !== 'A' && type !== 'W' && type !== 'D' && type !== 'B' && type !== 'Z') {
     return { kind: 'error', reason: `v3: unknown type "${type}"` };
   }
   if (f.length !== V3_LAYOUT[type]) {
@@ -184,6 +203,41 @@ function parseV3Line(line: string, modelTime: number, view: OptionsView): Parsed
   }
 
   if (type === 'D') return { kind: 'remove', id: num(f[1]) };
+
+  if (type === 'Z') {
+    const quad = num(f[4]) === 2;
+    const vertices = vertexList(f[9]);
+    return {
+      kind: 'zone',
+      zone: {
+        id: num(f[1]),
+        name: f[2] ?? '',
+        hidden: f[3] === '1',
+        shape: quad && vertices.length >= 3 ? 'quad' : 'circle',
+        radiusM: num(f[5]),
+        lat: num(f[6]),
+        lon: num(f[7]),
+        color: rgba(f[8]),
+        ...(quad && vertices.length >= 3 ? { vertices } : {}),
+      },
+    };
+  }
+
+  if (type === 'B') {
+    return {
+      kind: 'airbase',
+      airbase: {
+        id: num(f[1]),
+        name: f[2] ?? '',
+        lat: num(f[3]),
+        lon: num(f[4]),
+        alt: num(f[5]),
+        hdg: num(f[6]),
+        coalition: coalition(f[7]),
+        level2: num(f[8]),
+      },
+    };
+  }
 
   const base = {
     id: num(f[1]),
@@ -234,6 +288,7 @@ function parseV3Line(line: string, modelTime: number, view: OptionsView): Parsed
       flare: num(f[16]),
       wind: { x: num(f[17]), y: num(f[18]), z: num(f[19]) },
       modelTime,
+      ...(missionStart !== undefined ? { missionStart } : {}),
     },
   };
 }
@@ -243,7 +298,11 @@ function parseV3Line(line: string, modelTime: number, view: OptionsView): Parsed
  * everything else is read as schema 1, the comma-separated format with no header.
  */
 export function parseDatagram(raw: string): Datagram {
-  const text = raw.trim();
+  // Only line breaks and spaces come off the ends, not tabs: a record whose
+  // last field is empty (a circular Z zone has no vertex list) ends in a
+  // tab, and as the datagram's last line trim() cut it, leaving the record
+  // one field short and rejected.
+  const text = raw.replace(/^[\r\n ]+|[\r\n ]+$/g, '');
   if (text === 'close_socket') return { items: [{ kind: 'close' }] };
 
   const lines = text.split('\n');
@@ -256,9 +315,12 @@ export function parseDatagram(raw: string): Datagram {
     }
     const modelTime = Number(head[2]) || 0;
     const view = (head[3] || 'optview_all') as OptionsView;
+    // Optional fifth field, added later: older hooks send four, and an empty
+    // field means the hook couldn't find the start time.
+    const missionStart = head[4] !== undefined && isNum(head[4]) ? Number(head[4]) : undefined;
     return {
       optionsView: view,
-      items: lines.slice(1).filter(Boolean).map((l) => parseV3Line(l, modelTime, view)),
+      items: lines.slice(1).filter(Boolean).map((l) => parseV3Line(l, modelTime, view, missionStart)),
     };
   }
 

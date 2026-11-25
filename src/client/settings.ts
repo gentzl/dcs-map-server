@@ -22,6 +22,8 @@ export interface Settings {
   threats: 'hostile' | 'all' | 'none';
   graticule: boolean;
   bullseye: boolean;
+  /** The mission's objective zones (FOBs, targets), see zones.ts. */
+  zones: boolean;
   /** Fighter pilots call out magnetic; true only for map work. */
   bearingRef: 'magnetic' | 'true';
   mapLabels: boolean;
@@ -29,6 +31,16 @@ export interface Settings {
   contactLabels: boolean;
   contacts: 'all' | 'air' | 'none';
   theater: string;
+  /**
+   * The view as last left, from the control bar: orientation and range.
+   * Follow vs. free is not kept -- a free view restored after a reload would
+   * show wherever the map happened to be, not the aircraft.
+   */
+  headingUp: boolean;
+  /** Index into RANGES_NM of the last range preset. */
+  rangeIndex: number;
+  /** A wheel/pinch/step zoom on top of the preset, or null for the preset itself. */
+  manualZoom: number | null;
 }
 
 export const DEFAULTS: Settings = {
@@ -41,11 +53,15 @@ export const DEFAULTS: Settings = {
   threats: 'hostile',
   graticule: true,
   bullseye: true,
+  zones: true,
   bearingRef: 'magnetic',
   mapLabels: true,
   contactLabels: true,
   contacts: 'all',
   theater: 'caucasus',
+  headingUp: false,
+  rangeIndex: 2,
+  manualZoom: null,
 };
 
 const KEY = 'dcs-map-server.settings';

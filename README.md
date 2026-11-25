@@ -4,8 +4,8 @@ A live map for DCS World — see your aircraft and everything around it on your 
 tablet, or a second screen while you fly.
 
 It runs once, on the same PC where DCS is installed. Every other device just opens a web page —
-nothing to install on the tablet, no app store, no account, no internet connection needed. It all
-stays on your own home network.
+nothing to install on the tablet, no app store, no account. Your flight data stays on your own
+home network; only the terrain shading is loaded from the internet while the map is open.
 
 ![The map in flight: NATO contact symbols, a BRA line and readout to a selected contact, range rings, and terrain shading](docs/screenshot.jpg)
 

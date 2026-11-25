@@ -35,6 +35,12 @@ local function load_hook()
   local diag_at = 0          -- next diagnostic output
   local diag_objects = 0     -- objects in the last sweep
   local diag_sent = 0        -- of those, how many were actually sent
+  local start_time = ''      -- mission start, seconds after midnight; '' if unknown
+  local next_bases = 0       -- model time of the next airbase list
+  local BASES_EVERY = 60     -- seconds: a base can change hands, but not often
+  local zone_lines = nil     -- the mission's trigger zones as Z lines, built once
+  local next_zones = 0
+  local ZONES_EVERY = 300    -- seconds: zones never change; this only reaches a late server
 
   --- Tabs and newlines would break the format apart. Commas may stay: DCS
   --- unit and group names routinely contain commas, tabs almost never.
@@ -51,14 +57,21 @@ local function load_hook()
     pcall(function() udp:sendto(payload, HOST, PORT) end)
   end
 
+  -- Header: schema, model time, visibility rule, mission start time. The
+  -- start time is what turns model time into the mission's clock time, the
+  -- one the F10 map shows.
+  local function header(model_time)
+    return string.format('MM\t%d\t%.3f\t%s\t%s\n', SCHEMA, model_time,
+                         options_view or '', start_time)
+  end
+
   local function emit(line)
     if buffer_len + #line > MAX_DATAGRAM then
       flush()
       -- Every datagram carries its own header, so it stays readable on its own.
-      local header = string.format('MM\t%d\t%.3f\t%s\n', SCHEMA,
-                                   Export.LoGetModelTime() or 0, options_view or '')
-      buffer[#buffer + 1] = header
-      buffer_len = #header
+      local head = header(Export.LoGetModelTime() or 0)
+      buffer[#buffer + 1] = head
+      buffer_len = #head
     end
     buffer[#buffer + 1] = line
     buffer_len = buffer_len + #line
@@ -111,13 +124,85 @@ local function load_hook()
       t.level1 or 0, t.level2 or 0)
   end
 
+  -- Airbases: DCS's own airfields (and whatever else it counts as one), from
+  -- LoGetWorldObjects('airdromes') -- they are not in the plain object list.
+  -- B<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>coalition<TAB>level2
+  local function base_line(id, v)
+    local t = v.Type or {}
+    return string.format('B\t%d\t%s\t%.6f\t%.6f\t%.1f\t%.5f\t%d\t%d\n',
+      id, clean(v.Name), v.LatLongAlt.Lat, v.LatLongAlt.Long, v.LatLongAlt.Alt,
+      v.Heading or 0, v.CoalitionID or 0, t.level2 or 0)
+  end
+
+  -- Sent at mission start and then once a minute: cheap (a few dozen lines),
+  -- picks up a base changing hands, and reaches a server started mid-mission.
+  local function emit_bases()
+    local ok, bases = pcall(Export.LoGetWorldObjects, 'airdromes')
+    if not ok or type(bases) ~= 'table' then return end
+    for id, v in pairs(bases) do
+      if v.LatLongAlt then emit(base_line(id, v)) end
+    end
+  end
+
+  -- Trigger zones from the mission file: circles and quads the mission
+  -- builder placed (FOBs, objectives, spawn points). Converted to lat/lon
+  -- here, where the theater's projection is known, once per mission -- a
+  -- thousand zones of up to five points each is too much to redo per send.
+  -- Z<TAB>id<TAB>name<TAB>hidden<TAB>type<TAB>radius<TAB>lat<TAB>lon<TAB>r,g,b,a<TAB>lat,lon;lat,lon;...
+  -- type 0 is a circle (radius), 2 a quad (the vertex list).
+  local function build_zone_lines()
+    local lines = {}
+    local ok_m, cm = pcall(DCS.getCurrentMission)
+    if not ok_m or type(cm) ~= 'table' then return lines end
+    local m = cm.mission or cm
+    local zones = m.triggers and m.triggers.zones
+    if type(zones) ~= 'table' then return lines end
+    local toGeo = Export.LoLoCoordinatesToGeoCoordinates
+    for _, z in pairs(zones) do
+      pcall(function()
+        local ll = toGeo(z.x, z.y)
+        local verts = {}
+        if z.type == 2 and type(z.verticies) == 'table' then
+          for _, v in ipairs(z.verticies) do
+            local p = toGeo(v.x, v.y)
+            verts[#verts + 1] = string.format('%.6f,%.6f', p.latitude, p.longitude)
+          end
+        end
+        local c = z.color or {}
+        lines[#lines + 1] = string.format('Z\t%d\t%s\t%d\t%d\t%.1f\t%.6f\t%.6f\t%.2f,%.2f,%.2f,%.2f\t%s\n',
+          z.zoneId or 0, clean(z.name), z.hidden and 1 or 0, z.type or 0, z.radius or 0,
+          ll.latitude, ll.longitude, c[1] or 1, c[2] or 1, c[3] or 1, c[4] or 0.15,
+          table.concat(verts, ';'))
+      end)
+    end
+    log('trigger zones: ' .. #lines)
+    return lines
+  end
+
   function mm.onSimulationStart()
     udp = socket.udp()
     udp:settimeout(0)          -- non-blocking: the sim thread never waits on this
     next_send = 0
     sweep, seen, current = {}, {}, {}
     buffer, buffer_len = {}, 0
+    next_bases = 0
+    zone_lines = nil
+    next_zones = 0
     log('export started -> ' .. HOST .. ':' .. PORT)
+
+    -- Mission start time, seconds after midnight. The export API has it
+    -- directly; the mission table is the fallback. Neither is guaranteed,
+    -- so an unknown start is sent as an empty field rather than a guess.
+    start_time = ''
+    local ok_st, st = pcall(function() return Export.LoGetMissionStartTime() end)
+    if not (ok_st and tonumber(st)) then
+      ok_st, st = pcall(function()
+        local m = DCS.getCurrentMission()
+        return m and m.mission and m.mission.start_time
+      end)
+    end
+    if ok_st and tonumber(st) then start_time = string.format('%.0f', tonumber(st)) end
+    log('mission start time: ' .. (start_time ~= '' and start_time or 'unknown'))
 
     -- Probe: without this there's no way to tell apart LoGetWorldObjects
     -- being missing in the hooks environment, returning empty, or returning
@@ -177,11 +262,24 @@ local function load_hook()
     local opts = DCS.getMissionOptions()
     options_view = opts and opts.difficulty and opts.difficulty.optionsView or 'optview_all'
 
-    buffer = { string.format('MM\t%d\t%.3f\t%s\n', SCHEMA, now, options_view) }
+    buffer = { header(now) }
     buffer_len = #buffer[1]
 
     local own_id = Export.LoGetPlayerPlaneId() or 0
     emit(ownship_line(own_id, self_data))
+
+    if now >= next_bases then
+      next_bases = now + BASES_EVERY
+      emit_bases()
+    end
+
+    -- Built on the first frame with own data: the terrain's coordinate
+    -- conversion is only reliable once the player is in the world.
+    if now >= next_zones then
+      next_zones = now + ZONES_EVERY
+      if zone_lines == nil then zone_lines = build_zone_lines() end
+      for _, line in ipairs(zone_lines) do emit(line) end
+    end
 
     -- Under a restricted view, don't even send -- rather than relying on
     -- filtering further down the line.

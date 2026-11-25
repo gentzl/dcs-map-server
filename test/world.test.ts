@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test, describe } from 'node:test';
 import { World } from '../src/server/world.js';
-import type { Coalition, Ownship, OptionsView, Unit } from '../src/shared/types.js';
+import type { Airbase, Coalition, Ownship, OptionsView, Unit } from '../src/shared/types.js';
 import { allUnits, firstSnapshot } from './fixtures.js';
 
 const T0 = 1_700_000_000_000;
@@ -214,5 +214,46 @@ describe('delta building', () => {
     w.clear();
     assert.deepEqual(w.tick(T0 + 10)?.removed?.sort(), [10, 11]);
     assert.equal(w.stats.hasOwn, false);
+  });
+});
+
+describe('airbases', () => {
+  const base = (over: Partial<Airbase> = {}): Airbase => ({
+    id: 5001, name: 'Kutaisi', lat: 42.179, lon: 42.496, alt: 45, hdg: 4.43, coalition: 0, level2: 13, ...over,
+  });
+
+  // A map feature, not a contact: every player sees DCS's airfields on F10.
+  test('are in the snapshot even under the most restrictive view', () => {
+    const w = worldWith('optview_myaircraft');
+    w.upsertAirbase(base({ coalition: 1 }));
+    assert.equal(w.snapshot(T0).airbases?.length, 1);
+  });
+
+  test('go out once, then only again when something changes', () => {
+    const w = worldWith('optview_all');
+    w.tick(T0);
+    w.upsertAirbase(base());
+    assert.equal(w.tick(T0 + 100)?.airbases?.length, 1);
+    w.upsertAirbase(base()); // the hook's once-a-minute repeat, unchanged
+    assert.equal(w.tick(T0 + 200)?.airbases, undefined);
+    w.upsertAirbase(base({ coalition: 2 })); // changed hands
+    assert.equal(w.tick(T0 + 300)?.airbases?.[0]?.coalition, 2);
+  });
+
+  test("don't go stale between two of the hook's lists", () => {
+    const w = worldWith('optview_all');
+    w.upsertAirbase(base());
+    w.tick(T0 + 120_000);
+    assert.equal(w.snapshot(T0 + 120_000).airbases?.length, 1);
+  });
+
+  test('a mission end clears them, and the clients are told to', () => {
+    const w = worldWith('optview_all');
+    w.upsertAirbase(base());
+    w.tick(T0);
+    w.clear();
+    const d = w.tick(T0 + 100);
+    assert.equal(d?.airbasesCleared, true);
+    assert.equal(w.snapshot(T0 + 100).airbases?.length, 0);
   });
 });

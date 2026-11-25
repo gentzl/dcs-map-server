@@ -1,7 +1,6 @@
 # Technical guide
 
-For working on the code, running it without DCS, or driving it beyond what the settings panel
-exposes. If you just want to fly with it, the [handbook](MANUAL.md) is the one you want.
+For working on the code, running it without DCS, or driving it beyond what the menu exposes. If you just want to fly with it, the [handbook](MANUAL.md) is the one you want.
 
 - [Manual setup](#manual-setup)
 - [Finding DCS and detecting owned maps](#finding-dcs-and-detecting-owned-maps)
@@ -13,6 +12,7 @@ exposes. If you just want to fly with it, the [handbook](MANUAL.md) is the one y
 - [Running without DCS](#running-without-dcs)
 - [Recording what actually goes over the wire](#recording-what-actually-goes-over-the-wire)
 - [Tests](#tests)
+- [Server endpoints](#server-endpoints)
 - [Environment variables](#environment-variables)
 - [HTTPS on a LAN](#https-on-a-lan)
 - [Performance](#performance)
@@ -43,15 +43,25 @@ cd D:\Programs\dcs-map-server\dcs-map-server   # wherever you cloned or unzipped
    npm run fetch-assets        # map labels and symbols, ~2.3 MB
    npm run fetch-tiles -- caucasus  # the map itself, ~131 MB — swap in another theater if you fly elsewhere
    npm run install-hook        # copies the DCS export hook into Saved Games, see below
+   npm run extract-navdata     # airfield frequencies from your DCS install, see below
    ```
+
+   `extract-navdata` reads each installed theater's `Radio.lua` and `Beacons.lua` from
+   `Mods\terrains\<theater>\` into `navdata\<theater>.json`, which the server hands to the map
+   (`/api/navdata/<theater>`) for the airfield readout. The files are Eagle Dynamics', so this runs
+   locally and `navdata\` is git-ignored -- nothing of them is redistributed, the same as with the
+   tiles. They are read as text, never executed (`tools/navdata.ts`). Without a DCS install it
+   does nothing, and airfields simply show without frequencies.
 
    `fetch-tiles` downloads the `pmtiles` tool it needs by itself the first time it runs, into this
    project's own `runtime\` folder — nothing to put on `PATH`.
 
    `install-hook` copies `dcs/Scripts/Hooks/dcs-map-server.lua` into every DCS installation it finds
    under `Saved Games\` (stable and open beta). It never overwrites a hook file that's already
-   there, so it's always safe to re-run; if you'd rather do it by hand, or it doesn't find your DCS
-   install, just copy that file into `Saved Games\DCS\Scripts\Hooks\` yourself.
+   there and differs, so it's always safe to re-run -- which also means **an updated hook has to
+   be copied by hand** over an older one; `install-hook` says when it left one alone. If you'd
+   rather do it by hand anyway, or it doesn't find your DCS install, copy that file into
+   `Saved Games\DCS\Scripts\Hooks\` yourself, and restart DCS.
 
 2. (Re)start DCS, so it picks up the hook.
 
@@ -129,51 +139,71 @@ Fog of war is applied in step 2 and nowhere else. See [Contributing](#contributi
 
 ## Where the map comes from
 
-The base map is the real world, not DCS's own map. Only the contacts (aircraft, ships, ground
-units) come from the game.
+The base map is the real world, not DCS's own map. From the game come the contacts (aircraft,
+ships, ground units), the airfields and the mission's zones.
 
 - **Vector data** (roads, towns, rivers, runways, airfield names): OpenStreetMap, via the daily
   [Protomaps](https://protomaps.com/) planet build. `npm run fetch-tiles -- <theater>`
   (`tools/fetch-tiles.ts`) cuts each theater's extent (`THEATER_BOUNDS` in
   `src/shared/theaters.ts`) out of that build into `tiles\<theater>.pmtiles`, and the server serves
   it under `/tiles/`.
-- **Airports** have no source of their own; they are part of the same file. `src/client/chart.ts`
-  draws runways from the `roads` layer (`kind: aeroway`) and airfield symbols and names from the
-  `pois` layer (`kind: aerodrome`, high zoom levels only), on top of everything else.
+- **Airports** come from two places. Runways are always OpenStreetMap: `src/client/chart.ts`
+  draws them from the `roads` layer (`kind: aeroway`). Airfield symbols and names come from DCS
+  itself whenever the hook supplies them (`B` lines, see [Wire protocol](#wire-protocol);
+  `src/client/airbases.ts`), blue or red as the export reports them, grey for neutral. Grey
+  means "unknown": in a multiplayer test the export had 13 of 21 fields blue, all matching F10,
+  and 8 neutral that F10 also showed blue -- a mission script changing ownership isn't fully
+  followed by the export. Red and blue are believed, neutral is not (`SHOW_OWNERSHIP`). Helipads
+  and FARPs without a runway (`level2` 18, all named "woRunWay") are left out, they already arrive
+  as static objects. The OpenStreetMap airfield names (`pois` layer, `kind: aerodrome`) are then
+  hidden, and only shown without DCS data, e.g. when replaying an older recording.
+- **Airfield frequencies and navaids**: the theater's own `Radio.lua` and `Beacons.lua` in the
+  local DCS install, read at setup (`npm run extract-navdata`, see [Manual setup](#manual-setup)).
+- **Mission zones**: the mission file's trigger zones, sent by the hook (`Z` lines).
 - **Terrain shading and elevation tints**: public-domain SRTM/GMTED from the AWS Terrain Tiles,
   fetched live by the browser (`TERRAIN_TILES` in `src/client/style.ts`), so they need an internet
   connection while the map is open.
 
-Most of the time this matches DCS, but not always. An airfield that exists in DCS but was closed,
-rebuilt or never built in reality is shown the way OpenStreetMap has it today. Nothing on the base
-map is checked against DCS's own data. Licenses and attribution are under
-[License and data sources](#license-and-data-sources).
+Most of the time this matches DCS, but not always. The airfields themselves follow DCS (above),
+but their runways, and everything else on the base map, are shown the way OpenStreetMap has them
+today; nothing on the base map is checked against DCS's own data. Licenses and attribution are
+under [License and data sources](#license-and-data-sources).
 
 ## Source layout
 
 ```
 src/shared/types.ts      Wire format between server and client
+src/shared/theaters.ts   Theater extents; which theater a position lies in
 src/server/protocol.ts   Parser for the DCS hook's UDP format
 src/server/classify.ts   Sorting objects into presentation categories
 src/server/threats.ts    Engagement ranges of air defence systems
-src/server/world.ts      World state, delta building, fog of war
+src/server/world.ts      World state, delta building, fog of war; airbases and zones
 src/server/ingest.ts     UDP socket
 src/server/relay.ts      Upstream-WebSocket relay mode (MM_UPSTREAM)
-src/server/index.ts      Fastify + WebSocket + tick
+src/server/index.ts      Fastify + WebSocket + tick, HTTP endpoints
 src/client/geo.ts        Geodetic maths, range/zoom, cockpit formatting
 src/client/track.ts      Dead reckoning and interpolation buffer
 src/client/style.ts      Map style: elevation tints, shading, vector layers
+src/client/chart.ts      Aviation layers of the base map (runways, OSM airfields)
+src/client/overlays.ts   Range rings, threat rings, bullseye, velocity leaders
+src/client/graticule.ts  Lat/lon grid
+src/client/airbases.ts   DCS airfields: symbol, frequency matching, the airfield readout
+src/client/zones.ts      Mission zones: which to draw, and their outlines
+src/client/settings.ts   Settings and view, stored in the browser
 src/client/symbols/      Contact symbols, drawn at runtime (nato.ts, dcs.ts)
-src/client/main.ts       MapLibre, render loop, HUD
+src/client/main.ts       MapLibre, render loop, HUD, menu, input
 dcs/Scripts/Hooks/       DCS export hook (Lua)
 dcs/test/                Harness driving the hook against mocked DCS APIs
 dcs/test/fixtures/       Recorded sessions, used by the tests
 test/                    Automated tests (node --test)
+tools/bootstrap.js       What start.bat runs: setup steps, then the server
 tools/wire.ts            Datagram writer, counterpart to protocol.ts
 tools/zip.ts             Minimal ZIP reader for Tacview archives
 tools/capture-ws.ts      Records a live server's WebSocket feed to a file
 tools/replay-ws.ts       Replays such a recording as a relay source
 tools/demo.ts            npm run demo: replay plus server in one window
+tools/navdata.ts         Reads a theater's Radio.lua / Beacons.lua (as text)
+tools/extract-navdata.ts npm run extract-navdata: writes navdata\<theater>.json
 tools/                   Telemetry generator and ACMI converter
 ```
 
@@ -240,19 +270,45 @@ their first datagram against the server's own parser before sending, and the tes
 every packet type through both.
 
 **Schema 3** is what the hook sends. Tab separated, several records per datagram, behind a header
-line that carries the schema version, the DCS model time and the mission's visibility rule:
+line that carries the schema version, the DCS model time, the mission's visibility rule and the
+mission start time (seconds after midnight). Start plus model time is the mission's clock time,
+the one the F10 map shows and the map's status bar displays. The start time was added later: it is
+optional, older hooks send four fields, and an empty field means the hook couldn't find it.
 
 ```
-MM<TAB>3<TAB><modelTime><TAB><optionsView>
+MM<TAB>3<TAB><modelTime><TAB><optionsView><TAB><missionStart>
 O<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>unitName<TAB>groupName<TAB>coalition<TAB>tas<TAB>ralt<TAB>wow<TAB>aoa<TAB>accelY<TAB>chaff<TAB>flare<TAB>windX<TAB>windY<TAB>windZ
 A<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>unitName<TAB>groupName<TAB>coalition<TAB>level1<TAB>level2
 W<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>coalition
 D<TAB>id
+B<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>coalition<TAB>level2
+Z<TAB>id<TAB>name<TAB>hidden<TAB>type<TAB>radius<TAB>lat<TAB>lon<TAB>r,g,b,a<TAB>lat,lon;lat,lon;...
 ```
 
-`O` is the own aircraft, `A` another unit, `W` a weapon, `D` a removal. `level1`/`level2` are the
-DCS type levels; without `level1` air defence cannot be separated from other ground targets, which
-is why schema 2 was replaced. The hook strips tabs and line breaks from names; commas may stay.
+`O` is the own aircraft, `A` another unit, `W` a weapon, `D` a removal, `B` an airbase, `Z` a
+trigger zone. `level1`/`level2` are the DCS type levels; without `level1` air defence cannot be
+separated from other ground targets, which is why schema 2 was replaced. The hook strips tabs and
+line breaks from names; commas may stay.
+
+`B` lines carry DCS's own airbases from `LoGetWorldObjects('airdromes')`, which the plain object
+list does not contain. The hook sends the whole list at mission start and then once a minute: a
+base can change hands, and a server started mid-mission still gets it. A separate record type
+rather than an `A` line, because a base is a map feature and not a contact -- no fog of war (every
+player sees DCS's airfields on F10), no staleness, no heartbeat. The server passes a base on only
+when it is new or has changed, and tells clients to drop them all when the mission ends. A server
+older than this logs the unknown `B` lines as dropped and otherwise carries on.
+
+`Z` lines carry the mission's trigger zones from `DCS.getCurrentMission()`, converted to lat/lon
+by the hook with `Export.LoLoCoordinatesToGeoCoordinates` (the doubled "Lo" is DCS's spelling) --
+mission files use map coordinates, and only the game knows the theater's projection. `type` 0 is
+a circle (`radius`, centre), 2 a quad (the vertex list, last field). The hook converts them once
+per mission and re-sends them every five minutes for a server started late; the server handles
+them like airbases. Which zones are drawn, and how, is the client's call (`src/client/zones.ts`):
+only main zones (no `-1`, `-sp`, `-hsp`, `-runway-1` suffix), sorted into sectors (over 10 km
+across), airfield zones (named like a DCS airbase, blue if that base is reported blue) and
+objectives (red). Zones carry no type and no owner, so size and name are all there is to go by. A circle's
+vertex list is empty, so its line ends in a tab -- which is why the parser trims only line breaks
+and spaces off a datagram, never tabs.
 
 **Schema 1** is the older comma-separated format with no header, kept for anyone running the
 telemetry out of their own `Export.lua`. It is ambiguous by construction: names are inserted
@@ -272,9 +328,10 @@ lua dcs\test\hook_harness.lua 300 optview_all 150
 This needs a Lua interpreter on `PATH` (for example `winget install DEVCOM.Lua`).
 
 It writes the datagrams to stdout and checks them: header per datagram, schema version, the
-configured `optionsView` coming back out, the field count of every line type, a `D` line once
-objects disappear, the own aircraft not also sent as an ordinary unit, and a comma in a group name
-surviving while a tab does not. It exits non-zero and says what broke, so it belongs in CI rather
+configured `optionsView` and the mission start time coming back out, the field count of every line
+type, a `D` line once objects disappear, airbase (`B`) and zone (`Z`) lines being sent, the own
+aircraft not also sent as an ordinary unit, and a comma in a group name surviving while a tab
+does not. It exits non-zero and says what broke, so it belongs in CI rather
 than in a careful read of its output — which is where it runs.
 
 **Replaying a recorded session** is the route to use when you're changing the client. It puts real
@@ -319,6 +376,9 @@ command to play it a single time. On start, `replay-ws` prints the window 2 comm
 |---|---|
 | `real-session-2026-11-23.jsonl` | Single-player, one A-10A, 245 objects, 90 seconds |
 | `real-session-2026-11-23-multiplayer.jsonl` | Multiplayer, 301 objects, 30 seconds |
+
+Both predate the mission start time, airbases and zones, so in a replay the clock reads
+`--:--:--` and those layers stay empty.
 
 `$env:MM_UPSTREAM` stays set for as long as that PowerShell window is open. To go back to the
 DCS hook in the same window, clear it first:
@@ -383,11 +443,14 @@ What's covered, and why those parts:
 
 | File | Covers |
 |---|---|
-| `test/protocol.test.ts` | Every packet type round-tripped through `tools/wire.ts` and `src/server/protocol.ts`, both schemas, plus framing and error handling |
-| `test/world.test.ts` | Delta building, heartbeats, staleness and dropping — and the fog-of-war matrix, including against both recorded sessions |
+| `test/protocol.test.ts` | Every packet type round-tripped through `tools/wire.ts` and `src/server/protocol.ts`, both schemas, plus framing, the optional start-time field and error handling |
+| `test/world.test.ts` | Delta building, heartbeats, staleness and dropping — and the fog-of-war matrix, including against both recorded sessions; airbases |
+| `test/zones.test.ts` | Zone lines round-tripped, which zones count as main zones, circle outlines, the server's handling |
+| `test/navdata.test.ts` | Reading Radio.lua / Beacons.lua, matching airfields, the airfield readout's rows and runway columns |
+| `test/theaters.test.ts` | Which theater a position lies in |
 | `test/classify.test.ts` | Classification of every unit name in the recorded sessions, against a checked-in baseline |
 | `test/threats.test.ts` | Which air defence units get a threat ring and which don't |
-| `test/geo.test.ts` | The geodetic maths and cockpit formatting the BRA readout depends on |
+| `test/geo.test.ts` | The geodetic maths and cockpit formatting the BRA readout depends on, the mission clock, runway headings |
 | `test/leaders.test.ts` | Which contacts get a velocity leader, and how long it is |
 | `test/server.test.ts` | The real server end to end: a datagram in over UDP, messages out over the WebSocket |
 
@@ -430,6 +493,18 @@ Rendering. Symbols, range rings, pan and zoom behaviour, the HUD — none of tha
 automatically, and a green suite says nothing about whether the map looks right. Changes there
 have to be looked at, which is what the replay route under
 [Running without DCS](#running-without-dcs) is for.
+
+## Server endpoints
+
+| Path | What |
+|---|---|
+| `/` | The map |
+| `/ws` | WebSocket: one snapshot, then deltas (`src/shared/types.ts`) |
+| `/tiles/<theater>.pmtiles` | The theater's map tiles, read by range requests |
+| `/api/theaters` | Which theaters have tiles |
+| `/api/navdata/<theater>` | Airfield frequencies and navaids, `[]` if none were extracted |
+| `/api/version` | The running version |
+| `/health` | Counts (units, airbases, zones), and how long since the hook's last packet |
 
 ## Environment variables
 
@@ -491,32 +566,32 @@ hasn't changed, so the client doesn't dim it as stale.
   wide steps usable.
 - MGRS grid, DEM held locally instead of fetched from AWS, contour lines, further theaters.
 - Reading the mission's own bullseye, which would remove the one manual step in setting the
-  display up. There is a route: `coalition.getMainRefPoint(side)` returns it, but only in the
-  mission scripting environment, which a hook reaches through
-  `net.dostring_in('mission', ...)` -- converting to lat/lon with `coord.LOtoLL` inside that call,
-  since the reference point comes back in map coordinates. The open question is multiplayer: the
-  mission environment lives on the server, and this runs on the player's PC, so it is likely to
-  work single-player and when hosting and to come back empty as a client. Worth probing from the
-  hook and logging the result before building anything on it.
-- The active waypoint/flight plan on the map. Unlikely to be generally possible: the export API's
-  `LoGet*` functions expose aircraft state (position, fuel, sensors) but nothing documented gives
-  the route a player set up in the mission planner, and what partial access exists is tucked away
-  per aircraft module rather than a stable, documented, cross-module call. Someone who knows a
-  specific module's export quirks would have to confirm this one way or the other; absent that, it
-  stays unbuilt rather than guessed at.
+  display up. Probed on 2026-11-25 as a multiplayer client: `coalition.getMainRefPoint()` via
+  `net.dostring_in` comes back `nil` (the mission scripting environment is closed to clients), but
+  the bullseye of every coalition is in the mission data the hook already reads,
+  `DCS.getCurrentMission().mission.coalition.<side>.bullseye`, in map coordinates that
+  `Export.LoLoCoordinatesToGeoCoordinates` converts -- the same route the zones take. Not built
+  yet.
+- More that DCS exposes to a hook and the map doesn't use yet (probed 2026-11-25, multiplayer
+  client): human players via `Flags.Human` on every world object; editor drawings
+  (`mission.drawings`: lines, text boxes, the tanker tracks and frontlines on F10); the radio
+  beacons as a layer of their own (the data is in `navdata\` already). Not reachable as a client:
+  F10 map marks (`world.getMarkPanels()`) and which side holds a zone, both runtime state of the
+  mission scripting environment.
+- ICAO codes, runway lengths and runway names for the airfield readout. F10 shows them, but they
+  are in an encrypted terrain file, not in anything the hook or setup can read.
+- The active waypoint/flight plan on the map. Probed on 2026-11-25 with an F-16C as a multiplayer
+  client: `LoGetRoute()` and `LoGetNavigationInfo()` stay `nil`, also after entering a steerpoint
+  in the cockpit and after drawing a route with the F10 route tool, and a dynamic-spawn slot has
+  no route in the mission data either. Not available for that module; other modules unchecked.
 - A small number of ship classes with a genuine area air-defence system have a threat ring
   (Ticonderoga/Arleigh Burke-class, Aegis; Kirov/Slava-class, SA-N-6) -- see threats.ts. Frigates
   and corvettes with a shorter-range system are deliberately left out until someone can confirm
   the actual in-game numbers; adding a wrong range would be worse than no ring.
-- `start.bat`, the zero-friction Windows installer, is built (`tools/bootstrap-node.ps1` downloads
-  and checksum-verifies a portable Node into `runtime/node/`, `tools/bootstrap.js` then runs
-  `npm install`, the CSS copy, `fetch-assets`, `fetch-tiles`, `install-hook` and the server, opening
-  the browser at the address the server itself prints) but **not yet tried on an actual Windows
-  machine** -- only Node-for-Node testable pieces could be verified from this macOS dev machine:
-  the PowerShell download/checksum/extract logic ran for real under `pwsh`, and the spawn/tee/open
-  logic in bootstrap.js was exercised against the real dev server. The batch file itself
-  (`%PROCESSOR_ARCHITECTURE%` branch, `errorlevel` handling, the final `cmd /c start`) has only been
-  read, not run. Someone with a Windows PC should try a clean double-click before this is called done.
+- `start.bat` doesn't update an existing hook (see `install-hook` under
+  [Manual setup](#manual-setup)): after a hook change, players have to copy it by hand. Replacing
+  a file that is byte-for-byte an older version of this project's own hook would be safe, and
+  would need a list of known past versions to recognise one.
 
 ## Contributing
 

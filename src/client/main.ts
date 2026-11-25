@@ -11,7 +11,7 @@ import {
   bearingTo,
   distanceTo,
   formatAltitude,
-  formatMissionTime,
+  formatMissionClock,
   formatDDM,
   metersToFeet,
   metersToNm,
@@ -22,12 +22,16 @@ import {
   zoomForRange,
   toDeg,
   toMagnetic,
+  runwayHeadings,
   altitudeThousands,
   closureMs,
   windFrom,
   M_PER_NM,
 } from './geo.js';
 import { buildGraticule } from './graticule.js';
+import { AIRBASE_LABEL, airfieldPanel, buildAirbases, matchNav, registerAirbaseImages } from './airbases.js';
+import type { Airbase, AirfieldNav, Zone } from '../shared/types.js';
+import { buildZones } from './zones.js';
 import { buildBullseye, buildLeaders, buildRings, buildThreatRings } from './overlays.js';
 import { theaterAt, theaterContains } from '../shared/theaters.js';
 import * as cfg from './settings.js';
@@ -75,7 +79,13 @@ if (available.length > 0 && !available.includes(settings.theater)) {
 const own = new OwnshipEstimator();
 const units = new UnitBuffer();
 
-let headingUp = true;
+/**
+ * Map orientation. North-up by default, like the F10 map and a paper chart:
+ * labels and the grid read straight, and a glance shows which way north is.
+ * Heading-up is one tap away (HDG) for flying an approach. Remembered in the
+ * browser, like the range below (see saveView).
+ */
+let headingUp = settings.headingUp;
 
 /**
  * Follow the aircraft, or pan freely.
@@ -92,7 +102,7 @@ let follow = true;
  * Cleared by picking a range preset, which is the explicit way back to a
  * known distance.
  */
-let manualZoom: number | null = null;
+let manualZoom: number | null = settings.manualZoom;
 let connected = false;
 let lastSeq = 0;
 /** Visibility rule as DCS reports it. Decides whether contacts come through at all. */
@@ -102,7 +112,23 @@ let optionsView: OptionsView = 'optview_all';
  * zoom level is computed from it every frame, so "40 nm" means the same
  * distance regardless of window size or latitude.
  */
-let rangeIndex = 2;
+let rangeIndex = Math.min(Math.max(0, Math.round(settings.rangeIndex)), RANGES_NM.length - 1);
+
+/**
+ * Keeps orientation and range in the browser, so the map opens the way it
+ * was left. Checked from the render loop rather than wired into every place
+ * that changes them (buttons, wheel, pinch, keys): it writes only when
+ * something actually changed, and at most twice a second.
+ */
+let lastViewSave = 0;
+function saveView(now: number): void {
+  if (now - lastViewSave < 500) return;
+  lastViewSave = now;
+  const z = manualZoom === null ? null : Math.round(manualZoom * 100) / 100;
+  if (settings.headingUp === headingUp && settings.rangeIndex === rangeIndex && settings.manualZoom === z) return;
+  settings = { ...settings, headingUp, rangeIndex, manualZoom: z };
+  cfg.save(settings);
+}
 let zoom = 9;
 let selectedId: number | null = null;
 /** Reference for affiliation: your own coalition is friend. */
@@ -111,20 +137,27 @@ let ownCoalition: Coalition = 2;
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 /**
- * Two-point measurement. Off until MEAS is pressed; the first tap then sets
- * the start, the second the end, and a further tap starts over.
+ * The active entry of the TOOLS menu. A tool takes over a tap on the map,
+ * which is why only one can be active and why 'off' is the default: then a
+ * tap only selects contacts, and the map stays quiet. Not remembered across
+ * reloads -- a tool still armed from last time would just surprise.
  *
- * A button rather than a modifier because the thing is meant to be used on a
+ * A menu rather than a modifier because the thing is meant to be used on a
  * tablet, where there is no keyboard to hold anything down with.
+ */
+type Tool = 'off' | 'measure' | 'coord';
+let tool: Tool = 'off';
+
+/**
+ * Two-point measurement, while the Measure tool is active: the first tap
+ * sets the start, the second the end, and a further tap starts over.
  */
 let ruler: { a: { lat: number; lon: number } | null; b: { lat: number; lon: number } | null } | null = null;
 
 /**
- * Coordinates of the last plain click on open map, shown right next to
- * where you tapped. Cleared the moment a contact gets selected instead --
- * the BRAA box takes over then, with the contact's own coordinates in it --
- * and when MEAS is armed, since a stale coordinate label floating next to
- * a fresh measurement would just be clutter.
+ * Where the Coordinates tool was last tapped. The readout floats right
+ * there: coordinates, plus bearing and range from the own aircraft and the
+ * bullseye.
  */
 let clickedPoint: { lat: number; lon: number } | null = null;
 
@@ -139,7 +172,22 @@ let clickedPoint: { lat: number; lon: number } | null = null;
  * contact on the first click and immediately deselect it again on the
  * second -- a double-click on a contact would silently cancel itself out.
  */
-let groundTarget: { lat: number; lon: number } | null = null;
+let groundTarget: GroundTarget | null = null;
+
+/**
+ * A fixed point to fly to: a double-tapped spot, or an airfield picked by
+ * tapping its symbol, which also brings its name, elevation and runway.
+ */
+interface GroundTarget {
+  lat: number;
+  lon: number;
+  /** Set for an airfield; also what a second tap on it compares against. */
+  name?: string;
+  /** The airfield itself, as DCS reports it. */
+  base?: Airbase;
+  /** Tower frequencies and navaids, if the setup could read them from DCS. */
+  nav?: AirfieldNav | null;
+}
 
 /**
  * Tracks every click, not just ones on open ground: a double-click on a
@@ -189,10 +237,17 @@ map.dragPan.disable();
 // unify mouse, touch and pen under one implementation, and let pinch share
 // the same pointer bookkeeping as the pan below.
 
-function stepRange(delta: number): void {
-  rangeIndex = Math.max(0, Math.min(RANGES_NM.length - 1, rangeIndex + delta));
+/**
+ * The +/- buttons zoom freely, one zoom level per press (half or double the
+ * visible range), the same way the wheel and pinch do -- not between the
+ * presets, which only exist as shortcuts. Stepping through the presets
+ * stopped dead at 1 nm and 160 nm.
+ */
+function stepZoom(levels: number): void {
+  manualZoom = Math.max(0, Math.min(22, (manualZoom ?? map.getZoom()) + levels));
+  // Follow mode applies manualZoom itself every frame; free mode needs it here.
+  if (!follow) map.jumpTo({ zoom: manualZoom });
   updateRangeLabel();
-  applyFreeZoom();
 }
 
 /**
@@ -270,6 +325,12 @@ window.addEventListener('keydown', (e) => {
     ArrowLeft: [-PAN_STEP_PX, 0],
     ArrowRight: [PAN_STEP_PX, 0],
   };
+  // Escape closes the menu, or else switches the active tool off.
+  if (e.key === 'Escape') {
+    if (!menuPanel.hidden) closeMenu();
+    else if (tool !== 'off') setTool('off');
+    return;
+  }
   const d = delta[e.key];
   if (!d) return;
   // Don't steal the arrow keys from an input/select (the theater dropdown,
@@ -285,6 +346,14 @@ window.addEventListener('keydown', (e) => {
 // Prevents the browser's own touch scrolling/pinch-zoom/pull-to-refresh from
 // competing with the pointer handling below.
 canvas.style.touchAction = 'none';
+
+// iOS Safari zooms the whole page on a pinch regardless of user-scalable=no
+// and, in some versions, of touch-action too. Its own gesture events are the
+// one hook it reliably honours; cancelling them leaves the map's pinch (built
+// on pointer events) untouched, since those are separate events.
+for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+  document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+}
 
 /**
  * The attribution control's compact toggle is a native <details>/<summary>,
@@ -422,11 +491,60 @@ canvas.addEventListener('pointercancel', endPointer);
 
 function addOverlayLayers(): void {
   registerSymbols(map);
+  registerAirbaseImages(map);
   const c = CHART_COLORS[settings.mode];
   const ink = c.ink;
 
-  for (const id of ['graticule', 'threats', 'rings', 'bullseye', 'track', 'selected-trail', 'braa-line', 'leaders', 'ruler', 'contacts'] as const) {
+  for (const id of ['graticule', 'zones', 'airbases', 'threats', 'rings', 'bullseye', 'track', 'selected-trail', 'braa-line', 'leaders', 'ruler', 'contacts'] as const) {
     if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY });
+  }
+  // A restyle drops the layers; the next updateSources refills the new ones.
+  airbasesDirty = true;
+  zonesDirty = true;
+
+  // Mission zones, drawn the way the F10 map shows them (see zones.ts for
+  // the three kinds): objectives as a red translucent area with the name in
+  // bold behind a star; an airfield zone blue when DCS reports its base blue;
+  // the large ship and patrol sectors as a pale, barely-there area with a
+  // thin edge, the way F10 shows them, and never red -- they aren't held by
+  // anyone.
+  if (!map.getLayer('zones-fill')) {
+    const side = (red: string, blue: string, none: string): maplibregl.ExpressionSpecification =>
+      ['match', ['get', 'side'], 'red', red, 'blue', blue, none];
+    const sectorInk = settings.mode === 'night' ? '#c7d3e0' : '#41566e';
+    map.addLayer({
+      id: 'zones-fill', type: 'fill', source: 'zones',
+      paint: {
+        'fill-color': side('#e0303a', '#3b82e0', '#ffffff'),
+        'fill-opacity': ['match', ['get', 'kind'], 'sector', 0.18, 0.32],
+      },
+    });
+    map.addLayer({
+      id: 'zones-line', type: 'line', source: 'zones',
+      paint: {
+        'line-color': side('#e0303a', '#3b82e0', sectorInk),
+        'line-width': ['match', ['get', 'kind'], 'sector', 1, 1.2],
+        'line-opacity': 0.85,
+      },
+    });
+    map.addLayer({
+      id: 'zones-label', type: 'symbol', source: 'zones',
+      layout: {
+        // A star marks something that can be taken; a sector just has a name.
+        'text-field': ['match', ['get', 'kind'], 'sector', ['get', 'name'], ['concat', '★ ', ['get', 'name']]],
+        'text-font': ['Noto Sans Medium'],
+        'text-size': ['match', ['get', 'kind'], 'sector', 14, 12],
+        // Beside an objective, like F10; in the middle of a sector.
+        'text-anchor': ['match', ['get', 'kind'], 'sector', 'center', 'left'],
+        'text-offset': ['match', ['get', 'kind'], 'sector', ['literal', [0, 0]], ['literal', [1.2, 0]]],
+        'text-optional': true,
+      },
+      paint: {
+        'text-color': side('#b3121c', '#1f5fb8', sectorInk),
+        'text-halo-color': settings.mode === 'night' ? '#1a1d22' : '#f4efe6',
+        'text-halo-width': 2.2,
+      },
+    });
   }
 
   if (!map.getLayer('graticule-line')) {
@@ -441,6 +559,24 @@ function addOverlayLayers(): void {
         'symbol-placement': 'line', 'text-rotation-alignment': 'viewport', 'text-keep-upright': true,
       },
       paint: { 'text-color': ink, 'text-opacity': 0.55, 'text-halo-color': c.earth, 'text-halo-width': 1.2 },
+    });
+  }
+
+  // DCS's airbases: below every contact and overlay, above the base map.
+  if (!map.getLayer('airbases-icon')) {
+    map.addLayer({
+      id: 'airbases-icon', type: 'symbol', source: 'airbases',
+      layout: {
+        'icon-image': ['get', 'icon'],
+        'icon-rotate': ['get', 'hdgDeg'],
+        'icon-rotation-alignment': 'map',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        // Grows as you zoom in: modest in the overview, where there are many
+        // and they shouldn't crowd the picture; large close in, where you
+        // look for one field and want to hit it with a finger.
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 6, 0.95, 9, 1.2, 12, 1.6],
+      },
     });
   }
 
@@ -689,6 +825,28 @@ function addOverlayLayers(): void {
     });
   }
 
+  // Airfield names last, above everything: the symbols sit under the
+  // contacts (so they hide no unit), but a name under a contact's label was
+  // unreadable exactly where it matters -- fields are crowded with parked
+  // aircraft and vehicles.
+  if (!map.getLayer('airbases-label')) {
+    map.addLayer({
+      id: 'airbases-label', type: 'symbol', source: 'airbases',
+      layout: {
+        'text-field': ['get', 'name'],
+        'text-font': ['Noto Sans Medium'],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11.5, 12, 14],
+        'text-anchor': 'top',
+        'text-offset': ['interpolate', ['linear'], ['zoom'], 6, ['literal', [0, 1.3]], 12, ['literal', [0, 1.9]]],
+        // Always shown: a few dozen per theater, and the one thing on the
+        // map you navigate by. As text-optional it lost out to a town name or
+        // a contact label next to it and quietly vanished.
+        'text-allow-overlap': true,
+      },
+      paint: { 'text-color': AIRBASE_LABEL[settings.mode], 'text-halo-color': c.earth, 'text-halo-width': 1.8 },
+    });
+  }
+
   applyVisibility();
 }
 
@@ -698,6 +856,10 @@ function applyVisibility(): void {
   };
   vis('graticule-line', settings.graticule);
   vis('graticule-label', settings.graticule && settings.mapLabels);
+  vis('airbases-label', settings.mapLabels);
+  vis('zones-fill', settings.zones);
+  vis('zones-line', settings.zones);
+  vis('zones-label', settings.zones && settings.mapLabels);
   const threatsOn = settings.threats !== 'none';
   vis('threats-fill', threatsOn);
   vis('threats-line', threatsOn);
@@ -768,6 +930,86 @@ const trackPoints: Array<[number, number]> = [];
 /** Trail of the selected contact. Cleared whenever the selection changes. */
 let selectedTrail: Array<[number, number]> = [];
 
+/**
+ * Airfield frequencies and navaids for the current theater, from the server
+ * (read from the local DCS install at setup). Fetched once per theater; an
+ * empty list when there are none, and the map works the same without.
+ */
+let navFields: AirfieldNav[] = [];
+let navTheater: string | null = null;
+
+function loadNavFor(theater: string): void {
+  if (navTheater === theater) return;
+  navTheater = theater;
+  navFields = [];
+  void fetch(`/api/navdata/${encodeURIComponent(theater)}`)
+    .then((r) => r.json() as Promise<AirfieldNav[]>)
+    .then((fields) => {
+      if (navTheater === theater) navFields = Array.isArray(fields) ? fields : [];
+    })
+    .catch(() => {});
+}
+
+/** The mission's trigger zones, by id; static per mission. */
+const zones = new Map<number, Zone>();
+let zonesDirty = false;
+
+function updateZones(): void {
+  if (!zonesDirty || !map.getSource('zones')) return;
+  zonesDirty = false;
+  setData('zones', buildZones(zones.values(), airbases.values()));
+}
+
+/** DCS's own airbases, by id. Rebuilt into the map layer when dirty, see updateAirbases. */
+const airbases = new Map<number, Airbase>();
+let airbasesDirty = false;
+let lastAirbaseBuild = 0;
+
+/**
+ * Rebuilds the airbase layer on a change, and every few seconds anyway: the
+ * carrier filter in buildAirbases depends on which contacts exist, and a
+ * carrier's own unit can arrive after its base entry.
+ *
+ * While DCS supplies airbases, the OpenStreetMap airfield names are hidden --
+ * those are the real world's airfields, which DCS's don't always match, and
+ * both at once would put two names on most fields.
+ */
+function updateAirbases(now: number, contactIds: ReadonlySet<number>): void {
+  loadNavFor(settings.theater);
+  if (!airbasesDirty && now - lastAirbaseBuild < 5000) return;
+  airbasesDirty = false;
+  lastAirbaseBuild = now;
+  // Airfield zones take their base's side, so they follow airbase changes.
+  zonesDirty = true;
+  setData('airbases', buildAirbases(airbases.values(), contactIds));
+  if (map.getLayer('aero-airfield')) {
+    map.setLayoutProperty('aero-airfield', 'visibility', airbases.size > 0 ? 'none' : 'visible');
+  }
+}
+
+/** When the last live ownship update arrived (performance.now()); null before the first. */
+let lastOwnAt: number | null = null;
+/** Matches the server's console: quieter than this, and DCS is paused, loading or gone. */
+const DCS_QUIET_MS = 10_000;
+const linkEl = document.getElementById('link')!;
+
+/**
+ * Says why the map isn't moving: no server, or no data from DCS. Neutral
+ * wording on purpose -- a paused or loading DCS is normal, nothing is broken.
+ * Runs every frame, outside the own.ready block, so it also shows before
+ * the first data ever arrives.
+ */
+function updateLink(now: number): void {
+  let text: string | null = null;
+  if (!connected) text = 'CONNECTING TO MAP SERVER …';
+  else if (lastOwnAt === null) text = 'WAITING FOR DCS …';
+  else if (now - lastOwnAt > DCS_QUIET_MS) {
+    text = `WAITING FOR DCS · last data ${Math.round((now - lastOwnAt) / 1000)} s ago`;
+  }
+  linkEl.hidden = text === null;
+  if (text !== null && linkEl.textContent !== text) linkEl.textContent = text;
+}
+
 function connect(): void {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws`);
@@ -780,9 +1022,22 @@ function connect(): void {
       units.clear();
       trackPoints.length = 0;
       for (const u of msg.units) units.push(u, now);
+      airbases.clear();
+      for (const b of msg.airbases ?? []) airbases.set(b.id, b);
+      airbasesDirty = true;
+      zones.clear();
+      for (const z of msg.zones ?? []) zones.set(z.id, z);
+      zonesDirty = true;
       if (msg.own) { own.update(msg.own); ownCoalition = msg.own.coalition; followTheater(msg.own.lat, msg.own.lon); }
     } else {
+      // Deltas only: a snapshot repeats the server's last known ownship even
+      // when DCS has long gone quiet, so it says nothing about live data.
+      if (msg.own) lastOwnAt = now;
       if (msg.own) { own.update(msg.own); ownCoalition = msg.own.coalition; followTheater(msg.own.lat, msg.own.lon); }
+      if (msg.airbasesCleared) { airbases.clear(); airbasesDirty = true; }
+      for (const b of msg.airbases ?? []) { airbases.set(b.id, b); airbasesDirty = true; }
+      if (msg.zonesCleared) { zones.clear(); zonesDirty = true; }
+      for (const z of msg.zones ?? []) { zones.set(z.id, z); zonesDirty = true; }
       for (const u of msg.units ?? []) units.push(u, now);
       for (const id of msg.removed ?? []) units.remove(id);
     }
@@ -848,6 +1103,9 @@ function frame(now: number): void {
   // only follow mode keeps current -- a wheel zoom in free mode left the grid
   // at the old, finer step. Outside the own.ready block, so the grid also
   // follows the view before any telemetry has arrived.
+  if (!document.hidden) updateLink(now);
+  saveView(now);
+
   const mapZoom = map.getZoom();
   if (!document.hidden && (now - lastGrid > 1000 || Math.abs(mapZoom - lastZoomForGrid) > 0.01)) {
     lastGrid = now;
@@ -871,6 +1129,8 @@ function updateSources(now: number): void {
   // Evaluate once and pass it on: interpolation is the most expensive part
   // of the tick, doing it twice per frame would be pure waste.
   const contacts = visibleContacts(now);
+  updateAirbases(now, new Set(contacts.map((u) => u.unit.id)));
+  updateZones();
 
   setData('contacts', {
     type: 'FeatureCollection',
@@ -883,6 +1143,9 @@ function updateSources(now: number): void {
         category: u.unit.category,
         coalition: u.unit.coalition,
         name: u.unit.name,
+        // Moving like something flying, not taxiing or parked -- decides
+        // whether a tap on an airfield picks this contact or the field.
+        flying: AIRBORNE.has(u.unit.category) && u.spdMs > FLYING_MS,
         // Affiliation is relative: your own coalition is friend, the other
         // hostile. Setting red and blue absolutely would be wrong under the
         // standard -- the DCS set does exactly that, so it gets both passed in.
@@ -1063,10 +1326,11 @@ function updateHud(now: number): void {
   // the bar wraps to two lines on phone width instead of tearing a group
   // apart mid-way or scrolling sideways.
   hud.textContent = [
-    // Mission elapsed time, from DCS' own model time -- not the wall clock,
-    // which every device already shows. Doubles as a feed-health check: if
-    // it stops advancing, so has everything else.
-    nbsp(`${connected ? '●' : '○'} ${formatMissionTime(own.modelTime)}`),
+    // Mission clock time, as on the F10 map -- not the wall clock, which every
+    // device already shows, and not elapsed time, which means nothing in the
+    // cockpit. Doubles as a feed-health check: if it stops advancing, so has
+    // everything else.
+    nbsp(`${connected ? '●' : '○'} ${formatMissionClock(own.missionStart, own.modelTime)}`),
     nbsp(`${formatDDM(own.lat, 'NS')} ${formatDDM(own.lon, 'EW')}`),
     nbsp(formatAltitude(own.alt)),
     nbsp(`${Math.round(msToKnots(own.tas))} kt`),
@@ -1094,6 +1358,7 @@ function updateHud(now: number): void {
 
 const rulerBox = document.getElementById('ruler')!;
 const clickInfoBox = document.getElementById('clickinfo')!;
+const coordMark = document.getElementById('coordmark')!;
 
 /**
  * Places the ruler readout at a point in the map, clamped to stay fully
@@ -1162,11 +1427,28 @@ function updateRuler(): void {
 function updateClickInfo(): void {
   if (!clickedPoint) {
     clickInfoBox.hidden = true;
+    coordMark.hidden = true;
     return;
   }
   clickInfoBox.hidden = false;
-  clickInfoBox.textContent = `${formatDDM(clickedPoint.lat, 'NS')} ${formatDDM(clickedPoint.lon, 'EW')}`;
-  placeFloatingBox(clickInfoBox, clickedPoint.lon, clickedPoint.lat, -20, 130);
+  // The cross sits exactly on the spot and follows it as the map moves or
+  // turns; unlike the readout it isn't clamped to the screen -- off screen,
+  // the spot is simply off screen.
+  const at = map.project([clickedPoint.lon, clickedPoint.lat]);
+  coordMark.hidden = false;
+  coordMark.style.left = `${at.x}px`;
+  coordMark.style.top = `${at.y}px`;
+  const p = clickedPoint;
+  // Bearing and range *to* the point, the way you'd fly or call it.
+  const braTo = (from: { lat: number; lon: number }): string =>
+    `${bearing3(refBearing(bearingTo(from.lat, from.lon, p.lat, p.lon)))}${refSuffix}` +
+    ` / ${metersToNm(distanceTo(from.lat, from.lon, p.lat, p.lon)).toFixed(1)} nm`;
+  const lines = [`${formatDDM(p.lat, 'NS')} ${formatDDM(p.lon, 'EW')}`];
+  if (own.ready) lines.push(`OWN   ${braTo(own)}`);
+  lines.push(`BULLS ${braTo(bullseye)}`);
+  clickInfoBox.textContent = lines.join('\n');
+  // High enough above the spot to clear the cross's upper arm.
+  placeFloatingBox(clickInfoBox, clickedPoint.lon, clickedPoint.lat, -30, 130);
 }
 
 function updateBraa(now: number): void {
@@ -1234,7 +1516,7 @@ function updateBraa(now: number): void {
  * net out, so passing zero for both leaves only your own along-track
  * component).
  */
-function updateGroundTargetBraa(target: { lat: number; lon: number }): void {
+function updateGroundTargetBraa(target: GroundTarget): void {
   const brg = bearingTo(own.lat, own.lon, target.lat, target.lon);
   const rng = metersToNm(distanceTo(own.lat, own.lon, target.lat, target.lon));
   const bullBrg = bearingTo(bullseye.lat, bullseye.lon, target.lat, target.lon);
@@ -1242,15 +1524,29 @@ function updateGroundTargetBraa(target: { lat: number; lon: number }): void {
   const vc = closureMs(own.track, own.groundSpeed, 0, 0, brg);
   const ttgMin = vc > 1 ? (rng * M_PER_NM) / vc / 60 : null;
 
-  braaBox.hidden = false;
-  braaBox.textContent = [
-    nbsp('GROUND REF'),
-    nbsp(`${formatDDM(target.lat, 'NS')} ${formatDDM(target.lon, 'EW')}`),
+  const coords = nbsp(`${formatDDM(target.lat, 'NS')} ${formatDDM(target.lon, 'EW')}`);
+  const braa = [
     nbsp(`BRAA ${bearing3(refBearing(brg))}${refSuffix} / ${rng.toFixed(1)} nm`),
     nbsp(`BULLS ${bearing3(refBearing(bullBrg))}${refSuffix}/${Math.round(bullRng)}`),
     nbsp(`Vc ${Math.round(msToKnots(vc))}`),
     nbsp(ttgMin !== null && ttgMin < 60 ? `T ${ttgMin.toFixed(1)} min` : 'T —'),
   ].join('   ');
+
+  braaBox.hidden = false;
+  if (target.name === undefined) {
+    braaBox.textContent = [nbsp('GROUND REF'), coords, braa].join('   ');
+    return;
+  }
+
+  // An airfield: the rows of DCS's own F10 airfield window, as far as there
+  // is data for them, with the line to it on top -- see airfieldPanel.
+  if (!target.base) return;
+  braaBox.textContent = airfieldPanel(target.base, target.nav ?? null, {
+    magVarDeg: magVar(),
+    braa,
+    elevFt: Math.round(metersToFeet(target.base.alt)),
+    coords,
+  }).join('\n');
 }
 
 // --- Controls ----------------------------------------------------------------
@@ -1276,6 +1572,14 @@ canvas.addEventListener('click', (e) => {
     return;
   }
 
+  if (tool === 'coord') {
+    // The Coordinates tool owns the tap, contacts included: you are asking
+    // where that spot is, not selecting what happens to sit on it.
+    const ll = map.unproject(pt);
+    clickedPoint = { lat: ll.lat, lon: ll.lng };
+    return;
+  }
+
   if (e.shiftKey) {
     // Shift-click sets the bullseye -- the hook doesn't provide it.
     const ll = map.unproject(pt);
@@ -1285,7 +1589,13 @@ canvas.addEventListener('click', (e) => {
   }
 
   const hits = map.queryRenderedFeatures([[pt[0] - 12, pt[1] - 12], [pt[0] + 12, pt[1] + 12]], { layers: ['contacts-dot', 'contacts-air'] });
-  const id = hits[0]?.properties?.['id'];
+  // An airfield is almost always covered by parked aircraft, vehicles and
+  // buildings; if every contact beat it, an airfield could never be picked.
+  // So an airfield wins over anything on the ground -- a parked jet included
+  // -- and only something actually flying wins over the airfield.
+  const base = airbaseAt(pt);
+  const airborneHit = hits.find((h) => h.properties?.['flying'] === true);
+  const id = base && !airborneHit ? undefined : (airborneHit ?? hits[0])?.properties?.['id'];
 
   const now = performance.now();
   const isDoubleClick =
@@ -1304,29 +1614,43 @@ canvas.addEventListener('click', (e) => {
       selectedId = id === selectedId ? null : id;
       selectedTrail = [];
     }
-    // Either way the BRAA box gets its own coordinate line, so the floating
-    // one here would be redundant -- and a contact takes priority over any
-    // ground reference point showing.
-    clickedPoint = null;
+    // A contact takes priority over any ground reference point showing.
     groundTarget = null;
-  } else {
-    // Empty ground. A stray tap elsewhere must never silently drop the BRA
-    // line -- only clicking the selected contact again does that -- so the
-    // selection is left exactly as it was; this only adds the coordinate
-    // readout at the point itself. A double-click instead sets a BRAA
-    // reference point right there, the ground equivalent of selecting a
-    // contact.
-    const ll = map.unproject(pt);
-    if (isDoubleClick) {
-      groundTarget = { lat: ll.lat, lon: ll.lng };
+  } else if (base) {
+    // An airfield: the same line and readout as a ground reference point,
+    // plus its name, elevation, runway and frequencies -- what an approach
+    // needs. Tapping the same field again drops it, like tapping a selected
+    // contact. The second tap of a double-click is ignored, as for contacts.
+    if (!isDoubleClick) {
+      groundTarget = groundTarget?.name === base.name
+        ? null
+        : { lat: base.lat, lon: base.lon, name: base.name, base, nav: matchNav(base, navFields) };
       selectedId = null;
       selectedTrail = [];
-      clickedPoint = null;
-    } else {
-      clickedPoint = { lat: ll.lat, lon: ll.lng };
     }
+  } else if (isDoubleClick) {
+    // Empty ground. A single stray tap does nothing -- it must never
+    // silently drop the BRA line, only clicking the selected contact again
+    // does that; coordinates are the Coordinates tool's job. A double-click
+    // sets a BRAA reference point right there, the ground equivalent of
+    // selecting a contact.
+    const ll = map.unproject(pt);
+    groundTarget = { lat: ll.lat, lon: ll.lng };
+    selectedId = null;
+    selectedTrail = [];
   }
 });
+
+/** Above this ground speed (about 60 kt) an aircraft counts as flying, not taxiing. */
+const FLYING_MS = 30;
+
+/** The airfield whose symbol is under a screen point, if any. */
+function airbaseAt(pt: [number, number]): Airbase | null {
+  if (!map.getLayer('airbases-icon')) return null;
+  const hit = map.queryRenderedFeatures([[pt[0] - 14, pt[1] - 14], [pt[0] + 14, pt[1] + 14]], { layers: ['airbases-icon'] })[0];
+  const id = hit?.properties?.['id'];
+  return typeof id === 'number' ? airbases.get(id) ?? null : null;
+}
 
 const btnCtr = document.getElementById('mode-centre')!;
 const btnFree = document.getElementById('mode-free')!;
@@ -1350,38 +1674,103 @@ function setOrientation(up: boolean): void {
 btnHdg.addEventListener('click', () => setOrientation(true));
 btnNorth.addEventListener('click', () => setOrientation(false));
 setOrientation(headingUp);
-const btnMeasure = document.getElementById('mode-measure')!;
-btnMeasure.addEventListener('click', () => {
-  ruler = ruler ? null : { a: null, b: null };
-  btnMeasure.setAttribute('aria-pressed', String(ruler !== null));
-  if (ruler) {
-    clickedPoint = null;
-    groundTarget = null;
+// --- Menu: tools and settings ---------------------------------------------------
+//
+// One button for both, to save room in the bar: the tools sit at the top of
+// the settings panel. The button stays the place that shows an active tool
+// (yellow, named after it), since that is what explains why a tap on the map
+// isn't selecting a contact.
+
+const menuToggle = document.getElementById('menu-toggle')!;
+const menuPanel = document.getElementById('settings')!;
+const toolsMenu = document.getElementById('tools-menu')!;
+const TOOL_LABEL: Record<Tool, string> = { off: 'MENU', measure: 'MEAS', coord: 'COORD' };
+
+/** The status bar along the top; the menu must not reach under it. */
+const MENU_TOP_PX = 52;
+
+/**
+ * Fits the menu between the status bar and the control bar, in what is
+ * actually visible: the visual viewport, without a mobile browser's own
+ * toolbars, and above the control bar at whatever height it has wrapped to
+ * (two rows on a phone). With a fixed offset and 100vh it ran off the top of
+ * a tablet, cutting off the tools.
+ */
+function placeMenu(): void {
+  const viewH = window.visualViewport?.height ?? window.innerHeight;
+  const barTop = document.getElementById('controls')!.getBoundingClientRect().top;
+  const bottom = Math.max(8, window.innerHeight - barTop + 8);
+  menuPanel.style.bottom = `${bottom}px`;
+  menuPanel.style.maxHeight = `${Math.max(160, viewH - bottom - MENU_TOP_PX)}px`;
+}
+
+function openMenu(): void {
+  menuPanel.hidden = false;
+  menuToggle.setAttribute('aria-expanded', 'true');
+  placeMenu();
+  updateStatus();
+  buildLegend();
+}
+
+// Rotating the tablet or a toolbar sliding in changes the room it has.
+for (const target of [window, window.visualViewport].filter(Boolean) as EventTarget[]) {
+  target.addEventListener('resize', () => { if (!menuPanel.hidden) placeMenu(); });
+}
+
+function closeMenu(): void {
+  menuPanel.hidden = true;
+  menuToggle.setAttribute('aria-expanded', 'false');
+}
+
+/**
+ * Switches the active tool. Each switch starts clean: a half-finished
+ * measurement or a coordinate readout from the previous tool would just be
+ * clutter next to the new one.
+ */
+function setTool(next: Tool): void {
+  tool = next;
+  ruler = next === 'measure' ? { a: null, b: null } : null;
+  clickedPoint = null;
+  if (next !== 'off') groundTarget = null;
+  menuToggle.textContent = `☰ ${TOOL_LABEL[next]}`;
+  menuToggle.setAttribute('aria-pressed', String(next !== 'off'));
+  for (const item of Array.from(toolsMenu.querySelectorAll<HTMLButtonElement>('[data-tool]'))) {
+    item.setAttribute('aria-checked', String(item.dataset['tool'] === next));
   }
+  // Picking a tool means the next thing is a tap on the map, so the menu
+  // gets out of the way. Off leaves it open -- you may be there for settings.
+  if (next !== 'off') closeMenu();
+}
+
+menuToggle.addEventListener('click', () => {
+  if (menuPanel.hidden) openMenu();
+  else closeMenu();
+});
+toolsMenu.addEventListener('click', (e) => {
+  const item = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-tool]');
+  if (item) setTool(item.dataset['tool'] as Tool);
+});
+// A tap on the map closes the menu without changing anything. Only the
+// map: a tap on the bar (zooming, say) leaves the settings open.
+canvas.addEventListener('pointerdown', () => {
+  if (!menuPanel.hidden) closeMenu();
 });
 
 btnCtr.addEventListener('click', () => setFollow(true));
 btnFree.addEventListener('click', () => { setFollow(false); applyFreeZoom(); });
 setFollow(true);
 // Step buttons in addition to the direct-pick buttons: on a tablet, the
-// large tap targets are easier to hit than a specific number.
-document.getElementById('range-out')!.addEventListener('click', () => stepRange(1));
-document.getElementById('range-in')!.addEventListener('click', () => stepRange(-1));
+// large tap targets are easier to hit than a specific number. They zoom
+// freely, past the smallest and largest preset.
+document.getElementById('range-out')!.addEventListener('click', () => stepZoom(-1));
+document.getElementById('range-in')!.addEventListener('click', () => stepZoom(1));
 for (const nm of RANGE_PRESETS_NM) {
   document.getElementById(`range-${nm}`)!.addEventListener('click', () => setRange(nm));
 }
 updateRangeLabel();
 
-const panel = document.getElementById('settings')!;
+const panel = menuPanel;
 const statusLine = document.getElementById('status')!;
-
-document.getElementById('toggle-settings')!.addEventListener('click', () => {
-  panel.hidden = !panel.hidden;
-  if (!panel.hidden) {
-    updateStatus();
-    buildLegend();
-  }
-});
 
 function updateStatus(): void {
   const secure = window.isSecureContext;

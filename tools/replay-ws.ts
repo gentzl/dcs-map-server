@@ -38,8 +38,12 @@ if (!path) {
   process.exit(2);
 }
 
+// A byte-order mark is stripped first: Notepad and PowerShell 5.1 write one
+// when saving UTF-8, and a recording trimmed or edited that way otherwise
+// failed on its very first line. Same for the CR of CRLF line endings.
 const records: Rec[] = readFileSync(path, 'utf8')
-  .split('\n')
+  .replace(/^﻿/, '')
+  .split(/\r?\n/)
   .filter(Boolean)
   .map((line) => JSON.parse(line) as Rec);
 

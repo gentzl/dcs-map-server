@@ -61,6 +61,12 @@ export interface Unit {
 export interface Ownship extends Unit {
   /** Model time from DCS. Serves the client as its time base, not the wall clock. */
   modelTime: number;
+  /**
+   * Mission start time in seconds after midnight, from the hook's header.
+   * Start plus modelTime is the mission's clock time, as on the F10 map.
+   * Absent from older hooks and recordings.
+   */
+  missionStart?: number;
   tas: number;
   ralt: number;
   /** 0 = airborne, 1 = ground, 2 = carrier deck. */
@@ -72,6 +78,83 @@ export interface Ownship extends Unit {
   wind: { x: number; y: number; z: number };
 }
 
+/**
+ * An airbase as DCS itself knows it -- airfield, and whatever else DCS lists
+ * under LoGetWorldObjects('airdromes'). A map feature, not a contact: every
+ * player sees DCS's airfields on the F10 map, so no fog of war applies.
+ */
+export interface Airbase {
+  id: number;
+  name: string;
+  lat: number;
+  lon: number;
+  alt: number;
+  /** Heading in radians, as DCS reports it for the base. */
+  hdg: number;
+  /** As DCS reports it; whether that tracks a base changing hands is not yet confirmed. */
+  coalition: Coalition;
+  /** DCS Type.level2, kept to tell kinds of base apart later. */
+  level2: number;
+}
+
+/**
+ * A trigger zone from the mission file, already in lat/lon. Static for the
+ * whole mission. Like airbases a map feature, not a contact: no fog of war.
+ */
+export interface Zone {
+  id: number;
+  name: string;
+  /** As the mission builder set it; which zones to draw is the client's call. */
+  hidden: boolean;
+  shape: 'circle' | 'quad';
+  /** Circles: centre and radius in metres. */
+  lat: number;
+  lon: number;
+  radiusM: number;
+  /** Quads: the corners, [lat, lon]. */
+  vertices?: [number, number][];
+  /** The zone's own colour in the mission, r/g/b/a 0..1. */
+  color: [number, number, number, number];
+}
+
+/**
+ * Radio and navaid data for one airfield, read from the theater's own files
+ * in the local DCS install (Radio.lua, Beacons.lua) at setup. Fixed per map,
+ * not per mission: a mission's own beacons (tanker or carrier TACAN) aren't
+ * in here.
+ */
+export interface AirfieldNav {
+  /** DCS's own key, "airfield25" -- shared by the radio and beacon entries. */
+  key: string;
+  /** As the beacons name the field -- the same spelling the export uses. */
+  name: string;
+  /** Other spellings (the radio callsigns), for matching. */
+  aliases: string[];
+  /** Mean position of the field's beacons, for matching by distance. */
+  lat?: number;
+  lon?: number;
+  /** Tower frequencies in MHz, per band. */
+  com: { vhf?: number; uhf?: number; vhfLow?: number; hf?: number };
+  nav: NavAid[];
+}
+
+export interface NavAid {
+  kind: 'ILS' | 'TCN' | 'VOR' | 'NDB' | 'RSBN' | 'PRMG';
+  ident: string;
+  /** VHF/UHF navaids. */
+  mhz?: number;
+  /** NDBs. */
+  khz?: number;
+  channel?: number;
+  /** ILS/PRMG: final approach course, true, degrees. */
+  courseTrue?: number;
+  /** NDBs on an approach: the outer (far) or inner (near) homer. */
+  role?: 'outer' | 'inner';
+  /** Where the beacon stands -- decides which runway direction it serves. */
+  lat?: number;
+  lon?: number;
+}
+
 export interface Snapshot {
   type: 'snapshot';
   seq: number;
@@ -79,6 +162,9 @@ export interface Snapshot {
   optionsView: OptionsView;
   own: Ownship | null;
   units: Unit[];
+  /** Absent from older servers and recordings. */
+  airbases?: Airbase[];
+  zones?: Zone[];
 }
 
 export interface Delta {
@@ -89,6 +175,14 @@ export interface Delta {
   own?: Ownship;
   units?: Unit[];
   removed?: number[];
+  /** New or changed airbases. */
+  airbases?: Airbase[];
+  /** The mission ended: drop every airbase before applying anything else. */
+  airbasesCleared?: true;
+  /** New or changed trigger zones. */
+  zones?: Zone[];
+  /** The mission ended: drop every zone. */
+  zonesCleared?: true;
 }
 
 export type ServerMessage = Snapshot | Delta;

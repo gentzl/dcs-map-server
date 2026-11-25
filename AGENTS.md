@@ -2,7 +2,7 @@
 
 ## Verifying a change
 
-```bash
+```powershell
 npm run typecheck   # all four TS projects
 npm test            # node --test, well under a second
 ```
@@ -13,12 +13,12 @@ Rendering is not covered by either — symbols, range rings, pan/zoom and the HU
 check, so a green suite says nothing about whether the map looks right. To actually look at a
 client change without starting DCS, replay a recorded session through the server:
 
-```bash
-npm run replay-ws -- dcs/test/fixtures/real-session-2026-11-23.jsonl --port 8766
-MM_UPSTREAM=ws://127.0.0.1:8766/ws npm run dev
+```powershell
+npm run demo
 ```
 
-That puts 245 real objects of every category on the map, moving. If you changed anything visual
+That puts 245 real objects of every category on the map, moving. The committed recordings predate
+the mission clock, airbases and zones, so those stay empty in a replay. If you changed anything visual
 and didn't look at it, say so rather than implying it was verified.
 
 ## Two rules that aren't negotiable
@@ -63,7 +63,7 @@ unaffected by this rule.
 
 | File | Audience | Contents |
 |---|---|---|
-| `README.md` | someone who just found the project | What it is, four install steps, nothing else |
+| `README.md` | someone who just found the project | What it is, two install steps, nothing else |
 | `docs/MANUAL.md` | pilots using it | Controls, settings, symbols, troubleshooting — no code |
 | `docs/DEVELOPERS.md` | developers and power users | Architecture, protocol, tools, tests, env vars |
 | `AGENTS.md` | this file | Conventions that aren't derivable from the code |
@@ -95,7 +95,7 @@ Versions are `MAJOR.MINOR.BUILD` (details: [docs/DEVELOPERS.md](docs/DEVELOPERS.
 - **Don't touch** `VERSION_ARCHIVE` or the `export-subst` line in `.gitattributes`: GitHub fills in
   the placeholder when it builds the ZIP, and it has to stay a literal `$Format:...$` in the repo.
 - **Checking the version:** the server prints it on startup and serves it at `/api/version`; the
-  web UI shows it at the bottom of the settings panel. A `-dirty` suffix just means uncommitted
+  web UI shows it at the bottom of the menu. A `-dirty` suffix just means uncommitted
   changes in the working tree.
 - In a handoff note, name the version you left the repository at (from `/api/version` or
   `git describe --tags`), not only the commit hash.

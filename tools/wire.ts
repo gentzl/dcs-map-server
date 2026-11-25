@@ -111,6 +111,42 @@ export function weaponLine(w: WeaponFields, schema: Schema): string {
 /** Only schema 3 knows removal events. */
 export const removeLine = (id: number): string => `D\t${id}`;
 
+export interface AirbaseFields {
+  id: number;
+  name: string;
+  lat: number;
+  lon: number;
+  alt: number;
+  hdg: number;
+  coalition: number;
+  level2: number;
+}
+
+export interface ZoneFields {
+  id: number;
+  name: string;
+  hidden: boolean;
+  /** 0 circle, 2 quad -- DCS's own numbers. */
+  type: 0 | 2;
+  radius: number;
+  lat: number;
+  lon: number;
+  color: [number, number, number, number];
+  vertices?: [number, number][];
+}
+
+/** Only schema 3 knows zones. */
+export const zoneLine = (z: ZoneFields): string =>
+  [
+    'Z', z.id, clean(z.name, 3), z.hidden ? 1 : 0, z.type, f(z.radius, 1), f(z.lat, 6), f(z.lon, 6),
+    z.color.map((c) => f(c, 2)).join(','),
+    (z.vertices ?? []).map(([la, lo]) => `${f(la, 6)},${f(lo, 6)}`).join(';'),
+  ].join('\t');
+
+/** Only schema 3 knows airbases. */
+export const airbaseLine = (b: AirbaseFields): string =>
+  ['B', b.id, clean(b.name, 3), f(b.lat, 6), f(b.lon, 6), f(b.alt, 1), f(b.hdg, 5), b.coalition, b.level2].join('\t');
+
 /**
  * Bundles a tick's lines into datagrams. Schema 3 bundles everything behind
  * one header line, schema 1 has none and sends each line separately.
@@ -120,8 +156,11 @@ export function toDatagrams(
   modelTime: number,
   view: OptionsView,
   schema: Schema,
+  /** Mission start, seconds after midnight. Omitted gives the older four-field header. */
+  missionStart?: number,
 ): string[] {
   if (schema === 1) return lines;
-  const header = `MM\t3\t${f(modelTime, 3)}\t${view}`;
+  const start = missionStart === undefined ? '' : `\t${Math.round(missionStart)}`;
+  const header = `MM\t3\t${f(modelTime, 3)}\t${view}${start}`;
   return [`${[header, ...lines].join('\n')}\n`];
 }

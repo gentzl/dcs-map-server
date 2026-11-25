@@ -16,8 +16,9 @@ import { THEATERS } from './theater-config.js';
  */
 
 // Folder name under Mods\terrains for each theater this project supports,
-// matched case-insensitively.
-const TERRAIN_FOLDER_NAMES = {
+// matched case-insensitively. Exported for extract-navdata, which reads each
+// terrain's radio and beacon files from the same folders.
+export const TERRAIN_FOLDER_NAMES = {
   caucasus: 'caucasus',
   syria: 'syria',
   persiangulf: 'persiangulf',

@@ -80,6 +80,15 @@ async function main() {
   console.log('Installing the DCS export hook...');
   runNpm(['run', 'install-hook']);
 
+  // Airfield frequencies are a bonus: without them the map works the same,
+  // so a failure here is reported and setup carries on.
+  console.log('Reading airfield frequencies from your DCS installation...');
+  try {
+    runNpm(['run', 'extract-navdata']);
+  } catch (err) {
+    warn(`Could not read airfield frequencies (${err.message ?? err}) -- the map works without them.`);
+  }
+
   console.log('Starting the server...');
   const server = spawn(process.execPath, [npmCliPath(), 'run', 'dev'], {
     stdio: ['inherit', 'pipe', 'pipe'],

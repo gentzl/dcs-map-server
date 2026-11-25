@@ -56,12 +56,24 @@ end
 
 DCS = {
   getModelTime = function() return t end,
+  getCurrentMission = function()
+    return { mission = { triggers = { zones = {
+      { zoneId = 7, name = 'FOB Vulture', hidden = false, type = 0, radius = 762, x = -69625, y = 485002,
+        color = { 1, 1, 1, 0.15 } },
+      { zoneId = 8, name = 'A', hidden = false, type = 2, radius = 0, x = 0, y = 0,
+        verticies = { { x = 0, y = 0 }, { x = 100, y = 0 }, { x = 100, y = 100 }, { x = 0, y = 100 } } },
+    } } } }
+  end,
   getMissionOptions = function() return { difficulty = { optionsView = OPTIONS_VIEW } } end,
   setUserCallbacks = function(cb) _G.__cb = cb end,
 }
 
 Export = {
   LoGetModelTime = function() return t end,
+  LoGetMissionStartTime = function() return 22800 end, -- 06:20
+  LoLoCoordinatesToGeoCoordinates = function(x, z)
+    return { latitude = 44 + x / 111000, longitude = 40 + z / 80000 }
+  end,
   LoGetPlayerPlaneId = function() return 1 end,
   LoGetSelfData = function()
     return {
@@ -80,7 +92,15 @@ Export = {
   LoGetAircraftDrawArgumentValue = function() return 0 end,
   LoGetTrueAirSpeed = function() return 230.5 end,
   LoGetAngleOfAttack = function() return 4.2 end,
-  LoGetWorldObjects = function()
+  LoGetWorldObjects = function(kind)
+    if kind == 'airdromes' then
+      -- Deliberately with a comma in the name, like the units.
+      return {
+        [5001] = { Name = 'Kutaisi, Kopitnari', CoalitionID = 0, Heading = 4.43,
+                   Type = { level1 = 5, level2 = 13 },
+                   LatLongAlt = { Lat = 42.179, Long = 42.496, Alt = 45 } },
+      }
+    end
     local copy = {}
     for k, v in pairs(objects) do copy[k] = v end
     return copy
@@ -135,9 +155,9 @@ local function fields(line)
 end
 
 -- Schema 3 field counts, the same table src/server/protocol.ts parses by.
-local LAYOUT = { O = 20, A = 12, W = 8, D = 2 }
+local LAYOUT = { O = 20, A = 12, W = 8, D = 2, B = 9, Z = 10 }
 
-local counts = { O = 0, A = 0, W = 0, D = 0 }
+local counts = { O = 0, A = 0, W = 0, D = 0, B = 0, Z = 0 }
 local headers, closed = 0, false
 local own_id = nil
 local ids_as_unit = {}
@@ -157,6 +177,9 @@ for _, payload in ipairs(sent) do
         if not tonumber(f[3]) then fail('header carries no model time', line) end
         if f[4] ~= OPTIONS_VIEW then
           fail(string.format('header says optionsView=%s, expected %s', tostring(f[4]), OPTIONS_VIEW), line)
+        end
+        if f[5] ~= '22800' then
+          fail(string.format('header says mission start=%s, expected 22800', tostring(f[5])), line)
         end
         headers = headers + 1
         first = false
@@ -185,6 +208,8 @@ if headers == 0 then fail('no datagram was sent at all') end
 if counts.O == 0 then fail('the own aircraft was never sent') end
 if counts.A == 0 then fail('no other units were sent') end
 if counts.D == 0 then fail('objects were removed but no D line was sent') end
+if counts.B == 0 then fail('the airbase list was never sent') end
+if counts.Z == 0 then fail('the trigger zones were never sent') end
 if not closed then fail('the session did not end with close_socket') end
 
 -- LoGetWorldObjects() includes the player's own aircraft. It already has its
@@ -203,5 +228,5 @@ end
 if not saw_comma then fail('a comma in a group name did not survive') end
 
 io.stderr:write(string.format(
-  'Datagrams: %d  (O %d, A %d, W %d, D %d)  -- format OK\n',
-  #sent, counts.O, counts.A, counts.W, counts.D))
+  'Datagrams: %d  (O %d, A %d, W %d, D %d, B %d)  -- format OK\n',
+  #sent, counts.O, counts.A, counts.W, counts.D, counts.B))

@@ -1,4 +1,4 @@
-import type { Delta, OptionsView, Ownship, Snapshot, Unit } from '../shared/types.js';
+import type { Airbase, Delta, OptionsView, Ownship, Snapshot, Unit, Zone } from '../shared/types.js';
 
 /** Without an update, an object counts as stale or gone. */
 const STALE_MS = 5_000;
@@ -56,6 +56,58 @@ export class World {
     });
   }
 
+  /**
+   * Airbases live apart from units: a map feature every player sees on F10,
+   * so no fog of war; and they don't go stale -- the hook re-sends the list
+   * only once a minute, and an airfield doesn't vanish between two lists.
+   * Only a real change (or a new base) is passed on.
+   */
+  private airbases = new Map<number, Airbase>();
+  private airbasesDirty = new Set<number>();
+  private airbasesCleared = false;
+
+  upsertAirbase(base: Airbase): void {
+    const prev = this.airbases.get(base.id);
+    const changed =
+      !prev ||
+      prev.name !== base.name ||
+      prev.coalition !== base.coalition ||
+      Math.abs(prev.lat - base.lat) > 1e-5 ||
+      Math.abs(prev.lon - base.lon) > 1e-5;
+    this.airbases.set(base.id, base);
+    if (changed) this.airbasesDirty.add(base.id);
+  }
+
+  clearAirbases(): void {
+    if (this.airbases.size === 0) return;
+    this.airbases.clear();
+    this.airbasesDirty.clear();
+    this.airbasesCleared = true;
+  }
+
+  /**
+   * Trigger zones: the same lifecycle as airbases -- a map feature, no fog of
+   * war, never stale, passed on only when new or changed. The hook re-sends
+   * them every few minutes so a server started mid-mission gets them; the
+   * comparison keeps those repeats off the wire.
+   */
+  private zones = new Map<number, Zone>();
+  private zonesDirty = new Set<number>();
+  private zonesCleared = false;
+
+  upsertZone(zone: Zone): void {
+    const prev = this.zones.get(zone.id);
+    if (!prev || JSON.stringify(prev) !== JSON.stringify(zone)) this.zonesDirty.add(zone.id);
+    this.zones.set(zone.id, zone);
+  }
+
+  clearZones(): void {
+    if (this.zones.size === 0) return;
+    this.zones.clear();
+    this.zonesDirty.clear();
+    this.zonesCleared = true;
+  }
+
   setOwnship(own: Ownship, view: OptionsView, now = Date.now()): void {
     this.own = own;
     this.ownDirty = true;
@@ -72,6 +124,8 @@ export class World {
     for (const id of this.units.keys()) this.removed.add(id);
     this.units.clear();
     this.own = null;
+    this.clearAirbases();
+    this.clearZones();
   }
 
   private removed = new Set<number>();
@@ -136,6 +190,8 @@ export class World {
       optionsView: this.optionsView,
       own: this.own,
       units,
+      airbases: [...this.airbases.values()],
+      zones: [...this.zones.values()],
     };
   }
 
@@ -155,8 +211,31 @@ export class World {
     const removed = [...this.removed];
     this.removed.clear();
 
+    const airbases: Airbase[] = [];
+    for (const id of this.airbasesDirty) {
+      const b = this.airbases.get(id);
+      if (b) airbases.push(b);
+    }
+    this.airbasesDirty.clear();
+    const airbasesCleared = this.airbasesCleared;
+    this.airbasesCleared = false;
+
+    const zones: Zone[] = [];
+    for (const id of this.zonesDirty) {
+      const z = this.zones.get(id);
+      if (z) zones.push(z);
+    }
+    this.zonesDirty.clear();
+    const zonesCleared = this.zonesCleared;
+    this.zonesCleared = false;
+
     const hasOwn = this.ownDirty && this.own;
-    if (!hasOwn && units.length === 0 && removed.length === 0) return null;
+    if (
+      !hasOwn && units.length === 0 && removed.length === 0 &&
+      airbases.length === 0 && !airbasesCleared && zones.length === 0 && !zonesCleared
+    ) {
+      return null;
+    }
 
     this.seq++;
     this.ownDirty = false;
@@ -170,10 +249,20 @@ export class World {
     if (hasOwn && this.own) delta.own = this.own;
     if (units.length) delta.units = units;
     if (removed.length) delta.removed = removed;
+    if (airbasesCleared) delta.airbasesCleared = true;
+    if (airbases.length) delta.airbases = airbases;
+    if (zonesCleared) delta.zonesCleared = true;
+    if (zones.length) delta.zones = zones;
     return delta;
   }
 
   get stats() {
-    return { units: this.units.size, hasOwn: this.own !== null, seq: this.seq };
+    return {
+      units: this.units.size,
+      airbases: this.airbases.size,
+      zones: this.zones.size,
+      hasOwn: this.own !== null,
+      seq: this.seq,
+    };
   }
 }

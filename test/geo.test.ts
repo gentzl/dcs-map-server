@@ -14,11 +14,13 @@ import {
   windFrom,
   formatAltitude,
   formatMissionTime,
+  formatMissionClock,
   formatDDM,
   metersToFeet,
   metersToNm,
   msToKnots,
   rangeForZoom,
+  runwayHeadings,
   shortestAngle,
   toDeg,
   toMagnetic,
@@ -217,6 +219,20 @@ describe('cockpit formatting', () => {
     assert.equal(formatMissionTime(-5), '00:00:00');
   });
 
+  test('the mission clock is start time plus model time, as on the F10 map', () => {
+    const start = 6 * 3600 + 20 * 60; // 06:20
+    assert.equal(formatMissionClock(start, 0), '06:20:00');
+    assert.equal(formatMissionClock(start, 5 * 3600 + 5 * 60 + 7), '11:25:07');
+  });
+
+  test('the mission clock wraps at midnight', () => {
+    assert.equal(formatMissionClock(23 * 3600 + 30 * 60, 3600), '00:30:00');
+  });
+
+  test('without a start time there is no clock to show, only a placeholder', () => {
+    assert.equal(formatMissionClock(undefined, 4242), '--:--:--');
+  });
+
   test('a contact altitude reads as thousands of feet', () => {
     // "thirty-one thousand nine hundred", the way it goes over the radio.
     assert.equal(altitudeThousands(31_900 / 3.28084), '31.9');
@@ -269,5 +285,17 @@ describe('range and zoom', () => {
 
   test('a zero-width viewport does not produce a non-finite zoom', () => {
     assert.ok(Number.isFinite(zoomForRange(40, 45, 0)));
+  });
+});
+
+describe('runway headings', () => {
+  test('both directions, lower first, whichever end the heading names', () => {
+    assert.equal(runwayHeadings(toRad(247.3)), '067°/247°');
+    assert.equal(runwayHeadings(toRad(67.4)), '067°/247°');
+  });
+
+  test('three digits, north as 000 not 360', () => {
+    assert.equal(runwayHeadings(toRad(359.8)), '000°/180°');
+    assert.equal(runwayHeadings(toRad(5)), '005°/185°');
   });
 });

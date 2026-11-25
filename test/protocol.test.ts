@@ -4,6 +4,7 @@ import { parseDatagram, parsePacket } from '../src/server/protocol.js';
 import type { Parsed } from '../src/server/protocol.js';
 import type { OptionsView } from '../src/shared/types.js';
 import {
+  airbaseLine,
   ownshipLine,
   removeLine,
   toDatagrams,
@@ -204,6 +205,37 @@ describe('framing and errors', () => {
     assert.equal(items[0]?.kind, 'own');
     if (items[0]?.kind !== 'own') return;
     near(items[0].own.modelTime, 4242.5);
+    // The older four-field header carries no start time.
+    assert.equal(items[0].own.missionStart, undefined);
+  });
+
+  test('the mission start time rides along as an optional fifth header field', () => {
+    const gram = toDatagrams([ownshipLine(OWN, 'optview_all', 3)], 100, 'optview_all', 3, 22_800)[0];
+    assert.ok(gram);
+    const { items } = parseDatagram(gram);
+    assert.equal(items[0]?.kind, 'own');
+    if (items[0]?.kind !== 'own') return;
+    assert.equal(items[0].own.missionStart, 22_800);
+  });
+
+  test('an empty start-time field means unknown, not midnight', () => {
+    const { items } = parseDatagram(`MM\t3\t1.000\toptview_all\t\n${ownshipLine(OWN, 'optview_all', 3)}`);
+    assert.equal(items[0]?.kind, 'own');
+    if (items[0]?.kind !== 'own') return;
+    assert.equal(items[0].own.missionStart, undefined);
+  });
+
+  test('an airbase survives a write/parse roundtrip, comma in the name included', () => {
+    const base = { id: 5001, name: 'Kutaisi, Kopitnari', lat: 42.17915, lon: 42.495684, alt: 45, hdg: 4.43312, coalition: 2, level2: 13 };
+    const [item] = roundtrip([airbaseLine(base)], 3);
+    assert.equal(item?.kind, 'airbase');
+    if (item?.kind !== 'airbase') return;
+    assert.equal(item.airbase.name, 'Kutaisi, Kopitnari');
+    near(item.airbase.lat, base.lat, 1e-6);
+    near(item.airbase.lon, base.lon, 1e-6);
+    near(item.airbase.hdg, base.hdg, 1e-5);
+    assert.equal(item.airbase.coalition, 2);
+    assert.equal(item.airbase.level2, 13);
   });
 
   test('a removal is parsed back as a removal', () => {

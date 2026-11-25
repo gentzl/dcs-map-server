@@ -23,6 +23,8 @@ const BACKPRESSURE_BYTES = 256 * 1024;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(here, '../../public');
 const tilesDir = path.resolve(here, '../../tiles');
+/** Airfield frequencies, written locally by tools/extract-navdata.ts at setup. */
+const navdataDir = path.resolve(here, '../../navdata');
 const certsDir = path.resolve(here, '../../certs');
 const VERSION = resolveVersion(path.resolve(here, '../..'));
 
@@ -83,6 +85,21 @@ app.get('/api/theaters', async () => {
   }
 });
 
+/**
+ * Airfield radio and navaid data for a theater, read from the local DCS
+ * install at setup. An empty list when there is none (no DCS found, theater
+ * not installed): the map then shows airfields without frequencies.
+ */
+app.get<{ Params: { theater: string } }>('/api/navdata/:theater', async (req) => {
+  const { theater } = req.params;
+  if (!/^[a-z]+$/.test(theater)) return [];
+  try {
+    return JSON.parse(await readFile(path.join(navdataDir, `${theater}.json`), 'utf8')) as unknown;
+  } catch {
+    return [];
+  }
+});
+
 app.get('/api/version', async () => VERSION);
 
 app.get('/health', async () => ({
@@ -133,7 +150,38 @@ const UPSTREAM = process.env.MM_UPSTREAM;
  * a relay reports its own status via onStatus above.
  */
 let lastPacketAt = 0;
-const HOOK_TIMEOUT_MS = 3000; // generous next to the hook's own 10 Hz send rate
+// Far above the hook's 10 Hz send rate on purpose: the hook goes quiet for
+// a few seconds in ordinary play -- a paused single-player mission stops
+// model time and with it the sends, and so do loading hitches, slot changes
+// and respawns. At 3 s each of those printed a scary "not connected".
+const HOOK_TIMEOUT_MS = 10_000;
+
+/**
+ * Reports the hook's state on change. Started only after the startup block
+ * below has printed, so the first status line lands under "Ready" instead of
+ * above the addresses, where it read like a startup failure.
+ */
+function watchHook(): void {
+  let hookConnected = false;
+  let everConnected = false;
+  console.log('\x1b[33m⚠ Hook not connected\x1b[0m -- waiting for DCS (start or join a flight)');
+  setInterval(() => {
+    const connected = Date.now() - lastPacketAt < HOOK_TIMEOUT_MS;
+    if (connected === hookConnected) return;
+    hookConnected = connected;
+    if (connected) {
+      everConnected = true;
+      console.log('\x1b[32m✓ Hook connected\x1b[0m -- receiving data from DCS');
+    } else {
+      console.log(
+        `\x1b[33m⚠ No data from DCS for ${HOOK_TIMEOUT_MS / 1000} s\x1b[0m -- ` +
+          (everConnected
+            ? 'paused, loading, changing slot, or the flight ended'
+            : 'waiting for DCS (start or join a flight)'),
+      );
+    }
+  }, 1000);
+}
 
 if (UPSTREAM) {
   startRelay(world, {
@@ -151,19 +199,6 @@ if (UPSTREAM) {
       lastPacketAt = Date.now();
     },
   });
-
-  let hookConnected = false;
-  console.log('\x1b[33m⚠ Hook not connected\x1b[0m -- waiting for DCS (start or join a flight)');
-  setInterval(() => {
-    const connected = Date.now() - lastPacketAt < HOOK_TIMEOUT_MS;
-    if (connected === hookConnected) return;
-    hookConnected = connected;
-    console.log(
-      connected
-        ? '\x1b[32m✓ Hook connected\x1b[0m -- receiving data from DCS'
-        : '\x1b[33m⚠ Hook not connected\x1b[0m -- waiting for DCS (start or join a flight)',
-    );
-  }, 1000);
 }
 
 const port = certs ? HTTPS_PORT : HTTP_PORT;
@@ -208,3 +243,4 @@ if (process.env.MM_CAPTURE) console.log(`Capture  ${process.env.MM_CAPTURE}`);
 // actually worked -- this is the one line meant to be read, not just logged.
 console.log();
 console.log(`\x1b[32m✓ Ready\x1b[0m -- start or join a flight in DCS, then open ${scheme}://localhost:${port}`);
+if (!UPSTREAM) watchHook();

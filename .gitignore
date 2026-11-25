@@ -5,6 +5,7 @@ public/main.js.map
 *.pmtiles
 fixtures/*.jsonl
 tiles/
+navdata/
 public/fonts/
 public/sprites/
 certs/
