@@ -162,6 +162,7 @@ ships, ground units), the airfields and the mission's zones.
 - **Airfield frequencies and navaids**: the theater's own `Radio.lua` and `Beacons.lua` in the
   local DCS install, read at setup (`npm run extract-navdata`, see [Manual setup](#manual-setup)).
 - **Mission zones**: the mission file's trigger zones, sent by the hook (`Z` lines).
+- **Flight plan**: the player's own fixed waypoints, sent by the hook (`R` lines).
 - **Terrain shading and elevation tints**: public-domain SRTM/GMTED from the AWS Terrain Tiles,
   fetched live by the browser (`TERRAIN_TILES` in `src/client/style.ts`), so they need an internet
   connection while the map is open.
@@ -285,17 +286,25 @@ and no airbase will ever arrive -- and the map then says so instead of just look
 ```
 MM<TAB>3<TAB><modelTime><TAB><optionsView><TAB><missionStart><TAB><objectsBlocked>
 O<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>unitName<TAB>groupName<TAB>coalition<TAB>tas<TAB>ralt<TAB>wow<TAB>aoa<TAB>accelY<TAB>chaff<TAB>flare<TAB>windX<TAB>windY<TAB>windZ
-A<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>unitName<TAB>groupName<TAB>coalition<TAB>level1<TAB>level2
+A<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>unitName<TAB>groupName<TAB>coalition<TAB>level1<TAB>level2<TAB>human
 W<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>coalition
 D<TAB>id
 B<TAB>id<TAB>name<TAB>lat<TAB>lon<TAB>alt<TAB>hdg<TAB>coalition<TAB>level2
 Z<TAB>id<TAB>name<TAB>hidden<TAB>type<TAB>radius<TAB>lat<TAB>lon<TAB>r,g,b,a<TAB>lat,lon;lat,lon;...
+R<TAB>source<TAB>next<TAB>lat,lon,alt,name;lat,lon,alt,name;...
 ```
 
 `O` is the own aircraft, `A` another unit, `W` a weapon, `D` a removal, `B` an airbase, `Z` a
-trigger zone. `level1`/`level2` are the DCS type levels; without `level1` air defence cannot be
+trigger zone, `R` the player's flight plan. `level1`/`level2` are the DCS type levels; without `level1` air defence cannot be
 separated from other ground targets, which is why schema 2 was replaced. The hook strips tabs and
 line breaks from names; commas may stay.
+
+`human` on an `A` line is `1` when a person flies the unit (DCS's `Flags.Human`), else `0`; for a
+player, `unitName` is the player's name. `Flags.AI_ON` is no use for this -- it is true for players
+too (probed 2026-11-25: another player's F-16 had `Human = true`, an AI aircraft `false`). The field
+came later: the parser still takes the older twelve-field line, as no human. It only ever marks
+units the view rules already let through, so it reveals nothing F10 doesn't; the map puts a small
+dot at the symbol's top right and shows the name in the BRAA readout.
 
 `B` lines carry DCS's own airbases from `LoGetWorldObjects('airdromes')`, which the plain object
 list does not contain. The hook sends the whole list at mission start and then once a minute: a
@@ -316,6 +325,26 @@ across), airfield zones (named like a DCS airbase, blue if that base is reported
 objectives (red). Zones carry no type and no owner, so size and name are all there is to go by. A circle's
 vertex list is empty, so its line ends in a tab -- which is why the parser trims only line breaks
 and spaces off a datagram, never tabs.
+
+`R` lines carry the player's own flight plan, fixed waypoints only, every five seconds, the whole
+route in one line (so a shorter route can't leave stale points behind; capped at 100 points).
+`source` is `aircraft` when `Export.LoGetRoute()` returns a route -- then `next` is the index of
+`goto_point`, and world `x`/`z` go through `LoLoCoordinatesToGeoCoordinates` -- or `mission` for
+the route of the player's group in `DCS.getCurrentMission()`, with `next` -1 (the mission file
+can't say which point is being flown to). The group is found by the slot from
+`net.get_player_info(net.get_my_player_id(), 'slot')`, which is the mission `unitId` (`1234_2`
+for a second seat), and by `LoGetSelfData().UnitName` in single player, where there is no slot.
+An empty `source` with no points means there is no flight plan; the server then sends `route:
+null`. Unlike units the route is no fog-of-war matter: it is the player's own plan, which F10
+shows them anyway. The server passes it on only when it changed. `alt` is the planned altitude in
+metres as given, whatever the waypoint's `alt_type` (baro or radar).
+
+What doesn't arrive, by DCS's design rather than the hook's: waypoints entered in the cockpit or
+drawn with the F10 route tool on modules with their own navigation computer (`LoGetRoute()` stays
+`nil` on the F-16C, probed 2026-11-25), and any route for a dynamic-spawn slot, whose unit isn't in
+the mission file. The hook logs which case applies (`flight plan: ...` in `dcs.log`). `npm run
+demo` adds a made-up route (`replay-ws --demo-extras`) when a recording has none, so the layer can
+be seen without DCS; the same option marks a recording's anonymised `Player-N` units as human.
 
 **Schema 1** is the older comma-separated format with no header, kept for anyone running the
 telemetry out of their own `Export.lua`. It is ambiguous by construction: names are inserted
@@ -584,17 +613,17 @@ hasn't changed, so the client doesn't dim it as stale.
   `Export.LoLoCoordinatesToGeoCoordinates` converts -- the same route the zones take. Not built
   yet.
 - More that DCS exposes to a hook and the map doesn't use yet (probed 2026-11-25, multiplayer
-  client): human players via `Flags.Human` on every world object; editor drawings
+  client): editor drawings
   (`mission.drawings`: lines, text boxes, the tanker tracks and frontlines on F10); the radio
   beacons as a layer of their own (the data is in `navdata\` already). Not reachable as a client:
   F10 map marks (`world.getMarkPanels()`) and which side holds a zone, both runtime state of the
   mission scripting environment.
 - ICAO codes, runway lengths and runway names for the airfield readout. F10 shows them, but they
   are in an encrypted terrain file, not in anything the hook or setup can read.
-- The active waypoint/flight plan on the map. Probed on 2026-11-25 with an F-16C as a multiplayer
-  client: `LoGetRoute()` and `LoGetNavigationInfo()` stay `nil`, also after entering a steerpoint
-  in the cockpit and after drawing a route with the F10 route tool, and a dynamic-spawn slot has
-  no route in the mission data either. Not available for that module; other modules unchecked.
+- Waypoints entered in the cockpit (F-16C steerpoints) or with the F10 route tool. The fixed
+  flight plan is on the map (`R` lines), but these never reach the hook: probed on 2026-11-25
+  with an F-16C as a multiplayer client, `LoGetRoute()` and `LoGetNavigationInfo()` stay `nil`
+  after both. Which other modules report a route through `LoGetRoute()` is unchecked.
 - A small number of ship classes with a genuine area air-defence system have a threat ring
   (Ticonderoga/Arleigh Burke-class, Aegis; Kirov/Slava-class, SA-N-6) -- see threats.ts. Frigates
   and corvettes with a shorter-range system are deliberately left out until someone can confirm

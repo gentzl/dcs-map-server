@@ -41,6 +41,11 @@ local function load_hook()
   local zone_lines = nil     -- the mission's trigger zones as Z lines, built once
   local next_zones = 0
   local ZONES_EVERY = 300    -- seconds: zones never change; this only reaches a late server
+  local next_route = 0
+  local ROUTE_EVERY = 5      -- seconds: one short line, and a slot change shows up quickly
+  local route_key = nil      -- slot/unit the cached mission route belongs to
+  local route_cache = nil    -- R line of that mission route, false if there is none
+  local route_source = nil   -- last source logged, so the log only notes changes
 
   --- Tabs and newlines would break the format apart. Commas may stay: DCS
   --- unit and group names routinely contain commas, tabs almost never.
@@ -123,10 +128,14 @@ local function load_hook()
     -- level1/level2 are included because without them air defence can't be
     -- told apart from other ground targets, and only the former gets a
     -- threat ring.
-    return string.format('A\t%d\t%s\t%.6f\t%.6f\t%.1f\t%.5f\t%s\t%s\t%d\t%d\t%d\n',
+    -- The last field says whether a person flies it (Flags.Human); AI_ON
+    -- is no use for that, it is true for players too. For a player,
+    -- UnitName is the player's name.
+    local human = (type(v.Flags) == 'table' and v.Flags.Human) and 1 or 0
+    return string.format('A\t%d\t%s\t%.6f\t%.6f\t%.1f\t%.5f\t%s\t%s\t%d\t%d\t%d\t%d\n',
       id, clean(v.Name), v.LatLongAlt.Lat, v.LatLongAlt.Long, v.LatLongAlt.Alt,
       v.Heading or 0, clean(v.UnitName), clean(v.GroupName), v.CoalitionID or 0,
-      t.level1 or 0, t.level2 or 0)
+      t.level1 or 0, t.level2 or 0, human)
   end
 
   -- Airbases: DCS's own airfields (and whatever else it counts as one), from
@@ -184,6 +193,118 @@ local function load_hook()
     return lines
   end
 
+  -- The player's own flight plan, fixed waypoints only:
+  -- R<TAB>source<TAB>next<TAB>lat,lon,alt,name;lat,lon,alt,name;...
+  -- source is 'aircraft' (LoGetRoute) or 'mission' (the group's route in the
+  -- mission file); an empty source means there is none. next is the index
+  -- of the waypoint being flown to, -1 when unknown. The whole route goes in
+  -- one line, so a shorter route can't leave stale points behind.
+  -- Not covered, because DCS doesn't hand them out: waypoints entered in the
+  -- cockpit or with the F10 route tool on modules with their own navigation
+  -- computer (F-16C and the like -- LoGetRoute stays nil), and dynamic-spawn
+  -- slots, which have no group in the mission file.
+  local MAX_WAYPOINTS = 100
+
+  local function route_line(source, next_idx, pts)
+    local parts = {}
+    for i, p in ipairs(pts) do
+      if i > MAX_WAYPOINTS then break end
+      parts[#parts + 1] = string.format('%.6f,%.6f,%.0f,%s', p.lat, p.lon, p.alt or 0,
+                                        (clean(p.name):gsub('[,;]', ' ')))
+    end
+    return string.format('R\t%s\t%d\t%s\n', source, next_idx, table.concat(parts, ';'))
+  end
+
+  -- What the aircraft itself reports. Mostly the simpler (FC3-style)
+  -- aircraft; full-fidelity modules return nil.
+  local function aircraft_route()
+    local ok, r = pcall(Export.LoGetRoute)
+    if not ok or type(r) ~= 'table' or type(r.route) ~= 'table' then return nil end
+    local list = {}
+    for _, wp in pairs(r.route) do
+      if type(wp) == 'table' and type(wp.world_point) == 'table' then list[#list + 1] = wp end
+    end
+    table.sort(list, function(a, b) return (a.this_point_num or 0) < (b.this_point_num or 0) end)
+    local goto_num = type(r.goto_point) == 'table' and r.goto_point.this_point_num or nil
+    local toGeo = Export.LoLoCoordinatesToGeoCoordinates
+    local pts, next_idx = {}, -1
+    for _, wp in ipairs(list) do
+      local w = wp.world_point
+      -- World x is north, z east, y up.
+      local ok_g, g = pcall(toGeo, w.x, w.z)
+      if ok_g and type(g) == 'table' then
+        pts[#pts + 1] = { lat = g.latitude, lon = g.longitude, alt = w.y or 0, name = '' }
+        if goto_num ~= nil and wp.this_point_num == goto_num then next_idx = #pts - 1 end
+      end
+    end
+    if #pts == 0 then return nil end
+    return route_line('aircraft', next_idx, pts)
+  end
+
+  -- The slot is the mission's unitId ("1234", or "1234_2" for a second
+  -- seat). Empty in single player, where the unit name finds it instead.
+  local function my_slot()
+    local ok, slot = pcall(function() return net.get_player_info(net.get_my_player_id(), 'slot') end)
+    if ok and slot ~= nil then return tostring(slot):match('^(%d+)') end
+    return nil
+  end
+
+  local function mission_route(slot, unit_name)
+    local ok_m, cm = pcall(DCS.getCurrentMission)
+    if not ok_m or type(cm) ~= 'table' then return nil end
+    local m = cm.mission or cm
+    if type(m.coalition) ~= 'table' then return nil end
+    local toGeo = Export.LoLoCoordinatesToGeoCoordinates
+    for _, side in pairs(m.coalition) do
+      for _, country in pairs((type(side) == 'table' and side.country) or {}) do
+        for _, cat in ipairs({ 'plane', 'helicopter' }) do
+          local groups = (type(country[cat]) == 'table' and country[cat].group) or {}
+          for _, g in pairs(groups) do
+            for _, u in pairs((type(g) == 'table' and g.units) or {}) do
+              local hit = (slot ~= nil and tostring(u.unitId) == slot)
+                       or (unit_name ~= nil and unit_name ~= '' and u.name == unit_name)
+              if hit then
+                local pts = {}
+                for _, p in ipairs((g.route and g.route.points) or {}) do
+                  local ok_g, geo = pcall(toGeo, p.x, p.y)
+                  if ok_g and type(geo) == 'table' then
+                    pts[#pts + 1] = { lat = geo.latitude, lon = geo.longitude, alt = p.alt or 0, name = p.name or '' }
+                  end
+                end
+                if #pts == 0 then return nil end
+                return route_line('mission', -1, pts)
+              end
+            end
+          end
+        end
+      end
+    end
+    return nil
+  end
+
+  local function emit_route(self_data)
+    local line = aircraft_route()
+    local source = line and 'aircraft' or nil
+    if not line then
+      local slot = my_slot()
+      local key = tostring(slot) .. '|' .. tostring(self_data.UnitName)
+      if key ~= route_key then
+        route_key = key
+        local ok_r, r = pcall(mission_route, slot, self_data.UnitName)
+        route_cache = (ok_r and r) or false
+      end
+      line = route_cache or 'R\t\t-1\t\n'
+      source = route_cache and 'mission' or 'none'
+    end
+    if source ~= route_source then
+      route_source = source
+      log('flight plan: ' .. (source == 'aircraft' and 'reported by the aircraft'
+        or source == 'mission' and 'from the mission file'
+        or 'none (dynamic slot, or no route in the mission)'))
+    end
+    emit(line)
+  end
+
   function mm.onSimulationStart()
     udp = socket.udp()
     udp:settimeout(0)          -- non-blocking: the sim thread never waits on this
@@ -194,6 +315,8 @@ local function load_hook()
     objects_blocked = false
     zone_lines = nil
     next_zones = 0
+    next_route = 0
+    route_key, route_cache, route_source = nil, nil, nil
     log('export started -> ' .. HOST .. ':' .. PORT)
 
     -- Mission start time, seconds after midnight. The export API has it
@@ -285,6 +408,11 @@ local function load_hook()
       next_zones = now + ZONES_EVERY
       if zone_lines == nil then zone_lines = build_zone_lines() end
       for _, line in ipairs(zone_lines) do emit(line) end
+    end
+
+    if now >= next_route then
+      next_route = now + ROUTE_EVERY
+      emit_route(self_data)
     end
 
     -- Under a restricted view, don't even send -- rather than relying on

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test, describe } from 'node:test';
 import { World } from '../src/server/world.js';
-import type { Airbase, Coalition, Ownship, OptionsView, Unit } from '../src/shared/types.js';
+import type { Airbase, Coalition, Ownship, OptionsView, Route, Unit } from '../src/shared/types.js';
 import { allUnits, firstSnapshot } from './fixtures.js';
 
 const T0 = 1_700_000_000_000;
@@ -255,6 +255,45 @@ describe('airbases', () => {
     const d = w.tick(T0 + 100);
     assert.equal(d?.airbasesCleared, true);
     assert.equal(w.snapshot(T0 + 100).airbases?.length, 0);
+  });
+});
+
+describe('flight plan', () => {
+  const route = (next = -1): Route => ({
+    source: 'mission',
+    next,
+    points: [{ lat: 42, lon: 42, alt: 0, name: '' }, { lat: 42.2, lon: 42.3, alt: 6000, name: 'IP' }],
+  });
+
+  // The player's own planned route, which F10 shows them anyway.
+  test('is in the snapshot even under the most restrictive view', () => {
+    const w = worldWith('optview_onlymap');
+    w.setRoute(route());
+    assert.equal(w.snapshot(T0).route?.points.length, 2);
+  });
+
+  test("goes out once, then only on a change -- not on the hook's repeats", () => {
+    const w = worldWith('optview_all');
+    w.tick(T0);
+    w.setRoute(route());
+    assert.equal(w.tick(T0 + 100)?.route?.points.length, 2);
+    w.setRoute(route());
+    assert.equal(w.tick(T0 + 200)?.route, undefined);
+    w.setRoute(route(1));
+    assert.equal(w.tick(T0 + 300)?.route?.next, 1);
+  });
+
+  test('going away is sent as null, and a mission end clears it', () => {
+    const w = worldWith('optview_all');
+    w.setRoute(route());
+    w.tick(T0);
+    w.setRoute(null);
+    assert.equal(w.tick(T0 + 100)?.route, null);
+    w.setRoute(route());
+    w.tick(T0 + 200);
+    w.clear();
+    assert.equal(w.tick(T0 + 300)?.route, null);
+    assert.equal(w.snapshot(T0 + 300).route, null);
   });
 });
 

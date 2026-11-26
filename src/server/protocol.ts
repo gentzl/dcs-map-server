@@ -1,4 +1,4 @@
-import type { Airbase, Category, Coalition, OptionsView, Ownship, Unit, Zone } from '../shared/types.js';
+import type { Airbase, Category, Coalition, OptionsView, Ownship, Route, Unit, Waypoint, Zone } from '../shared/types.js';
 import { classify } from './classify.js';
 import { threatOf } from './threats.js';
 
@@ -27,6 +27,7 @@ export type Parsed =
   | { kind: 'unit'; unit: Unit }
   | { kind: 'airbase'; airbase: Airbase }
   | { kind: 'zone'; zone: Zone }
+  | { kind: 'route'; route: Route | null }
   | { kind: 'remove'; id: number }
   | { kind: 'close' }
   | { kind: 'error'; reason: string }
@@ -182,7 +183,24 @@ export function parsePacket(raw: string): Parsed {
 // B (airbase) was added later; it is a separate record type rather than an
 // A line because a base is a map feature, not a contact -- different
 // lifetime, no fog of war, no heartbeat.
-const V3_LAYOUT = { O: 20, A: 12, W: 8, D: 2, B: 9, Z: 10 } as const;
+// R (the player's flight plan) carries the whole route in one line, so a
+// route that got shorter can't leave stale waypoints behind.
+const V3_LAYOUT = { O: 20, A: 12, W: 8, D: 2, B: 9, Z: 10, R: 4 } as const;
+
+/**
+ * "lat,lon,alt,name;..." -> waypoints. The hook strips commas and
+ * semicolons from names, so the split is unambiguous; unreadable points
+ * are dropped.
+ */
+function waypointList(v: string | undefined): Waypoint[] {
+  const out: Waypoint[] = [];
+  for (const s of (v ?? '').split(';')) {
+    const [lat, lon, alt, ...name] = s.split(',');
+    if (!isNum(lat) || !isNum(lon)) continue;
+    out.push({ lat: Number(lat), lon: Number(lon), alt: num(alt), name: name.join(',').trim() });
+  }
+  return out;
+}
 
 /** "r,g,b,a" -> numbers, defaulting to the editor's own translucent white. */
 function rgba(v: string | undefined): [number, number, number, number] {
@@ -201,14 +219,26 @@ function vertexList(v: string | undefined): [number, number][] {
 function parseV3Line(line: string, modelTime: number, view: OptionsView, missionStart?: number): Parsed {
   const f = line.split('\t');
   const type = f[0];
-  if (type !== 'O' && type !== 'A' && type !== 'W' && type !== 'D' && type !== 'B' && type !== 'Z') {
+  if (type !== 'O' && type !== 'A' && type !== 'W' && type !== 'D' && type !== 'B' && type !== 'Z' && type !== 'R') {
     return { kind: 'error', reason: `v3: unknown type "${type}"` };
   }
-  if (f.length !== V3_LAYOUT[type]) {
+  // A lines grew a thirteenth field (human or AI); older hooks send twelve.
+  const lengthOk = f.length === V3_LAYOUT[type] || (type === 'A' && f.length === V3_LAYOUT.A + 1);
+  if (!lengthOk) {
     return { kind: 'error', reason: `v3 ${type}: ${f.length} fields, expected ${V3_LAYOUT[type]}` };
   }
 
   if (type === 'D') return { kind: 'remove', id: num(f[1]) };
+
+  // R<TAB>source<TAB>next<TAB>points -- an empty source or no points means
+  // there is no flight plan (any more), e.g. after a slot change.
+  if (type === 'R') {
+    const source = f[1] === 'mission' || f[1] === 'aircraft' ? f[1] : null;
+    const points = waypointList(f[3]);
+    if (!source || points.length === 0) return { kind: 'route', route: null };
+    const next = Math.trunc(num(f[2]));
+    return { kind: 'route', route: { source, next: next >= 0 && next < points.length ? next : -1, points } };
+  }
 
   if (type === 'Z') {
     const quad = num(f[4]) === 2;
@@ -271,6 +301,7 @@ function parseV3Line(line: string, modelTime: number, view: OptionsView, mission
         groupName: f[8],
         coalition: coalition(f[9]),
         ...withThreat(base.name, classify({ name: base.name, level1: num(f[10]), level2: num(f[11]) })),
+        ...(f[12] === '1' ? { human: true } : {}),
       },
     };
   }

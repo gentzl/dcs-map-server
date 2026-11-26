@@ -62,7 +62,7 @@ const upstream = `ws://127.0.0.1:${replayPort}/ws`;
 
 console.log(`demo: replaying ${recording}`);
 
-const replay = spawn(process.execPath, [replayScript, recording, '--port', String(replayPort), '--quiet'], {
+const replay = spawn(process.execPath, [replayScript, recording, '--port', String(replayPort), '--quiet', '--demo-extras'], {
   cwd: root,
   stdio: 'inherit',
 });

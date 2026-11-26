@@ -56,6 +56,11 @@ export interface Unit {
   threatM?: number;
   /** Short label of the system for the ring's annotation. */
   threatLabel?: string;
+  /**
+   * Flown by a person rather than the AI (DCS's Flags.Human). Then unitName
+   * is the player's name. Absent for AI and from older hooks and recordings.
+   */
+  human?: true;
 }
 
 export interface Ownship extends Unit {
@@ -117,6 +122,33 @@ export interface Zone {
   color: [number, number, number, number];
 }
 
+/** One waypoint of the player's own flight plan, already in lat/lon. */
+export interface Waypoint {
+  lat: number;
+  lon: number;
+  /** Metres above sea level, as planned; 0 where the source has none. */
+  alt: number;
+  /** As the mission builder named it; usually empty. */
+  name: string;
+}
+
+/**
+ * The player's own flight plan. Only fixed, planned waypoints:
+ *
+ * - 'mission': the route the mission builder gave the player's group in the
+ *   editor. Missing for dynamic-spawn slots, which aren't in the mission file.
+ * - 'aircraft': LoGetRoute(), the route the aircraft itself reports. Only some
+ *   aircraft do; modules with their own navigation computer (F-16C and the
+ *   like) report nothing, so waypoints entered in the cockpit (STPT) or with
+ *   the F10 route tool never reach the map.
+ */
+export interface Route {
+  source: 'mission' | 'aircraft';
+  /** Index into points of the waypoint being flown to, or -1 when unknown. */
+  next: number;
+  points: Waypoint[];
+}
+
 /**
  * Radio and navaid data for one airfield, read from the theater's own files
  * in the local DCS install (Radio.lua, Beacons.lua) at setup. Fixed per map,
@@ -170,6 +202,8 @@ export interface Snapshot {
   /** Absent from older servers and recordings. */
   airbases?: Airbase[];
   zones?: Zone[];
+  /** The player's flight plan; null when there is none. Absent from older servers. */
+  route?: Route | null;
 }
 
 export interface Delta {
@@ -189,6 +223,8 @@ export interface Delta {
   zones?: Zone[];
   /** The mission ended: drop every zone. */
   zonesCleared?: true;
+  /** Present only when the flight plan changed; null means it is gone. */
+  route?: Route | null;
 }
 
 export type ServerMessage = Snapshot | Delta;

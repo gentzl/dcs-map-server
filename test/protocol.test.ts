@@ -7,6 +7,7 @@ import {
   airbaseLine,
   ownshipLine,
   removeLine,
+  routeLine,
   toDatagrams,
   unitLine,
   weaponLine,
@@ -250,6 +251,53 @@ describe('framing and errors', () => {
     near(item.airbase.hdg, base.hdg, 1e-5);
     assert.equal(item.airbase.coalition, 2);
     assert.equal(item.airbase.level2, 13);
+  });
+
+  test('a human player is flagged, AI is not, and an older twelve-field A line still reads', () => {
+    const jet: UnitFields = {
+      id: 77, name: 'F-16C_50', lat: 44.55, lon: 38.5, alt: 4633, hdg: 2.09,
+      unitName: 'Olli', groupName: 'Novorossiysk_F-16CM bl.50_1855', coalition: 2, level1: 1, level2: 1,
+    };
+    const [human, ai, old] = roundtrip(
+      [unitLine({ ...jet, human: true }, 3), unitLine({ ...jet, id: 78, human: false }, 3), unitLine({ ...jet, id: 79 }, 3)],
+      3,
+    );
+    assert.equal(human?.kind === 'unit' && human.unit.human, true);
+    assert.equal(human?.kind === 'unit' && human.unit.unitName, 'Olli');
+    assert.equal(ai?.kind === 'unit' && 'human' in ai.unit, false);
+    assert.equal(old?.kind, 'unit');
+    assert.equal(old?.kind === 'unit' && 'human' in old.unit, false);
+  });
+
+  test('a flight plan survives a write/parse roundtrip, punctuation in names included', () => {
+    const points = [
+      { lat: 41.6, lon: 41.6, alt: 0, name: '' },
+      { lat: 42.1, lon: 42.0, alt: 6100, name: 'IP; north, of town' },
+      { lat: 42.3, lon: 42.4, alt: 4500, name: 'TGT' },
+    ];
+    const [item] = roundtrip([routeLine({ source: 'aircraft', next: 1, points })], 3);
+    assert.equal(item?.kind, 'route');
+    if (item?.kind !== 'route' || !item.route) return assert.fail('expected a route');
+    assert.equal(item.route.source, 'aircraft');
+    assert.equal(item.route.next, 1);
+    assert.equal(item.route.points.length, 3);
+    near(item.route.points[1]!.lat, 42.1, 1e-6);
+    assert.equal(item.route.points[1]!.alt, 6100);
+    assert.equal(item.route.points[1]!.name, 'IP  north  of town');
+    assert.equal(item.route.points[0]!.name, '');
+  });
+
+  test('an empty flight plan line means there is none, as the last line too', () => {
+    const [item] = roundtrip([routeLine({ source: '', next: -1, points: [] })], 3);
+    assert.deepEqual(item, { kind: 'route', route: null });
+  });
+
+  test("a mission route's unknown next waypoint stays unknown, an out-of-range one too", () => {
+    const pts = [{ lat: 42, lon: 42, alt: 0, name: '' }, { lat: 42.1, lon: 42.1, alt: 0, name: '' }];
+    const [a] = roundtrip([routeLine({ source: 'mission', next: -1, points: pts })], 3);
+    const [b] = roundtrip([routeLine({ source: 'mission', next: 7, points: pts })], 3);
+    assert.equal(a?.kind === 'route' && a.route?.next, -1);
+    assert.equal(b?.kind === 'route' && b.route?.next, -1);
   });
 
   test('a removal is parsed back as a removal', () => {

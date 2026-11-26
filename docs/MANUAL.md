@@ -98,6 +98,29 @@ aircraft and then only every five minutes, the airfields every minute. If the ma
 started — or restarted — after you jumped in, the zones show up within five minutes, the airfields
 within one.
 
+**Your flight plan** is drawn as a dashed magenta line through your waypoints, numbered from 0 like
+in the mission editor, with the mission builder's names (`IP`, `TGT` …) where there are any. When
+your aircraft reports which waypoint it is flying to, that one is a filled dot and the top bar
+shows bearing and distance to it, e.g. `WP1 074M/19`. It appears within five seconds of getting
+into your aircraft.
+
+Only **fixed waypoints** reach the map — the ones DCS hands out:
+
+- **The route from the mission editor** for your flight. That works in a slot the mission builder
+  placed, in single player and in multiplayer.
+- **The route your aircraft itself reports**, which only some aircraft do (mostly the simpler,
+  FC3-style ones).
+
+**Not shown**, because DCS doesn't hand them to outside programs:
+
+- **Waypoints you enter or change in the cockpit**, for example steerpoints in the F-16C, and
+  routes drawn with the F10 route tool. Aircraft with their own navigation computer, such as the
+  F-16C, keep them to themselves (checked with the F-16C; other aircraft not yet).
+- **Dynamic-spawn slots** — slots the server creates on the fly instead of placing them in the
+  mission editor. They have no route in the mission, so the map shows none.
+
+Switch the flight plan off in the menu under **Overlays → Flight plan**.
+
 **Other contacts** are drawn with proper military symbology. Two symbol sets are available:
 
 - *NATO* (the default) is based on APP-6 / MIL-STD-2525. Close to the standard, but not strictly
@@ -132,6 +155,11 @@ something fast, short for something slow, and never more than about one and a ha
 on screen. It's there so you can read the geometry of the whole picture at a
 glance: who's converging on whom, who's running. Only aircraft get one; a stub on every parked
 truck would bury what it's meant to show.
+
+**Human players** have a small dot at the top right of their symbol; AI has none. Tap one and the readout
+names the player, e.g. `Olli (F-16C_50)`. This only marks contacts the map shows anyway — it
+never reveals a unit the server hides. It needs the current hook; with an older one nobody gets a
+dot.
 
 **Tapping a contact** draws a line to it and shows the full readout: affiliation, category,
 coordinates, bearing and range from you, the contact's own bullseye position, altitude, aspect,
@@ -240,6 +268,7 @@ Your tablet and your second monitor can be set up differently.
 | Lat/Lon grid | on / off | Latitude/longitude grid with labels |
 | Bullseye | on / off | The reference point and its readout |
 | Mission zones | on / off | The mission's objective zones, see [What's on the map](#whats-on-the-map) |
+| Flight plan | on / off | Your own fixed waypoints, see [What's on the map](#whats-on-the-map) |
 | **Tactical** → Contacts | all / air only / none | Which contacts are drawn at all |
 | Contact labels | on / off | Name and altitude beside every contact — quickly too much in a busy mission |
 | Bearings | magnetic / true | Magnetic is what you call on the radio; true is for map work |

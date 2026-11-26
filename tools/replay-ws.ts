@@ -5,7 +5,7 @@ import { parseArgs } from 'node:util';
 import { resolveUserPath } from './user-path.js';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { WebSocketServer } from 'ws';
-import type { ServerMessage } from '../src/shared/types.js';
+import type { Route, ServerMessage } from '../src/shared/types.js';
 
 /**
  * Replays a capture-ws.ts recording as a WebSocket source, so the real
@@ -32,6 +32,10 @@ const { values, positionals } = parseArgs({
     once: { type: 'boolean', default: false },
     // Used by demo.ts, which starts the server itself, so the "next steps" hint would mislead.
     quiet: { type: 'boolean', default: false },
+    // Fills in what the bundled recordings can't show, so the demo has it
+    // on screen: a made-up flight plan when there is none, and the human
+    // flag on the anonymised players (Player-N), which predate the flag.
+    'demo-extras': { type: 'boolean', default: false },
   },
 });
 
@@ -62,6 +66,53 @@ const records: Rec[] = readFileSync(path, 'utf8')
 if (records.length === 0) {
   console.error(`${path}: empty recording`);
   process.exit(1);
+}
+
+/**
+ * A plausible strike route from where the recording starts: out along the
+ * initial heading, a dogleg to an IP and target, and back home. Flat-earth
+ * offsets are plenty at these distances. The aircraft source with next = 1
+ * shows the HUD's WP readout too, which a mission route alone wouldn't.
+ */
+function demoRoute(lat: number, lon: number, hdg: number): Route {
+  const at = (from: [number, number], brg: number, km: number): [number, number] => [
+    from[0] + (km * 1000 * Math.cos(brg)) / 111_320,
+    from[1] + (km * 1000 * Math.sin(brg)) / (111_320 * Math.cos((from[0] * Math.PI) / 180)),
+  ];
+  const home: [number, number] = [lat, lon];
+  const p1 = at(home, hdg, 35);
+  const p2 = at(p1, hdg + 0.6, 30);
+  const p3 = at(p2, hdg + 1.4, 18);
+  const p4 = at(p3, hdg + 2.6, 40);
+  const legs: Array<[[number, number], number, string]> = [
+    [home, 0, 'HOME'], [p1, 6100, ''], [p2, 6100, 'IP'], [p3, 4500, 'TGT'], [p4, 7600, ''], [home, 0, 'HOME'],
+  ];
+  return {
+    source: 'aircraft',
+    next: 1,
+    points: legs.map(([[la, lo], alt, name]) => ({ lat: la, lon: lo, alt, name })),
+  };
+}
+
+if (values['demo-extras'] && !records.some((r) => r.msg.units?.some((u) => u.human))) {
+  let marked = 0;
+  for (const r of records) {
+    for (const u of r.msg.units ?? []) {
+      if (/^Player-\d+$/.test(u.unitName ?? '')) { u.human = true; marked++; }
+    }
+  }
+  if (marked) console.error('replay-ws: no human flags in the recording, marking the Player-N units as players');
+}
+
+if (values['demo-extras'] && !records.some((r) => r.msg.route)) {
+  const first = records.find((r) => r.msg.own)?.msg.own;
+  if (first) {
+    const route = demoRoute(first.lat, first.lon, first.hdg);
+    // On the first message of every loop: the relay takes a snapshot's
+    // route as the whole truth, and a delta's as a change.
+    records[0]!.msg = { ...records[0]!.msg, route } as ServerMessage;
+    console.error('replay-ws: no flight plan in the recording, adding a demo route');
+  }
 }
 
 const port = Number(values.port);

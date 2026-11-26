@@ -30,8 +30,9 @@ import {
 } from './geo.js';
 import { buildGraticule } from './graticule.js';
 import { AIRBASE_LABEL, airfieldPanel, buildAirbases, matchNav, registerAirbaseImages } from './airbases.js';
-import type { Airbase, AirfieldNav, Zone } from '../shared/types.js';
+import type { Airbase, AirfieldNav, Route, Zone } from '../shared/types.js';
 import { buildZones } from './zones.js';
+import { buildRoute } from './route.js';
 import { findPlaces, type Place } from './find.js';
 import { buildBullseye, buildLeaders, buildRings, buildThreatRings } from './overlays.js';
 import { theaterAt, theaterContains } from '../shared/theaters.js';
@@ -430,7 +431,6 @@ const pinchDist = (): number => {
 
 canvas.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
-  canvas.setPointerCapture(e.pointerId);
   // isPrimary marks the first finger of a fresh touch, i.e. no other finger
   // is down. Anything still in activePointers then is stale: iOS Safari
   // sometimes never delivers pointerup/pointercancel for one finger of a
@@ -441,6 +441,7 @@ canvas.addEventListener('pointerdown', (e) => {
     pan = null;
     pinch = null;
   }
+  canvas.setPointerCapture(e.pointerId);
   activePointers.set(e.pointerId, pointerAt(e));
 
   if (activePointers.size === 1) {
@@ -503,8 +504,8 @@ function endPointer(e: PointerEvent): void {
 }
 canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
-
 canvas.addEventListener('lostpointercapture', endPointer);
+
 // --- Own layers --------------------------------------------------------------
 
 function addOverlayLayers(): void {
@@ -513,12 +514,13 @@ function addOverlayLayers(): void {
   const c = CHART_COLORS[settings.mode];
   const ink = c.ink;
 
-  for (const id of ['graticule', 'zones', 'airbases', 'threats', 'rings', 'bullseye', 'track', 'selected-trail', 'braa-line', 'leaders', 'ruler', 'contacts'] as const) {
+  for (const id of ['graticule', 'zones', 'route', 'airbases', 'threats', 'rings', 'bullseye', 'track', 'selected-trail', 'braa-line', 'leaders', 'ruler', 'contacts'] as const) {
     if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY });
   }
   // A restyle drops the layers; the next updateSources refills the new ones.
   airbasesDirty = true;
   zonesDirty = true;
+  routeDirty = true;
 
   // Mission zones, drawn the way the F10 map shows them (see zones.ts for
   // the three kinds): objectives as a red translucent area with the name in
@@ -562,6 +564,41 @@ function addOverlayLayers(): void {
         'text-halo-color': settings.mode === 'night' ? '#1a1d22' : '#f4efe6',
         'text-halo-width': 2.2,
       },
+    });
+  }
+
+  // The player's own flight plan: magenta, the colour of the active route on
+  // every glass cockpit and chart plotter, so it can't be mistaken for a
+  // zone edge or a coalition colour. The waypoint being flown to, where the
+  // aircraft reports one, gets a filled marker.
+  if (!map.getLayer('route-line')) {
+    const magenta = settings.mode === 'night' ? '#f472f6' : '#b5179e';
+    const halo = settings.mode === 'night' ? '#1a1d22' : '#f4efe6';
+    map.addLayer({
+      id: 'route-line', type: 'line', source: 'route', filter: ['==', ['get', 'kind'], 'leg'],
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: { 'line-color': magenta, 'line-width': 2.2, 'line-opacity': 0.9, 'line-dasharray': [3, 2] },
+    });
+    map.addLayer({
+      id: 'route-point', type: 'circle', source: 'route', filter: ['==', ['get', 'kind'], 'wp'],
+      paint: {
+        'circle-radius': ['case', ['get', 'next'], 7, 5],
+        'circle-color': ['case', ['get', 'next'], magenta, halo],
+        'circle-stroke-color': magenta,
+        'circle-stroke-width': 2,
+      },
+    });
+    map.addLayer({
+      id: 'route-label', type: 'symbol', source: 'route', filter: ['==', ['get', 'kind'], 'wp'],
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-font': ['Noto Sans Medium'],
+        'text-size': 12,
+        'text-anchor': 'left',
+        'text-offset': [0.9, 0],
+        'text-allow-overlap': true,
+      },
+      paint: { 'text-color': magenta, 'text-halo-color': halo, 'text-halo-width': 2 },
     });
   }
 
@@ -784,6 +821,25 @@ function addOverlayLayers(): void {
         'circle-stroke-color': '#ffd166',
       },
     });
+    // Human players get a small dot at the symbol's top right, like a badge.
+    // (A ring around the symbol was tried first and read as clutter.) Moved
+    // in screen pixels, so it stays top right when the map rotates, and
+    // scaled with the symbols (34 px at 0.55-0.9, see iconSize below). Only
+    // on what the server's view rules already show, so it reveals nothing more.
+    map.addLayer({
+      id: 'contacts-human', type: 'circle', source: 'contacts',
+      filter: ['==', ['get', 'human'], true],
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 2.6, 11, 3.6],
+        'circle-color': ink,
+        'circle-stroke-width': 1.2,
+        'circle-stroke-color': c.earth,
+        'circle-opacity': ['case', ['get', 'stale'], 0.35, 1],
+        'circle-stroke-opacity': ['case', ['get', 'stale'], 0.35, 1],
+        'circle-translate': ['interpolate', ['linear'], ['zoom'], 6, ['literal', [8, -8]], 11, ['literal', [13, -13]]],
+        'circle-translate-anchor': 'viewport',
+      },
+    });
     // Two layers, because the orientation can't be expressed in one: aircraft
     // are rotated to heading relative to the map, all other symbols must
     // stand upright relative to the screen. With uniformly map-relative
@@ -841,6 +897,8 @@ function addOverlayLayers(): void {
         'text-opacity': ['case', ['get', 'stale'], 0.4, 0.95],
       },
     });
+    // The player dot sits on the symbol's corner, so above the symbols.
+    map.moveLayer('contacts-human', 'contacts-label');
   }
 
   // Airfield names last, above everything: the symbols sit under the
@@ -878,6 +936,9 @@ function applyVisibility(): void {
   vis('zones-fill', settings.zones);
   vis('zones-line', settings.zones);
   vis('zones-label', settings.zones && settings.mapLabels);
+  vis('route-line', settings.route);
+  vis('route-point', settings.route);
+  vis('route-label', settings.route);
   const threatsOn = settings.threats !== 'none';
   vis('threats-fill', threatsOn);
   vis('threats-line', threatsOn);
@@ -892,6 +953,7 @@ function applyVisibility(): void {
   vis('contacts-dot', settings.contacts !== 'none');
   vis('contacts-air', settings.contacts !== 'none');
   vis('contacts-selected', settings.contacts !== 'none');
+  vis('contacts-human', settings.contacts !== 'none');
   vis('contacts-label', settings.contacts !== 'none' && settings.contactLabels);
 }
 
@@ -972,6 +1034,16 @@ function loadNavFor(theater: string): void {
 const zones = new Map<number, Zone>();
 let zonesDirty = false;
 
+/** The player's own flight plan, or null; replaced whole on every change. */
+let route: Route | null = null;
+let routeDirty = false;
+
+function updateRoute(): void {
+  if (!routeDirty || !map.getSource('route')) return;
+  routeDirty = false;
+  setData('route', buildRoute(route));
+}
+
 function updateZones(): void {
   if (!zonesDirty || !map.getSource('zones')) return;
   zonesDirty = false;
@@ -1046,6 +1118,8 @@ function connect(): void {
       zones.clear();
       for (const z of msg.zones ?? []) zones.set(z.id, z);
       zonesDirty = true;
+      route = msg.route ?? null;
+      routeDirty = true;
       if (msg.own) { own.update(msg.own); ownCoalition = msg.own.coalition; followTheater(msg.own.lat, msg.own.lon); }
     } else {
       // Deltas only: a snapshot repeats the server's last known ownship even
@@ -1056,6 +1130,7 @@ function connect(): void {
       for (const b of msg.airbases ?? []) { airbases.set(b.id, b); airbasesDirty = true; }
       if (msg.zonesCleared) { zones.clear(); zonesDirty = true; }
       for (const z of msg.zones ?? []) { zones.set(z.id, z); zonesDirty = true; }
+      if (msg.route !== undefined) { route = msg.route; routeDirty = true; }
       for (const u of msg.units ?? []) units.push(u, now);
       for (const id of msg.removed ?? []) units.remove(id);
     }
@@ -1155,6 +1230,7 @@ function updateSources(now: number): void {
   const contacts = visibleContacts(now);
   updateAirbases(now, new Set(contacts.map((u) => u.unit.id)));
   updateZones();
+  updateRoute();
 
   setData('contacts', {
     type: 'FeatureCollection',
@@ -1186,6 +1262,7 @@ function updateSources(now: number): void {
         label: `${u.unit.name}  ${contactAltitude(u.unit.category, u.unit.alt)}`,
         stale: u.ageMs > 5000,
         selected: u.unit.id === selectedId,
+        human: u.unit.human === true,
       },
     })),
   });
@@ -1372,6 +1449,15 @@ function updateHud(now: number): void {
       ? `WIND VRB/${Math.round(msToKnots(wind.speedMs))}`
       : `WIND ${bearing3(refBearing(wind.bearing))}${refSuffix}/${Math.round(msToKnots(wind.speedMs))}`),
     nbsp(`BULLS ${bearing3(refBearing(brgToUs))}/${Math.round(bullRange)}`),
+    // Only when the aircraft says which waypoint it is flying to; a mission
+    // route alone doesn't tell, and guessing would point the wrong way.
+    ...(() => {
+      const wp = route && route.next >= 0 && settings.route ? route.points[route.next] : undefined;
+      if (!route || !wp) return [];
+      const brg = bearingTo(own.lat, own.lon, wp.lat, wp.lon);
+      const nm = metersToNm(distanceTo(own.lat, own.lon, wp.lat, wp.lon));
+      return [nbsp(`WP${route.next} ${bearing3(refBearing(brg))}${refSuffix}/${nm >= 10 ? Math.round(nm) : nm.toFixed(1)}`)];
+    })(),
     nbsp(`${displayedRangeNm()} NM`),
   ].join('   ');
 
@@ -1559,10 +1645,12 @@ function updateBraa(now: number): void {
 
   const roleLabel = CATEGORY_LABELS.find(([cat]) => cat === u.category)?.[1] ?? u.category;
   const aff = affiliationOf(u.coalition, ownCoalition).toUpperCase();
+  // A player's unitName is their name; the type follows in brackets.
+  const who = u.human && u.unitName ? `${u.unitName} (${u.name})` : u.name;
 
   braaBox.hidden = false;
   if (wideReadout.matches) {
-    renderReadout(`${u.name} — ${aff} ${roleLabel}`, [
+    renderReadout(`${who} — ${aff} ${roleLabel}`, [
       ['BRG', `${bearing3(refBearing(brg))}°${refSuffix}`], ['RNG', `${rng.toFixed(1)} nm`],
       ['ALT', `${contactAltitude(u.category, u.alt)} ${AIRBORNE.has(u.category) ? 'thousand' : 'ft'}`],
       ['ASPECT', `${aspectLabel(asp)} ${Math.round(asp)}°`],
@@ -1576,7 +1664,7 @@ function updateBraa(now: number): void {
   // as the HUD bar: wraps to further lines on a narrow screen instead of
   // either tearing a group apart or scrolling sideways.
   braaBox.textContent = [
-    nbsp(`${u.name}  —  ${aff} ${roleLabel}`),
+    nbsp(`${who}  —  ${aff} ${roleLabel}`),
     nbsp(`${formatDDM(sel.lat, 'NS')} ${formatDDM(sel.lon, 'EW')}`),
     nbsp(`BRAA ${bearing3(refBearing(brg))}${refSuffix} / ${rng.toFixed(1)} nm`),
     nbsp(`BULLS ${bearing3(refBearing(bullBrg))}${refSuffix}/${Math.round(bullRng)}`),

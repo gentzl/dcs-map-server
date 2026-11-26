@@ -47,6 +47,8 @@ export interface UnitFields {
   /** Type.level1 from DCS: 1 Air, 2 Ground, 3 Navy, 4 Weapon, 5 Static. */
   level1: number;
   level2: number;
+  /** Schema 3 only; omitted gives the older twelve-field A line. */
+  human?: boolean;
 }
 
 export interface WeaponFields {
@@ -97,6 +99,7 @@ export function unitLine(u: UnitFields, schema: Schema): string {
   return [
     'A', u.id, c(u.name), f(u.lat, 6), f(u.lon, 6), f(u.alt, 1), f(u.hdg, 5),
     c(u.unitName), c(u.groupName), u.coalition, u.level1, u.level2,
+    ...(u.human === undefined ? [] : [u.human ? 1 : 0]),
   ].join('\t');
 }
 
@@ -141,6 +144,22 @@ export const zoneLine = (z: ZoneFields): string =>
     'Z', z.id, clean(z.name, 3), z.hidden ? 1 : 0, z.type, f(z.radius, 1), f(z.lat, 6), f(z.lon, 6),
     z.color.map((c) => f(c, 2)).join(','),
     (z.vertices ?? []).map(([la, lo]) => `${f(la, 6)},${f(lo, 6)}`).join(';'),
+  ].join('\t');
+
+export interface RouteFields {
+  /** '' for "no flight plan". */
+  source: 'mission' | 'aircraft' | '';
+  next: number;
+  points: { lat: number; lon: number; alt: number; name: string }[];
+}
+
+/** Only schema 3 knows routes. Names lose commas and semicolons, as in the hook. */
+export const routeLine = (r: RouteFields): string =>
+  [
+    'R', r.source, r.next,
+    r.points
+      .map((p) => `${f(p.lat, 6)},${f(p.lon, 6)},${f(p.alt, 0)},${clean(p.name, 3).replace(/[,;]/g, ' ')}`)
+      .join(';'),
   ].join('\t');
 
 /** Only schema 3 knows airbases. */

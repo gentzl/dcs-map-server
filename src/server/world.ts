@@ -1,4 +1,4 @@
-import type { Airbase, Delta, OptionsView, Ownship, Snapshot, Unit, Zone } from '../shared/types.js';
+import type { Airbase, Delta, OptionsView, Ownship, Route, Snapshot, Unit, Zone } from '../shared/types.js';
 
 /** Without an update, an object counts as stale or gone. */
 const STALE_MS = 5_000;
@@ -110,6 +110,20 @@ export class World {
     this.zonesCleared = true;
   }
 
+  /**
+   * The player's own flight plan. Not subject to fog of war: it is the
+   * player's own planned route, the one F10 shows them anyway. The hook
+   * re-sends it every few seconds; only a real change goes out to clients.
+   */
+  private route: Route | null = null;
+  private routeDirty = false;
+
+  setRoute(route: Route | null): void {
+    if (JSON.stringify(route) === JSON.stringify(this.route)) return;
+    this.route = route;
+    this.routeDirty = true;
+  }
+
   setOwnship(own: Ownship, view: OptionsView, now = Date.now()): void {
     this.own = own;
     this.ownDirty = true;
@@ -128,6 +142,7 @@ export class World {
     this.own = null;
     this.clearAirbases();
     this.clearZones();
+    this.setRoute(null);
   }
 
   private removed = new Set<number>();
@@ -195,6 +210,7 @@ export class World {
       units,
       airbases: [...this.airbases.values()],
       zones: [...this.zones.values()],
+      route: this.route,
     };
   }
 
@@ -232,10 +248,14 @@ export class World {
     const zonesCleared = this.zonesCleared;
     this.zonesCleared = false;
 
+    const routeChanged = this.routeDirty;
+    this.routeDirty = false;
+
     const hasOwn = this.ownDirty && this.own;
     if (
       !hasOwn && units.length === 0 && removed.length === 0 &&
-      airbases.length === 0 && !airbasesCleared && zones.length === 0 && !zonesCleared
+      airbases.length === 0 && !airbasesCleared && zones.length === 0 && !zonesCleared &&
+      !routeChanged
     ) {
       return null;
     }
@@ -257,6 +277,7 @@ export class World {
     if (airbases.length) delta.airbases = airbases;
     if (zonesCleared) delta.zonesCleared = true;
     if (zones.length) delta.zones = zones;
+    if (routeChanged) delta.route = this.route;
     return delta;
   }
 
@@ -265,6 +286,7 @@ export class World {
       units: this.units.size,
       airbases: this.airbases.size,
       zones: this.zones.size,
+      waypoints: this.route?.points.length ?? 0,
       hasOwn: this.own !== null,
       seq: this.seq,
     };

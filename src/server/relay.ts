@@ -39,6 +39,9 @@ function apply(world: World, msg: ServerMessage): void {
     for (const id of msg.removed ?? []) world.remove(id);
     for (const b of msg.airbases ?? []) world.upsertAirbase(b);
   }
+  // A snapshot always states the route; a delta only when it changed.
+  if (msg.type === 'snapshot') world.setRoute(msg.route ?? null);
+  else if (msg.route !== undefined) world.setRoute(msg.route);
   if (msg.own) world.setOwnship(msg.own, msg.optionsView);
   else world.optionsView = msg.optionsView;
   if (msg.objectsBlocked !== undefined) world.objectsBlocked = msg.objectsBlocked;

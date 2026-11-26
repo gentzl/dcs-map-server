@@ -24,6 +24,8 @@ export interface Settings {
   bullseye: boolean;
   /** The mission's objective zones (FOBs, targets), see zones.ts. */
   zones: boolean;
+  /** The player's own fixed waypoints, see route.ts. */
+  route: boolean;
   /** Fighter pilots call out magnetic; true only for map work. */
   bearingRef: 'magnetic' | 'true';
   mapLabels: boolean;
@@ -54,6 +56,7 @@ export const DEFAULTS: Settings = {
   graticule: true,
   bullseye: true,
   zones: true,
+  route: true,
   bearingRef: 'magnetic',
   mapLabels: true,
   contactLabels: true,
