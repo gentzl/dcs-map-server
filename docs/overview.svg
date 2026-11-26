@@ -1,86 +1,106 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 380" font-family="ui-sans-serif, Segoe UI, Helvetica, Arial, sans-serif">
+  <!-- Same palette as the logo (public/icon.svg): sage map ground with grid,
+       dark green ink, the own aircraft and data flow in blue. -->
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#ffd166"/>
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f5fbf"/>
     </marker>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0 V40 M0 40 H40" fill="none" stroke="#c9d2c5" stroke-width="1"/>
+    </pattern>
+    <clipPath id="frame"><rect width="960" height="380" rx="14"/></clipPath>
+    <clipPath id="logo"><rect width="74" height="74" rx="15"/></clipPath>
+    <!-- Mini map as on the device screens: bullseye rings and own aircraft -->
+    <symbol id="minimap" viewBox="0 0 60 60">
+      <rect width="60" height="60" fill="#dfe5dc"/>
+      <path d="M20 0 V60 M40 0 V60 M0 20 H60 M0 40 H60" stroke="#b9c3b5" stroke-width="1"/>
+      <circle cx="30" cy="30" r="7" fill="none" stroke="#2c3a33" stroke-width="1.6"/>
+      <circle cx="30" cy="30" r="16" fill="none" stroke="#2c3a33" stroke-width="1.3"/>
+      <g transform="translate(41 19) rotate(45)">
+        <path d="M0 -5 L4.5 4.5 L0 2.2 L-4.5 4.5 Z" fill="#1f5fbf"/>
+      </g>
+    </symbol>
   </defs>
 
-  <rect x="0" y="0" width="960" height="380" rx="14" fill="#0d1b2a"/>
+  <g clip-path="url(#frame)">
+    <rect width="960" height="380" fill="#dfe5dc"/>
+    <rect width="960" height="380" fill="url(#grid)"/>
+  </g>
 
   <!-- Groups the DCS PC and the map server: both run on the same machine. -->
-  <rect x="18" y="92" width="554" height="236" rx="16" fill="none" stroke="#ffd166" stroke-width="1.5" stroke-dasharray="6 5"/>
-  <text x="295" y="80" text-anchor="middle" fill="#ffd166" font-size="13" font-weight="600">One PC -- the one running DCS</text>
+  <rect x="18" y="92" width="554" height="236" rx="16" fill="none" stroke="#2c3a33" stroke-width="1.5" stroke-dasharray="6 5" opacity=".7"/>
+  <text x="295" y="80" text-anchor="middle" fill="#2c3a33" font-size="13" font-weight="600">One PC -- the one running DCS</text>
 
   <!-- Step 1: the DCS PC -->
   <g>
-    <rect x="30" y="110" width="230" height="200" rx="12" fill="#13233a" stroke="#415a77" stroke-width="1.5"/>
-    <text x="145" y="138" text-anchor="middle" fill="#e0e1dd" font-size="15" font-weight="600">Your DCS PC</text>
+    <rect x="30" y="110" width="230" height="200" rx="12" fill="#f4f6f3" stroke="#9aa79a" stroke-width="1.5"/>
+    <text x="145" y="138" text-anchor="middle" fill="#1e2924" font-size="15" font-weight="600">Your DCS PC</text>
 
-    <!-- simple monitor glyph -->
-    <rect x="85" y="155" width="120" height="78" rx="4" fill="#0d1b2a" stroke="#4895ef" stroke-width="2"/>
-    <rect x="95" y="164" width="100" height="58" rx="2" fill="#1b3a5c"/>
-    <path d="M130 232 h40 M145 233 v10 h10 v-10" stroke="#4895ef" stroke-width="2" fill="none"/>
-    <!-- small aircraft glyph on the screen -->
-    <path d="M145 190 l9 24 l-9 -6 l-9 6 z" fill="#ffd166"/>
+    <!-- monitor with the flight on it: sky, ground and own aircraft -->
+    <rect x="85" y="155" width="120" height="78" rx="4" fill="#f4f6f3" stroke="#2c3a33" stroke-width="2"/>
+    <rect x="95" y="164" width="100" height="58" rx="2" fill="#cfdbe6"/>
+    <path d="M95 204 H195 V220 a2 2 0 0 1 -2 2 H97 a2 2 0 0 1 -2 -2 Z" fill="#b9c3b5"/>
+    <path d="M130 232 h40 M145 233 v10 h10 v-10" stroke="#2c3a33" stroke-width="2" fill="none"/>
+    <path d="M145 178 l9 22 l-9 -5 l-9 5 z" fill="#1f5fbf"/>
 
-    <text x="145" y="262" text-anchor="middle" fill="#9fb3c8" font-size="12">a small add-on (the "hook")</text>
-    <text x="145" y="280" text-anchor="middle" fill="#9fb3c8" font-size="12">reads your aircraft and</text>
-    <text x="145" y="298" text-anchor="middle" fill="#9fb3c8" font-size="12">everything around it</text>
+    <text x="145" y="262" text-anchor="middle" fill="#4d5b53" font-size="12">a small add-on (the "hook")</text>
+    <text x="145" y="280" text-anchor="middle" fill="#4d5b53" font-size="12">reads your aircraft and</text>
+    <text x="145" y="298" text-anchor="middle" fill="#4d5b53" font-size="12">everything around it</text>
   </g>
 
-  <line x1="268" y1="210" x2="322" y2="210" stroke="#ffd166" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="268" y1="210" x2="322" y2="210" stroke="#1f5fbf" stroke-width="2.5" marker-end="url(#arrow)"/>
 
-  <!-- Step 2: the map server -->
+  <!-- Step 2: the map server, shown as the logo -->
   <g>
-    <rect x="330" y="110" width="230" height="200" rx="12" fill="#13233a" stroke="#415a77" stroke-width="1.5"/>
-    <text x="445" y="138" text-anchor="middle" fill="#e0e1dd" font-size="15" font-weight="600">Map Server</text>
+    <rect x="330" y="110" width="230" height="200" rx="12" fill="#f4f6f3" stroke="#9aa79a" stroke-width="1.5"/>
+    <text x="445" y="138" text-anchor="middle" fill="#1e2924" font-size="15" font-weight="600">Map Server</text>
 
-    <!-- small box/server glyph -->
-    <rect x="390" y="158" width="110" height="72" rx="6" fill="#0d1b2a" stroke="#ffd166" stroke-width="2"/>
-    <circle cx="407" cy="174" r="4" fill="#ffd166"/>
-    <line x1="390" y1="186" x2="500" y2="186" stroke="#415a77" stroke-width="1.5"/>
-    <line x1="402" y1="202" x2="488" y2="202" stroke="#2a6b80" stroke-width="2"/>
-    <line x1="402" y1="214" x2="460" y2="214" stroke="#2a6b80" stroke-width="2"/>
+    <g transform="translate(408 156)">
+      <g clip-path="url(#logo)">
+        <use href="#minimap" width="74" height="74"/>
+      </g>
+      <rect width="74" height="74" rx="15" fill="none" stroke="#2c3a33" stroke-width="1.5"/>
+    </g>
 
-    <text x="445" y="252" text-anchor="middle" fill="#9fb3c8" font-size="12">turns that into a live map</text>
-    <text x="445" y="270" text-anchor="middle" fill="#9fb3c8" font-size="12">and serves it over your</text>
-    <text x="445" y="288" text-anchor="middle" fill="#9fb3c8" font-size="12">own Wi-Fi -- nothing leaves it</text>
+    <text x="445" y="252" text-anchor="middle" fill="#4d5b53" font-size="12">turns that into a live map</text>
+    <text x="445" y="270" text-anchor="middle" fill="#4d5b53" font-size="12">and serves it over your</text>
+    <text x="445" y="288" text-anchor="middle" fill="#4d5b53" font-size="12">own Wi-Fi -- nothing leaves it</text>
   </g>
 
-  <line x1="568" y1="210" x2="622" y2="210" stroke="#ffd166" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <line x1="568" y1="210" x2="622" y2="210" stroke="#1f5fbf" stroke-width="2.5" marker-end="url(#arrow)"/>
   <!-- wifi glyph on the arrow -->
-  <g transform="translate(588,185)" stroke="#ffd166" stroke-width="2" fill="none" stroke-linecap="round">
+  <g transform="translate(588,185)" stroke="#1f5fbf" stroke-width="2" fill="none" stroke-linecap="round">
     <path d="M2 10 a14 14 0 0 1 20 0"/>
     <path d="M6.5 14.5 a8 8 0 0 1 11 0"/>
-    <circle cx="12" cy="19" r="1.6" fill="#ffd166" stroke="none"/>
+    <circle cx="12" cy="19" r="1.6" fill="#1f5fbf" stroke="none"/>
   </g>
 
-  <!-- Step 3: any device -->
+  <!-- Step 3: any device, each showing the map -->
   <g>
-    <rect x="630" y="110" width="300" height="200" rx="12" fill="#13233a" stroke="#415a77" stroke-width="1.5"/>
-    <text x="780" y="138" text-anchor="middle" fill="#e0e1dd" font-size="15" font-weight="600">Any screen in the house</text>
+    <rect x="630" y="110" width="300" height="200" rx="12" fill="#f4f6f3" stroke="#9aa79a" stroke-width="1.5"/>
+    <text x="780" y="138" text-anchor="middle" fill="#1e2924" font-size="15" font-weight="600">Any screen in the house</text>
 
     <!-- tablet -->
     <g transform="translate(662,158)">
-      <rect x="0" y="0" width="70" height="92" rx="8" fill="#0d1b2a" stroke="#4895ef" stroke-width="2"/>
-      <rect x="7" y="9" width="56" height="66" rx="2" fill="#1b3a5c"/>
-      <circle cx="35" cy="83" r="2.4" fill="#4895ef"/>
+      <rect x="0" y="0" width="70" height="92" rx="8" fill="#2c3a33"/>
+      <svg x="7" y="9" width="56" height="66" viewBox="0 0 60 60" preserveAspectRatio="xMidYMid slice"><use href="#minimap" width="60" height="60"/></svg>
+      <circle cx="35" cy="83" r="2.4" fill="#9aa79a"/>
     </g>
     <!-- phone -->
     <g transform="translate(748,178)">
-      <rect x="0" y="0" width="34" height="62" rx="6" fill="#0d1b2a" stroke="#ffd166" stroke-width="2"/>
-      <rect x="4" y="7" width="26" height="44" rx="2" fill="#1b3a5c"/>
-      <circle cx="17" cy="55" r="1.8" fill="#ffd166"/>
+      <rect x="0" y="0" width="34" height="62" rx="6" fill="#2c3a33"/>
+      <svg x="4" y="7" width="26" height="44" viewBox="0 0 60 60" preserveAspectRatio="xMidYMid slice"><use href="#minimap" width="60" height="60"/></svg>
+      <circle cx="17" cy="55" r="1.8" fill="#9aa79a"/>
     </g>
     <!-- laptop -->
     <g transform="translate(796,190)">
-      <path d="M0 48 h96 l-10 14 h-76 z" fill="#0d1b2a" stroke="#93c4b4" stroke-width="2"/>
-      <rect x="10" y="0" width="76" height="48" rx="3" fill="#0d1b2a" stroke="#93c4b4" stroke-width="2"/>
-      <rect x="16" y="6" width="64" height="36" rx="2" fill="#1b3a5c"/>
+      <path d="M0 48 h96 l-10 14 h-76 z" fill="#2c3a33"/>
+      <rect x="10" y="0" width="76" height="48" rx="3" fill="#2c3a33"/>
+      <svg x="16" y="6" width="64" height="36" viewBox="0 0 60 60" preserveAspectRatio="xMidYMid slice"><use href="#minimap" width="60" height="60"/></svg>
     </g>
 
-    <text x="780" y="272" text-anchor="middle" fill="#9fb3c8" font-size="12">tablet, phone, laptop --</text>
-    <text x="780" y="290" text-anchor="middle" fill="#9fb3c8" font-size="12">just open a web address,</text>
-    <text x="780" y="308" text-anchor="middle" fill="#9fb3c8" font-size="12">nothing to install</text>
+    <text x="780" y="268" text-anchor="middle" fill="#4d5b53" font-size="12">tablet, phone, laptop --</text>
+    <text x="780" y="284" text-anchor="middle" fill="#4d5b53" font-size="12">just open a web address,</text>
+    <text x="780" y="300" text-anchor="middle" fill="#4d5b53" font-size="12">nothing to install</text>
   </g>
 </svg>

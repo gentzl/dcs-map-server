@@ -1,4 +1,4 @@
-# dcs-map-server
+# DCS Map Server
 
 A live map for DCS World — see your aircraft and everything around it on your phone,
 tablet, or a second screen while you fly.
@@ -61,11 +61,10 @@ has the details.
 
 ## Contributing
 
-Clone it, fly with it, break it. Bugs, rough edges and ideas are all welcome as
-[issues](https://github.com/gentzl/dcs-map-server/issues), and pull requests just as much.
-Contacts drawn with the wrong symbol are worth reporting in particular: the map recognises units
-by their DCS type name, and nobody flies every asset pack there is. The
-[technical guide](docs/DEVELOPERS.md#contributing) has what to know before sending a change.
+Bug reports and suggestions are welcome as
+[issues](https://github.com/gentzl/dcs-map-server/issues), changes as pull requests. The
+[technical guide](docs/DEVELOPERS.md#contributing) describes what to check before submitting a
+change.
 
 ## Credits
 
