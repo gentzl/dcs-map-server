@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- Full-bleed square for apple-touch-icon: iOS rounds the corners itself -->
+  <rect width="120" height="120" fill="#dfe5dc"/>
+  <path d="M40 0 V120 M80 0 V120 M0 40 H120 M0 80 H120" stroke="#b9c3b5" stroke-width="1.5"/>
+  <g id="mark">
+    <circle cx="60" cy="60" r="14" fill="none" stroke="#2c3a33" stroke-width="2.5"/>
+    <circle cx="60" cy="60" r="30" fill="none" stroke="#2c3a33" stroke-width="2"/>
+    <circle cx="60" cy="60" r="46" fill="none" stroke="#2c3a33" stroke-width="1.5" opacity=".5"/>
+    <path d="M60 8 V112 M8 60 H112" stroke="#2c3a33" stroke-width="1.5" opacity=".5"/>
+    <g transform="translate(80 40) rotate(45)">
+      <line x1="0" y1="-8" x2="0" y2="-26" stroke="#1f5fbf" stroke-width="3" stroke-linecap="round"/>
+      <path d="M0 -9 L8 8 L0 4 L-8 8 Z" fill="#1f5fbf"/>
+    </g>
+  </g>
+</svg>

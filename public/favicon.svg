@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- Small-size version of icon.svg: no grid, two heavy rings, a big aircraft,
+       so it still reads at 16-32 px in a browser tab -->
+  <rect width="120" height="120" rx="26" fill="#dfe5dc"/>
+  <circle cx="58" cy="62" r="14" fill="none" stroke="#2c3a33" stroke-width="7"/>
+  <circle cx="58" cy="62" r="38" fill="none" stroke="#2c3a33" stroke-width="6"/>
+  <g transform="translate(86 34) rotate(45)">
+    <path d="M0 -17 L15 15 L0 7 L-15 15 Z" fill="#1f5fbf" stroke="#dfe5dc" stroke-width="6" stroke-linejoin="round"/>
+  </g>
+</svg>
