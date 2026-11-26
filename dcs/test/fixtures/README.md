@@ -26,6 +26,10 @@ Checked for anything identifying before this was committed: unit names are
 vehicle/ship types (BMP-1, Mi-24P, CVN-75 Harry S. Truman, ...) or
 auto-generated Mission Editor group labels (`Convoi Mobil Hard#001-03`, ...).
 The only player identity present is the recording session's own callsign.
+Two MiG-21Bis in player slots (`Kobuleti_MiG-21Bis_139`/`_141`) carried what
+look like other pilots' callsigns as `unitName`; replaced with `Player-3` /
+`Player-4` afterwards (2026-11-26), continuing the numbering of the
+multiplayer fixture below.
 
 ## real-session-2026-11-23-multiplayer.jsonl
 
