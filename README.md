@@ -16,6 +16,21 @@ home network; only the terrain shading is loaded from the internet while the map
 
 ![How it works: the DCS PC reads your flight, the map server turns it into a live map, any screen on your Wi-Fi can open it](docs/overview.svg)
 
+## What's on the map
+
+- **Your aircraft** on an aeronautical chart with terrain, range rings, bullseye and the mission
+  clock — north up or heading up.
+- **Other units** in military symbology, with air-defence threat rings. Human players are marked
+  with a small dot; tap any contact for bearing, range, altitude, aspect and closure.
+- **DCS's own airfields** with tower frequencies and navaids, and the **mission's zones** (FOBs,
+  objectives, sectors) as on the F10 map.
+- **Your flight plan**: the fixed waypoints from the mission editor, or the route your aircraft
+  reports. Waypoints entered in the cockpit (e.g. F-16C steerpoints) and dynamic-spawn slots
+  aren't available — DCS doesn't hand them out.
+- **Measure and coordinate tools**, and a search for zones and airfields.
+
+The map only ever shows what the server's own rules allow — it is no way around fog of war.
+
 ## Setting it up
 
 1. Download this project — the green **Code → Download ZIP** button on GitHub — and unzip it.
@@ -27,6 +42,9 @@ That's it. It works out which DCS maps you own by itself and sets everything up.
 tablet on the same Wi-Fi, use one of the other addresses it lists instead — something like
 `http://192.168.1.23:8080` or `http://<your-pc-name>.local:8080`. Start or join a flight in DCS and
 the map comes alive.
+
+**Updating?** Download the new version and double-click `start.bat` again. It replaces the DCS
+hook with the new one (keeping the old as `.bak`); restart DCS once so it loads it.
 
 **Joining a multiplayer server?** Some servers don't let any outside program see the other units —
 then the map shows only your own aircraft and says so at the top (*server blocks other units*).
