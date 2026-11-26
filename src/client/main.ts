@@ -431,6 +431,16 @@ const pinchDist = (): number => {
 canvas.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
   canvas.setPointerCapture(e.pointerId);
+  // isPrimary marks the first finger of a fresh touch, i.e. no other finger
+  // is down. Anything still in activePointers then is stale: iOS Safari
+  // sometimes never delivers pointerup/pointercancel for one finger of a
+  // pinch. Left in place, the next one-finger drag counted as two pointers
+  // and pinch-zoomed against the ghost point instead of panning.
+  if (e.isPrimary) {
+    activePointers.clear();
+    pan = null;
+    pinch = null;
+  }
   activePointers.set(e.pointerId, pointerAt(e));
 
   if (activePointers.size === 1) {
@@ -478,7 +488,8 @@ canvas.addEventListener('pointermove', (e) => {
 });
 
 function endPointer(e: PointerEvent): void {
-  activePointers.delete(e.pointerId);
+  // lostpointercapture follows every pointerup too; only the first counts.
+  if (!activePointers.delete(e.pointerId)) return;
   if (activePointers.size < 1) {
     pan = null;
     cancelLongPress();
@@ -493,6 +504,7 @@ function endPointer(e: PointerEvent): void {
 canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
 
+canvas.addEventListener('lostpointercapture', endPointer);
 // --- Own layers --------------------------------------------------------------
 
 function addOverlayLayers(): void {
