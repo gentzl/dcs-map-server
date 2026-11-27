@@ -29,17 +29,18 @@ export const RING_RADII_NM = [2.5, 5, 10, 20, 40, 80, 160] as const;
  * The pattern is the half-range ring plus the step itself, the way an
  * HSI/HSD scales -- the display edge already is the selected range, so the
  * half-range ring is the reference you read against it. Two exceptions: the
- * 1 nm step gets none, because half of it is finer than the symbols
- * themselves, and the 50 nm step borrows 20/40 rather than inventing a 25 nm
- * ring, since 50 is an extra quick pick here and not a classic MFD step
- * anyway.
+ * 1 nm step gets only the 1 nm ring, because half of it is finer than the
+ * symbols themselves, and the 50 nm step borrows 20/40 rather than inventing
+ * a 25 nm ring, since 50 is an extra quick pick here and not a classic MFD
+ * step anyway. (The 1 nm step once had no ring at all; its bearing ticks then
+ * fell back to the edge of the view and floated there with nothing to sit on.)
  *
  * Capped at two either way. Showing every ring up to the selected range (the
  * old behaviour) crowded the display -- seven overlapping rings near the
  * centre say nothing useful mid-fight.
  */
 const RINGS_FOR_RANGE: Record<number, readonly number[]> = {
-  1: [],
+  1: [1],
   5: [2.5, 5],
   10: [5, 10],
   20: [10, 20],
@@ -97,9 +98,9 @@ export function buildRings(lat: number, lon: number, rangeNm: number): GeoJSON.F
   // exactly the "floating, disconnected marks" this was reported as, and
   // reproducible at perfectly ordinary zoom (55 nm), not just deep stepless
   // zoom-out. Sitting on the ring instead means every tick always touches
-  // something, in every direction, on every screen shape. The 1 nm step
-  // shows no rings at all, so there ticks fall back to the raw range.
-  const outer = shown.length ? Math.max(...shown) : rangeNm;
+  // something, in every direction, on every screen shape -- every step has
+  // a ring, so there always is one.
+  const outer = Math.max(...shown);
   for (let deg = 0; deg < 360; deg += 30) {
     const major = deg % 90 === 0;
     const from = outer * (major ? 0.9 : 0.95);

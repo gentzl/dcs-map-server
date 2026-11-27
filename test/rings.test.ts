@@ -14,7 +14,7 @@ const ringsAt = (rangeNm: number): number[] =>
 
 describe('which range rings are shown', () => {
   test('the table is what it says it is', () => {
-    assert.deepEqual(ringsAt(1), []);
+    assert.deepEqual(ringsAt(1), [1]);
     assert.deepEqual(ringsAt(5), [2.5, 5]);
     assert.deepEqual(ringsAt(10), [5, 10]);
     assert.deepEqual(ringsAt(20), [10, 20]);
@@ -28,7 +28,6 @@ describe('which range rings are shown', () => {
   // reference at all.
   test('no step leaves its outer half without a ring', () => {
     for (const nm of RANGES_NM) {
-      if (nm === 1) continue;
       const outer = Math.max(...ringsAt(nm));
       assert.ok(outer >= nm / 2, `range step ${nm}: outermost ring is ${outer} nm`);
     }
@@ -53,7 +52,14 @@ describe('which range rings are shown', () => {
   });
 
   test('a range below the smallest preset does not fall off the table', () => {
-    assert.deepEqual(ringsAt(0.3), []);
+    assert.deepEqual(ringsAt(0.3), [1]);
+  });
+
+  // Reported 2026-11-27 with a screenshot zoomed in past 1 nm: bearing ticks
+  // floating in open terrain with no ring anywhere. The 1 nm step had no ring,
+  // so the ticks fell back to the edge of the view.
+  test('every step has a ring for the ticks to sit on', () => {
+    for (const nm of [...RANGES_NM, 0.3]) assert.ok(ringsAt(nm).length > 0, `range ${nm}`);
   });
 });
 
@@ -106,9 +112,8 @@ describe('ring geometry', () => {
   // stepless zoom-out. Anchoring to the outermost ring that is actually
   // drawn means a tick always touches something, in every direction.
   test('ticks sit exactly on the outermost ring shown, at any range', () => {
-    for (const rangeNm of [1, 35, 55, 145, 160, 161, 320, 497, 5000]) {
-      const rings = ringsAt(rangeNm);
-      const expected = rings.length ? Math.max(...rings) : rangeNm;
+    for (const rangeNm of [0.3, 1, 35, 55, 145, 160, 161, 320, 497, 5000]) {
+      const expected = Math.max(...ringsAt(rangeNm));
       const r = tickOuterRadiusNm(rangeNm);
       assert.ok(Math.abs(r - expected) < 0.1, `range ${rangeNm}: ticks reach ${r} nm, not ${expected}`);
     }
