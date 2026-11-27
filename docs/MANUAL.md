@@ -353,4 +353,21 @@ Both devices have to be on the same network, and the PC's firewall has to allow 
 If you can't see the terminal window with the address any more, run `ipconfig` on the DCS PC and
 look for "IPv4 Address".
 
+`setup.log` next to `start.bat` shows whether the tablet got through: each connection leaves a line
+`[clients] 192.168.… connected`. No such line means the request never reached the PC, so it's
+the network or the firewall, not the map.
+
+### Reporting a problem
+
+Please attach two files to an [issue](https://github.com/gentzl/dcs-map-server/issues):
+
+- **`setup.log`** next to `start.bat`: setup, the server, the hook connecting, and which view
+  setting the mission uses. It is rewritten every time `start.bat` runs, so send it before
+  starting again.
+- **The lines with `[map-server]`** from `Saved Games/DCS/Logs/dcs.log`: what the hook inside
+  DCS saw. The whole file is fine too.
+
+Both contain your Windows user name in folder paths. Remove it first if you'd rather not post
+it.
+
 Anything beyond this is in the [technical guide](DEVELOPERS.md).

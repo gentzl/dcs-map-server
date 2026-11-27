@@ -65,6 +65,8 @@ local function load_hook()
   local diag_at = 0          -- next diagnostic output
   local diag_objects = 0     -- objects in the last sweep
   local diag_sent = 0        -- of those, how many were actually sent
+  local diag_send_errors = 0 -- datagrams that failed to go out since the last diagnostic
+  local diag_send_error = '' -- the last such error
   local start_time = ''      -- mission start, seconds after midnight; '' if unknown
   local next_bases = 0       -- model time of the next airbase list
   local BASES_EVERY = 60     -- seconds: a base can change hands, but not often
@@ -88,8 +90,14 @@ local function load_hook()
     if buffer_len == 0 then return end
     local payload = table.concat(buffer)
     buffer, buffer_len = {}, 0
-    -- A failed send must never stall the simulation.
-    pcall(function() udp:sendto(payload, HOST, PORT) end)
+    -- A failed send must never stall the simulation -- but it is counted, so
+    -- the diagnostic line can tell "DCS hands out nothing" apart from "the
+    -- hook has data and can't get it out".
+    local ok_call, sent_ok, err = pcall(function() return udp:sendto(payload, HOST, PORT) end)
+    if not (ok_call and sent_ok) then
+      diag_send_errors = diag_send_errors + 1
+      diag_send_error = tostring(ok_call and err or sent_ok)
+    end
   end
 
   -- Set when LoGetWorldObjects() returns nil rather than a list: the server
@@ -492,7 +500,11 @@ local function load_hook()
         log('mission is withholding other units (map view setting in the '
             .. 'mission or server options)')
       end
+      if diag_send_errors > 0 then
+        log(string.format('%d datagram(s) failed to send, last error: %s', diag_send_errors, diag_send_error))
+      end
       diag_sent = 0
+      diag_send_errors = 0
     end
 
     flush()

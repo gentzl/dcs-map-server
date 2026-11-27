@@ -13,7 +13,9 @@ package.preload['socket'] = function()
       return {
         settimeout = function() end,
         close = function() end,
-        sendto = function(_, payload) sent[#sent + 1] = payload end,
+        -- Returns 1 like LuaSocket on success (nil, err on failure): the hook
+        -- counts anything else as a failed send.
+        sendto = function(_, payload) sent[#sent + 1] = payload; return 1 end,
       }
     end,
   }

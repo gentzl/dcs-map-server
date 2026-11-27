@@ -113,11 +113,19 @@ const server = app.server;
 const wss = new WebSocketServer({ server, path: '/ws' });
 const clients = new Set<WebSocket>();
 
-wss.on('connection', (ws) => {
+// Logged because "the tablet can't connect" is otherwise undiagnosable from
+// a report: no line at all means the request never got here (Wi-Fi,
+// firewall, wrong address), a line means the network is fine.
+wss.on('connection', (ws, req) => {
   clients.add(ws);
+  const who = req.socket.remoteAddress?.replace(/^::ffff:/, '') ?? 'unknown';
+  console.log(`[clients] ${who} connected (${clients.size} open)`);
   ws.send(JSON.stringify(world.snapshot()));
-  ws.on('close', () => clients.delete(ws));
-  ws.on('error', () => clients.delete(ws));
+  const drop = () => {
+    if (clients.delete(ws)) console.log(`[clients] ${who} disconnected (${clients.size} open)`);
+  };
+  ws.on('close', drop);
+  ws.on('error', drop);
 });
 
 setInterval(() => {
@@ -165,20 +173,33 @@ function watchHook(): void {
   let hookConnected = false;
   let everConnected = false;
   console.log('\x1b[33m⚠ Hook not connected\x1b[0m -- waiting for DCS (start or join a flight)');
+  // What the mission lets through, logged when it changes: "no contacts on
+  // the map" is most often the mission's view setting or a server with
+  // object export off, and with this a report says which.
+  // Reset on every disconnect, so each new flight states it again.
+  let reportedVisibility = '';
   setInterval(() => {
     const connected = Date.now() - lastPacketAt < HOOK_TIMEOUT_MS;
-    if (connected === hookConnected) return;
-    hookConnected = connected;
-    if (connected) {
-      everConnected = true;
-      console.log('\x1b[32m✓ Hook connected\x1b[0m -- receiving data from DCS');
-    } else {
-      console.log(
-        `\x1b[33m⚠ No data from DCS for ${HOOK_TIMEOUT_MS / 1000} s\x1b[0m -- ` +
-          (everConnected
-            ? 'paused, loading, changing slot, or the flight ended'
-            : 'waiting for DCS (start or join a flight)'),
-      );
+    if (connected !== hookConnected) {
+      hookConnected = connected;
+      if (connected) {
+        everConnected = true;
+        console.log('\x1b[32m✓ Hook connected\x1b[0m -- receiving data from DCS');
+      } else {
+        reportedVisibility = '';
+        console.log(
+          `\x1b[33m⚠ No data from DCS for ${HOOK_TIMEOUT_MS / 1000} s\x1b[0m -- ` +
+            (everConnected
+              ? 'paused, loading, changing slot, or the flight ended'
+              : 'waiting for DCS (start or join a flight)'),
+        );
+      }
+    }
+    if (!connected) return;
+    const visibility = `view ${world.optionsView}` + (world.objectsBlocked ? ', server blocks object export' : '');
+    if (visibility !== reportedVisibility) {
+      reportedVisibility = visibility;
+      console.log(`[hook] mission: ${visibility}`);
     }
   }, 1000);
 }
