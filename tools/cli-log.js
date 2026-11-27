@@ -22,6 +22,26 @@ function appendToLogFile(line) {
 }
 
 /**
+ * For a child process whose output isn't console.log'd in this process (the
+ * server, npm install): echoes each chunk to `out` unchanged and appends it
+ * to the log file line by line. Chunks don't end on line breaks, so a
+ * partial line waits for the rest -- and is flushed when the stream ends.
+ */
+export function teeToLog(stream, out) {
+  let pending = '';
+  stream.on('data', (chunk) => {
+    out.write(chunk);
+    const lines = (pending + chunk.toString()).split(/\r?\n/);
+    pending = lines.pop() ?? '';
+    for (const line of lines) appendToLogFile(line);
+  });
+  stream.on('end', () => {
+    if (pending) appendToLogFile(pending);
+    pending = '';
+  });
+}
+
+/**
  * Starts (or continues) this run's log file and makes every console.log /
  * console.error in this process also land in it -- so a failed setup can be
  * diagnosed from setup.log without the user having to copy the terminal.

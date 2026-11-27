@@ -3,11 +3,11 @@ import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { initLogFile, ok, warn } from './cli-log.js';
+import { initLogFile, ok, teeToLog, warn } from './cli-log.js';
 import { resolveInstallDirs, savedGamesDir } from './dcs-paths.js';
 import { readUdpPort } from './hook-config.js';
 import { detectOwnedTheaters } from './detect-owned-theaters.js';
-import { npmCliPath, npmEnv, runNpm } from './npm-runtime.js';
+import { npmCliPath, npmEnv, runNpm, runNpmLogged } from './npm-runtime.js';
 import { promptTheaters, readOwnedTheaters, saveOwnedTheaters } from './theater-config.js';
 
 /**
@@ -33,13 +33,22 @@ async function main() {
   initLogFile({ truncate: true });
   console.log(BANNER);
   console.log(`Logging this run in detail to ${path.join(root, 'setup.log')}`);
+  // Every line carries only a time, in UTC (cli-log.js). The date and the
+  // local offset go here once, so a report can be matched to "it broke at
+  // eight last night".
+  const now = new Date();
+  const offset = -now.getTimezoneOffset() / 60;
   console.log(
-    `Node ${process.version}  ${process.platform}/${process.arch}  user ${os.userInfo().username}  ` +
+    `Started ${now.toISOString().slice(0, 10)} -- times in this log are UTC, ` +
+      `local time is UTC${offset >= 0 ? '+' : ''}${offset}`,
+  );
+  console.log(
+    `Node ${process.version}  Windows ${os.release()} ${process.arch}  user ${os.userInfo().username}  ` +
       `home ${os.homedir()}  project ${root}`,
   );
 
   console.log('Installing dependencies (first run only, a couple of minutes)...');
-  runNpm(['install']);
+  await runNpmLogged(['install']);
   ok('Dependencies installed');
 
   const cssDest = path.join(root, 'public', 'maplibre-gl.css');
@@ -99,6 +108,7 @@ async function main() {
       warn(`${file} sets udp_port=${port}, but the server listens on ${udp.port} -- DCS started from there won't reach it`);
     }
     if (udp.file) ok(`UDP port ${udp.port} from ${udp.file}`);
+    else console.log(`UDP port ${udp.port} (default, no hook settings file)`);
     env.MM_UDP_PORT = String(udp.port);
   }
 
@@ -108,13 +118,16 @@ async function main() {
     env,
   });
 
-  // Tees the server's own output to the console and opens the browser at
-  // its first printed address, rather than guessing a fixed port.
+  // Tees the server's own output to the console and to setup.log -- build
+  // errors, the version, the hook coming and going, a port already in use:
+  // without this the log stopped at "Starting the server..." and a bug
+  // report carried none of it. Also opens the browser at the first printed
+  // address, rather than guessing a fixed port.
   let opened = false;
   const urlPattern = /(https?:\/\/localhost:\d+)/;
   const watch = (stream, out) => {
+    teeToLog(stream, out);
     stream.on('data', (chunk) => {
-      out.write(chunk);
       if (opened) return;
       const match = urlPattern.exec(chunk.toString());
       if (match) {
