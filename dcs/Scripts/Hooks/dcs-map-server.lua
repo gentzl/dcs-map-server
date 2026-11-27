@@ -9,7 +9,7 @@
 
 local SCHEMA        = 3
 local HOST          = '127.0.0.1'   -- deliberately loopback only, the LAN hop is WebSocket
-local PORT          = 50000
+local DEFAULT_PORT  = 50000         -- overridable in Config\dcs-map-server.cfg, see read_port()
 local INTERVAL      = 0.1           -- 10 Hz, matching what the client expects
 local MAX_DATAGRAM  = 8000          -- uncritical over loopback, keeps latency low
 local SWEEP_BUDGET  = 120           -- objects per tick; bounds the Lua load on the sim thread
@@ -18,7 +18,37 @@ local function log(msg)
   net.log('[map-server] ' .. msg)
 end
 
+-- Optional settings file for power users: Saved Games\DCS\Config\dcs-map-server.cfg,
+-- lines of `key = value`, `#` starts a comment. tools/hook-config.js reads the
+-- same file for the server, so both ends agree without anyone editing this
+-- script. Parsed as plain text rather than run as Lua: a typo there must not
+-- be able to execute anything or stop the hook from loading.
+local CONFIG_FILE = 'Config\\dcs-map-server.cfg'
+
+local function read_port()
+  local ok_dir, dir = pcall(function() return lfs.writedir() end)
+  if not ok_dir or type(dir) ~= 'string' then return DEFAULT_PORT, 'default' end
+  local f = io.open(dir .. CONFIG_FILE, 'r')
+  if not f then return DEFAULT_PORT, 'default' end
+  local port, source = DEFAULT_PORT, 'default'
+  for line in f:lines() do
+    local key, value = line:gsub('#.*$', ''):match('^%s*([%w_]+)%s*=%s*(.-)%s*$')
+    if key == 'udp_port' then
+      local n = tonumber(value)
+      if n and n == math.floor(n) and n >= 1 and n <= 65535 then
+        port, source = n, CONFIG_FILE
+      else
+        log('ignoring udp_port=' .. tostring(value) .. ' in ' .. CONFIG_FILE .. ' (not a port number)')
+      end
+    end
+  end
+  f:close()
+  return port, source
+end
+
 local function load_hook()
+  local PORT, port_source = read_port()
+
   package.path  = package.path  .. ';.\\LuaSocket\\?.lua;'
   package.cpath = package.cpath .. ';.\\LuaSocket\\?.dll;'
   local socket = require('socket')
@@ -317,7 +347,7 @@ local function load_hook()
     next_zones = 0
     next_route = 0
     route_key, route_cache, route_source = nil, nil, nil
-    log('export started -> ' .. HOST .. ':' .. PORT)
+    log('export started -> ' .. HOST .. ':' .. PORT .. ' (' .. port_source .. ')')
 
     -- Mission start time, seconds after midnight. The export API has it
     -- directly; the mission table is the fallback. Neither is guaranteed,

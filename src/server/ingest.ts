@@ -72,7 +72,9 @@ export function startIngest(world: World, opts: IngestOptions): dgram.Socket {
   sock.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
       console.error(
-        `[ingest] UDP ${opts.host}:${opts.port} is already in use -- is another instance running?`,
+        `[ingest] UDP ${opts.host}:${opts.port} is already in use -- is another instance running?\n` +
+          '         If another program needs this port, set udp_port in ' +
+          'Saved Games\\DCS\\Config\\dcs-map-server.cfg (see docs/DEVELOPERS.md).',
       );
       process.exit(1);
     }

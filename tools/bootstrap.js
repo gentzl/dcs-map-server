@@ -4,7 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initLogFile, ok, warn } from './cli-log.js';
-import { resolveInstallDirs } from './dcs-paths.js';
+import { resolveInstallDirs, savedGamesDir } from './dcs-paths.js';
+import { readUdpPort } from './hook-config.js';
 import { detectOwnedTheaters } from './detect-owned-theaters.js';
 import { npmCliPath, npmEnv, runNpm } from './npm-runtime.js';
 import { promptTheaters, readOwnedTheaters, saveOwnedTheaters } from './theater-config.js';
@@ -88,10 +89,23 @@ async function main() {
     warn(`Could not read airfield frequencies (${err.message ?? err}) -- the map works without them.`);
   }
 
+  const env = npmEnv();
+  // The hook's port comes from its settings file in Saved Games; an explicit
+  // MM_UDP_PORT still wins, for anyone who sets it on purpose.
+  if (!process.env.MM_UDP_PORT) {
+    const udp = readUdpPort(savedGamesDir());
+    for (const { file, value } of udp.invalid) warn(`Ignoring udp_port=${value} in ${file} (not a port number)`);
+    for (const { file, port } of udp.conflicts) {
+      warn(`${file} sets udp_port=${port}, but the server listens on ${udp.port} -- DCS started from there won't reach it`);
+    }
+    if (udp.file) ok(`UDP port ${udp.port} from ${udp.file}`);
+    env.MM_UDP_PORT = String(udp.port);
+  }
+
   console.log('Starting the server...');
   const server = spawn(process.execPath, [npmCliPath(), 'run', 'dev'], {
     stdio: ['inherit', 'pipe', 'pipe'],
-    env: npmEnv(),
+    env,
   });
 
   // Tees the server's own output to the console and opens the browser at

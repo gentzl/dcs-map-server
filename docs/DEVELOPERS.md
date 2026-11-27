@@ -201,6 +201,7 @@ dcs/test/                Harness driving the hook against mocked DCS APIs
 dcs/test/fixtures/       Recorded sessions, used by the tests
 test/                    Automated tests (node --test)
 tools/bootstrap.js       What start.bat runs: setup steps, then the server
+tools/hook-config.js     Reads the hook's optional settings file (UDP port)
 tools/wire.ts            Datagram writer, counterpart to protocol.ts
 tools/zip.ts             Minimal ZIP reader for Tacview archives
 tools/capture-ws.ts      Records a live server's WebSocket feed to a file
@@ -233,6 +234,27 @@ collide.
 
 Both environments can call the `Export.Lo*` functions, which is where the telemetry comes from —
 `LoGetSelfData`, `LoGetWorldObjects` and friends.
+
+### Changing the UDP port
+
+The hook sends to `127.0.0.1:50000`. If another program already uses that port, create
+`Saved Games\DCS\Config\dcs-map-server.cfg` (the same under `DCS.openbeta` for that variant):
+
+```
+# dcs-map-server settings
+udp_port = 50001
+```
+
+Both ends read this one file: the hook when DCS starts (`read_port()`), and `start.bat` before it
+launches the server (`tools/hook-config.js`, which passes it on as `MM_UDP_PORT`). So restart DCS
+and `start.bat` after changing it. Without the file — the normal case — everything stays at 50000.
+`dcs.log` shows which port the hook picked: `export started -> 127.0.0.1:50001
+(Config\dcs-map-server.cfg)`. An invalid value is logged and ignored. If DCS variants set
+different ports, `start.bat` warns and listens on the first (`DCS` before `DCS.openbeta`). Started
+with `npm run dev` instead of `start.bat`, the server doesn't read the file; set `MM_UDP_PORT`
+to match.
+
+The file is parsed as text, not run as Lua, so a typo in it can't keep the hook from loading.
 
 ### If you prefer the Export.lua route
 
@@ -553,7 +575,7 @@ have to be looked at, which is what the replay route under
 |---|---|---|
 | `MM_HTTP_PORT` | 8080 | HTTP — the app without a certificate, the redirect with one |
 | `MM_HTTPS_PORT` | 8443 | HTTPS, as soon as `certs/` holds a certificate |
-| `MM_UDP_PORT` | 50000 | Ingest from the DCS hook |
+| `MM_UDP_PORT` | 50000 | Ingest from the DCS hook. `start.bat` sets it from `udp_port` in the hook's [settings file](#changing-the-udp-port); set it yourself only to override that, and the hook keeps sending to its own setting |
 | `MM_UDP_HOST` | 127.0.0.1 | Deliberately loopback only — the LAN hop is the WebSocket |
 | `MM_TICK_HZ` | 10 | Broadcast tick rate |
 | `MM_TLS` | – | `off` forces plaintext even when a certificate is present |
