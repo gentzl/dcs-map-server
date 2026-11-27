@@ -297,6 +297,12 @@ function setRange(nm: number): void {
 // floating-point jitter, not for an intentional pinch/wheel away from it.
 const PRESET_ZOOM_EPS = 0.02;
 
+// Below this zoom the map thins itself out: ground and ship labels go,
+// airfield names may no longer overlap, ground symbols shrink. Zoom, not the
+// range step, because crowding is a matter of map scale -- 7 is about 80 nm
+// on a tablet and 50 nm on a phone, where a busy mission started to smear.
+const DECLUTTER_ZOOM = 7;
+
 /**
  * Highlights whichever preset button matches the actual current zoom, not
  * whichever was last pressed. After a stepless pinch or wheel zoom the view
@@ -547,8 +553,10 @@ function addOverlayLayers(): void {
     map.addLayer({
       id: 'zones-fill', type: 'fill', source: 'zones',
       paint: {
-        'fill-color': side('#e0303a', '#3b82e0', '#ffffff'),
-        'fill-opacity': ['match', ['get', 'kind'], 'sector', 0.18, 0.32],
+        // At night a white wash at 0.18 lit the large sea sectors up as pale
+        // slabs -- glare on a dark map. The sector ink at a low value only tints.
+        'fill-color': side('#e0303a', '#3b82e0', settings.mode === 'night' ? sectorInk : '#ffffff'),
+        'fill-opacity': ['match', ['get', 'kind'], 'sector', settings.mode === 'night' ? 0.06 : 0.18, 0.32],
       },
     });
     map.addLayer({
@@ -641,8 +649,9 @@ function addOverlayLayers(): void {
         'icon-ignore-placement': true,
         // Grows as you zoom in: modest in the overview, where there are many
         // and they shouldn't crowd the picture; large close in, where you
-        // look for one field and want to hit it with a finger.
-        'icon-size': ['interpolate', ['linear'], ['zoom'], 6, 0.95, 9, 1.2, 12, 1.6],
+        // look for one field and want to hit it with a finger. Smaller still
+        // far out (see DECLUTTER_ZOOM), where Syria's helipads pile up.
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.7, 6, 0.95, 9, 1.2, 12, 1.6],
       },
     });
   }
@@ -857,8 +866,10 @@ function addOverlayLayers(): void {
     // stand upright relative to the screen. With uniformly map-relative
     // orientation they'd tilt along as soon as the map rotates -- a tilted
     // standard frame is simply wrong.
+    // Far out, ground units and ships shrink a little further; aircraft keep
+    // their size, they are what you look for at that range.
     const iconSize: maplibregl.DataDrivenPropertyValueSpecification<number> = [
-      'interpolate', ['linear'], ['zoom'], 6, 0.55, 11, 0.9,
+      'interpolate', ['linear'], ['zoom'], 5, ['case', ['get', 'rotates'], 0.55, 0.4], 6, 0.55, 11, 0.9,
     ];
     // Stale contacts are dimmed instead of removed -- a made-up position
     // would be worse than a visibly old one.
@@ -895,7 +906,12 @@ function addOverlayLayers(): void {
       id: 'contacts-label', type: 'symbol', source: 'contacts',
       filter: ['!=', ['get', 'category'], 'weapon'],
       layout: {
-        'text-field': ['get', 'label'],
+        // Zoomed far out only aircraft keep their label: dozens of
+        // "Soldier M4 GRG 1500" there are noise, and the symbol still says
+        // what it is. Tap one for the details.
+        'text-field': ['step', ['zoom'],
+          ['case', ['get', 'rotates'], ['get', 'label'], ''],
+          DECLUTTER_ZOOM, ['get', 'label']],
         'text-font': ['Noto Sans Regular'],
         'text-size': 10,
         'text-anchor': 'left',
@@ -918,20 +934,29 @@ function addOverlayLayers(): void {
   // unreadable exactly where it matters -- fields are crowded with parked
   // aircraft and vehicles.
   if (!map.getLayer('airbases-label')) {
+    const layout = {
+      'text-field': ['get', 'name'],
+      'text-font': ['Noto Sans Medium'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11.5, 12, 14],
+      'text-anchor': 'top',
+      'text-offset': ['interpolate', ['linear'], ['zoom'], 6, ['literal', [0, 1.3]], 12, ['literal', [0, 1.9]]],
+    } satisfies maplibregl.SymbolLayerSpecification['layout'];
+    const paint = { 'text-color': AIRBASE_LABEL[settings.mode], 'text-halo-color': c.earth, 'text-halo-width': 1.8 };
+    // Always shown: the one thing on the map you navigate by. As
+    // text-optional it lost out to a town name or a contact label next to it
+    // and quietly vanished.
     map.addLayer({
-      id: 'airbases-label', type: 'symbol', source: 'airbases',
-      layout: {
-        'text-field': ['get', 'name'],
-        'text-font': ['Noto Sans Medium'],
-        'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11.5, 12, 14],
-        'text-anchor': 'top',
-        'text-offset': ['interpolate', ['linear'], ['zoom'], 6, ['literal', [0, 1.3]], 12, ['literal', [0, 1.9]]],
-        // Always shown: a few dozen per theater, and the one thing on the
-        // map you navigate by. As text-optional it lost out to a town name or
-        // a contact label next to it and quietly vanished.
-        'text-allow-overlap': true,
-      },
-      paint: { 'text-color': AIRBASE_LABEL[settings.mode], 'text-halo-color': c.earth, 'text-halo-width': 1.8 },
+      id: 'airbases-label', type: 'symbol', source: 'airbases', minzoom: DECLUTTER_ZOOM,
+      layout: { ...layout, 'text-allow-overlap': true },
+      paint,
+    });
+    // Far out the names may not overlap each other: in Syria a hundred
+    // helipads would stack into an unreadable smear. Where they crowd, some
+    // drop out until you zoom in.
+    map.addLayer({
+      id: 'airbases-label-far', type: 'symbol', source: 'airbases', maxzoom: DECLUTTER_ZOOM,
+      layout: { ...layout, 'text-allow-overlap': false, 'text-padding': 4 },
+      paint,
     });
   }
 
@@ -945,6 +970,7 @@ function applyVisibility(): void {
   vis('graticule-line', settings.graticule);
   vis('graticule-label', settings.graticule && settings.mapLabels);
   vis('airbases-label', settings.mapLabels);
+  vis('airbases-label-far', settings.mapLabels);
   vis('zones-fill', settings.zones);
   vis('zones-line', settings.zones);
   vis('zones-label', settings.zones && settings.mapLabels);

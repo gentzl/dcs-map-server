@@ -270,7 +270,7 @@ Your tablet and your second monitor can be set up differently.
 | Mission zones | on / off | The mission's objective zones, see [What's on the map](#whats-on-the-map) |
 | Flight plan | on / off | Your own fixed waypoints, see [What's on the map](#whats-on-the-map) |
 | **Tactical** → Contacts | all / air only / none | Which contacts are drawn at all |
-| Contact labels | on / off | Name and altitude beside every contact — quickly too much in a busy mission |
+| Contact labels | on / off | Name and altitude beside every contact — quickly too much in a busy mission. Zoomed far out (about 80 nm on a tablet, 50 nm on a phone) only aircraft keep theirs, and airfield names that would overlap are left out until you zoom in |
 | Bearings | magnetic / true | Magnetic is what you call on the radio; true is for map work |
 | **Theater** → Map | per fetched theater | Which map you're looking at; follows your aircraft by itself |
 | **Symbols** → Symbol set | NATO APP-6 / DCS style | Which symbol set contacts are drawn with, and the legend |
