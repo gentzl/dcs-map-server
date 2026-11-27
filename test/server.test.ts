@@ -135,6 +135,25 @@ describe('the server, end to end', { timeout: 30_000 }, () => {
     assert.equal(messages[0]?.type, 'snapshot');
   });
 
+  // An open page compares it across reconnects and reloads when it changes.
+  test('the snapshot names the server version', async () => {
+    const messages = await listen(300);
+    const { version } = (await (await fetch(`http://127.0.0.1:${httpPort}/api/version`)).json()) as { version: string };
+    assert.ok(version, '/api/version returned no version');
+    assert.equal(messages[0]?.type === 'snapshot' ? messages[0].version : undefined, version);
+  });
+
+  // Otherwise a browser may keep using the old layout (inline in
+  // index.html) or old main.js after an update.
+  test('the page and its code are served with no-cache', async () => {
+    for (const file of ['/', '/main.js', '/maplibre-gl.css']) {
+      const r = await fetch(`http://127.0.0.1:${httpPort}${file}`);
+      await r.arrayBuffer();
+      assert.equal(r.status, 200, `${file} was not served`);
+      assert.equal(r.headers.get('cache-control'), 'no-cache', `${file} cache-control`);
+    }
+  });
+
   test('a datagram reaches a connected browser', async () => {
     const messages = await listen(800, () => settle('optview_all'));
     const ids = idsIn(messages);

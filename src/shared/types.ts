@@ -204,6 +204,11 @@ export interface Snapshot {
   zones?: Zone[];
   /** The player's flight plan; null when there is none. Absent from older servers. */
   route?: Route | null;
+  /**
+   * The server's version, set by the server for its own clients (not part of
+   * World's state). Absent from older servers and recordings.
+   */
+  version?: string;
 }
 
 export interface Delta {

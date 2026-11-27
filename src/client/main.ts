@@ -1139,6 +1139,15 @@ function updateLink(now: number): void {
   if (text !== null && linkEl.textContent !== text) linkEl.textContent = text;
 }
 
+/**
+ * The server version this page was loaded from: the one the first snapshot
+ * names. Every (re)connect starts with a snapshot, so a server restarted
+ * after an update shows up here as a different version -- the page then
+ * reloads to pick up the new code and layout. Settings live in localStorage
+ * and survive the reload; the track is cleared on a reconnect anyway.
+ */
+let pageVersion: string | null = null;
+
 function connect(): void {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws`);
@@ -1147,6 +1156,14 @@ function connect(): void {
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data as string) as ServerMessage;
     const now = performance.now();
+    if (msg.type === 'snapshot' && msg.version) {
+      if (pageVersion === null) pageVersion = msg.version;
+      else if (msg.version !== pageVersion) {
+        if (ws) ws.onmessage = null;
+        location.reload();
+        return;
+      }
+    }
     if (msg.type === 'snapshot') {
       units.clear();
       trackPoints.length = 0;

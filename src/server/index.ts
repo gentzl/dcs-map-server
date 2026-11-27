@@ -58,7 +58,14 @@ const world = new World();
 // route methods are no longer callable.
 const app = Fastify({ logger: false, ...(certs ? { https: certs } : {}) });
 
-await app.register(fastifyStatic, { root: publicDir });
+// no-cache: the browser may keep a copy but has to ask before using it (a
+// cheap 304 via ETag). Without it, a tablet can keep showing the old layout
+// (the CSS sits inline in index.html) or old main.js after an update.
+await app.register(fastifyStatic, {
+  root: publicDir,
+  cacheControl: false,
+  setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+});
 
 // PMTiles is read via HTTP range requests; @fastify/static serves ranges too.
 // Own prefix, since the archive doesn't live in the public directory.
@@ -120,7 +127,9 @@ wss.on('connection', (ws, req) => {
   clients.add(ws);
   const who = req.socket.remoteAddress?.replace(/^::ffff:/, '') ?? 'unknown';
   console.log(`[clients] ${who} connected (${clients.size} open)`);
-  ws.send(JSON.stringify(world.snapshot()));
+  // The version lets an open page notice that the server was updated and
+  // reload itself, instead of running old code and layout against it.
+  ws.send(JSON.stringify({ ...world.snapshot(), version: VERSION.version }));
   const drop = () => {
     if (clients.delete(ws)) console.log(`[clients] ${who} disconnected (${clients.size} open)`);
   };
