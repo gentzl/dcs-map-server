@@ -280,14 +280,17 @@ local function load_hook()
   end
 
   -- The slot is the mission's unitId ("1234", or "1234_2" for a second
-  -- seat). Empty in single player, where the unit name finds it instead.
+  -- seat). Empty in single player, where the group name finds it instead:
+  -- LoGetSelfData's UnitName is the pilot's name there, not the mission's
+  -- unit name, but its GroupName is the group's name in the mission file.
+  -- Every unit of a group flies the group's route, so the group is enough.
   local function my_slot()
     local ok, slot = pcall(function() return net.get_player_info(net.get_my_player_id(), 'slot') end)
     if ok and slot ~= nil then return tostring(slot):match('^(%d+)') end
     return nil
   end
 
-  local function mission_route(slot, unit_name)
+  local function mission_route(slot, unit_name, group_name)
     local ok_m, cm = pcall(DCS.getCurrentMission)
     if not ok_m or type(cm) ~= 'table' then return nil end
     local m = cm.mission or cm
@@ -298,8 +301,11 @@ local function load_hook()
         for _, cat in ipairs({ 'plane', 'helicopter' }) do
           local groups = (type(country[cat]) == 'table' and country[cat].group) or {}
           for _, g in pairs(groups) do
+            local group_hit = type(g) == 'table' and group_name ~= nil and group_name ~= ''
+                              and g.name == group_name
             for _, u in pairs((type(g) == 'table' and g.units) or {}) do
-              local hit = (slot ~= nil and tostring(u.unitId) == slot)
+              local hit = group_hit
+                       or (slot ~= nil and tostring(u.unitId) == slot)
                        or (unit_name ~= nil and unit_name ~= '' and u.name == unit_name)
               if hit then
                 local pts = {}
@@ -325,10 +331,10 @@ local function load_hook()
     local source = line and 'aircraft' or nil
     if not line then
       local slot = my_slot()
-      local key = tostring(slot) .. '|' .. tostring(self_data.UnitName)
+      local key = tostring(slot) .. '|' .. tostring(self_data.UnitName) .. '|' .. tostring(self_data.GroupName)
       if key ~= route_key then
         route_key = key
-        local ok_r, r = pcall(mission_route, slot, self_data.UnitName)
+        local ok_r, r = pcall(mission_route, slot, self_data.UnitName, self_data.GroupName)
         route_cache = (ok_r and r) or false
       end
       line = route_cache or 'R\t\t-1\t\n'

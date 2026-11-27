@@ -68,9 +68,11 @@ DCS = {
         { zoneId = 8, name = 'A', hidden = false, type = 2, radius = 0, x = 0, y = 0,
           verticies = { { x = 0, y = 0 }, { x = 100, y = 0 }, { x = 100, y = 100 }, { x = 0, y = 100 } } },
       } },
-      -- The player's group, found by unit name as in single player. Waypoint
-      -- names with a comma and a semicolon: both separate fields on the wire.
+      -- The player's group, found by group name as in single player (no
+      -- slot there, and UnitName is the pilot's name). Waypoint names with a
+      -- comma and a semicolon: both separate fields on the wire.
       coalition = { blue = { country = { { plane = { group = { {
+        name = 'Hornet, Flight 1',
         units = { { unitId = 17, name = 'Hornet-1-1' } },
         route = { points = {
           { x = 0, y = 0, alt = 0, name = '' },
@@ -94,7 +96,7 @@ Export = {
   LoGetSelfData = function()
     return {
       Name = 'FA-18C_hornet',
-      UnitName = 'Hornet-1-1',
+      UnitName = 'Itstata',             -- the pilot's name, as DCS reports it for the player
       GroupName = 'Hornet, Flight 1',   -- the comma must be preserved
       CoalitionID = 2,
       Heading = 1.2345,
