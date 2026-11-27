@@ -37,9 +37,14 @@ export class OwnshipEstimator {
       this.have = true;
     } else {
       // The difference from the estimate isn't jumped to, but worked off.
-      this.correction.lat += own.lat - this.lat;
-      this.correction.lon += own.lon - this.lon;
-      this.correction.hdg += shortestAngle(this.hdg, own.hdg);
+      // Set, not added: the new report replaces whatever of the last
+      // correction is still pending. Added, every report that arrived while
+      // no frame was drawn (tab in the background, phone locked) counted the
+      // whole difference again, and the aircraft shot tens of km past its
+      // real position once drawing resumed.
+      this.correction.lat = own.lat - this.lat;
+      this.correction.lon = own.lon - this.lon;
+      this.correction.hdg = shortestAngle(this.hdg, own.hdg);
     }
     this.alt = own.alt;
     this.tas = own.tas;

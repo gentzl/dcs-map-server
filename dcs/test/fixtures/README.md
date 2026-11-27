@@ -47,3 +47,37 @@ like `Nalchik_F-15EX_36`) were left as-is -- those are mission-editor slot
 labels, not personal. Carrier/ship class names (`Essex`, `Kuznetsov`,
 `Tarawa`) and TACAN beacon names (`Tacan Mozdok`, ...) are not personal
 either and were left untouched.
+
+## real-session-2026-11-26-caucasus.jsonl
+
+Third capture, 30 seconds / 260 messages.
+Multiplayer, Caucasus, BSC-style mission: the recording player in an F-16C
+in flight (about 15,600 ft, 500 kt, north of Sukhumi), 485 objects at the
+opening snapshot, 773 trigger zones (sectors A-J among them) and 42
+airbases. Unlike the two above it carries the human-player flag, and the
+own aircraft is airborne the whole time. No flight plan.
+
+**Anonymised before committing.** 23 aircraft flown by other people carried
+their callsigns as `unitName`; replaced with `Player-5` to `Player-27`
+(by unit id, in order of first appearance), continuing the numbering above.
+Every replaced callsign was then searched for in the whole file and found
+nowhere. The other 24 aircraft have mission-generated names
+(`batumi-tanker-blue`, `Rotary-1-9`, ...) and were left as they are, as
+were group names. The only player identity left is the recording session's
+own callsign.
+
+## real-session-2026-11-26-syria.jsonl
+
+Fourth capture, 60 seconds / 530 messages, the default of `npm run demo`.
+Multiplayer, Syria: the recording player in an F-16C low and fast near the
+Turkish border (descending from about 4,600 to 3,000 ft, 440 to 510 kt),
+397 objects at the opening snapshot, 1376 trigger zones and 330 airbases.
+Carries the human-player flag; no flight plan.
+
+**Anonymised before committing.** Six aircraft flown by other people (F-16C,
+A-10C, two UH-1H, AH-64D, MiG-29) carried their callsigns as `unitName`;
+replaced with `Player-28` to `Player-33` by unit id, continuing the
+numbering above, and each replaced callsign searched for in the whole file
+and found nowhere. The other aircraft have mission-generated names
+(`incirlik-tanker-blue`, ...). The only player identity left is the
+recording session's own callsign.

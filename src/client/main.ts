@@ -46,6 +46,7 @@ import {
   symbolRotates,
   BULLSEYE_IMAGE,
 } from './symbols/index.js';
+import { type EdgeArea, edgePosition } from './edge.js';
 import { buildStyle } from './style.js';
 import { OwnshipEstimator, UnitBuffer } from './track.js';
 
@@ -217,6 +218,9 @@ let bullseye: { lat: number; lon: number } = (() => {
   return { lat: 42.18, lon: 42.48 };
 })();
 
+// The page's own panels follow the map mode: light chart UI, dark night UI.
+document.documentElement.dataset.mode = settings.mode;
+
 const map: MLMap = new maplibregl.Map({
   container: 'map',
   style: buildStyle(settings),
@@ -226,6 +230,14 @@ const map: MLMap = new maplibregl.Map({
   interactive: false,
 });
 map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
+// Start folded to its (i) button: MapLibre opens the compact attribution on
+// load, a wide panel along the bottom that runs under the control bar. A tap
+// on the button still unfolds it.
+map.once('load', () => {
+  const attrib = document.querySelector('details.maplibregl-ctrl-attrib');
+  attrib?.removeAttribute('open');
+  attrib?.classList.remove('maplibregl-compact-show');
+});
 (window as unknown as { __map: MLMap }).__map = map;
 
 // --- Camera ------------------------------------------------------------------
@@ -969,6 +981,7 @@ map.on('load', addOverlayLayers);
  * few hundred milliseconds after a switch.
  */
 function restyle(): void {
+  document.documentElement.dataset.mode = settings.mode;
   map.setStyle(buildStyle(settings));
   const tryAdd = (): void => {
     if (map.isStyleLoaded() && map.getLayer('earth')) addOverlayLayers();
@@ -1188,13 +1201,15 @@ function frame(now: number): void {
     // needing their own case.
     const symbolRotation = toDeg(own.hdg) - map.getBearing();
     ownshipEl.style.transform = `translate(-50%, -55%) rotate(${symbolRotation.toFixed(1)}deg)`;
-    placeOwnship();
 
     if (now - lastSources > 1000 / SOURCE_HZ) {
       lastSources = now;
       updateSources(now);
     }
     updateHud(now);
+    // After the HUD and readout have their new text: the edge marker keeps
+    // clear of them as they are now, not as they were a frame ago.
+    placeOwnship();
   }
 
   // The graticule depends on the view, not on time; once a second or on a
@@ -1318,6 +1333,17 @@ function updateGraticule(): void {
 
 const hud = document.getElementById('hud')!;
 const braaBox = document.getElementById('braa')!;
+
+// The readout and notices sit just below the HUD (see --hud-bottom in the
+// page's CSS). Its height changes with the screen width, a rotation and its
+// own content, so it is measured whenever it resizes.
+new ResizeObserver(() => {
+  const r = hud.getBoundingClientRect();
+  document.documentElement.style.setProperty('--hud-bottom', `${Math.ceil(r.bottom)}px`);
+  // The box on a large monitor sizes to its content; the readout below
+  // takes at least its width, so the column's edges line up.
+  document.documentElement.style.setProperty('--hud-width', `${Math.ceil(r.width)}px`);
+}).observe(hud);
 // On a small screen the readout can cover half the map: a tap folds it down to
 // its title line. The state is the user's, so it survives the refresh that
 // rewrites the content (it only changes the class, not the children).
@@ -1328,12 +1354,44 @@ const ownshipEl = document.getElementById('ownship')!;
 const edgeEl = document.getElementById('offscreen')!;
 const warnEl = document.getElementById('warning')!;
 
+const controlsEl = document.getElementById('controls')!;
+
+// Room the control bar takes at the bottom (one or two rows), for the map
+// attribution that sits just above it (--controls-space in the page's CSS).
+const measureControls = (): void => {
+  const space = Math.ceil(window.innerHeight - controlsEl.getBoundingClientRect().top);
+  document.documentElement.style.setProperty('--controls-space', `${space}px`);
+};
+new ResizeObserver(measureControls).observe(controlsEl);
+window.addEventListener('resize', measureControls);
 /**
- * Edge marker's margin to the screen edges, different per edge: the HUD bar
- * sits at the top, the control bar at the bottom -- with a uniform margin
- * the marker would disappear right underneath them.
+ * Panels along the top that the edge marker must stay below, when shown. The
+ * link notice sits below the aircraft in mid-screen and the mission warning
+ * above the control bar on a phone: neither is a top panel, and counting them
+ * would push the marker into the lower half of the map.
  */
-const EDGE_MARGIN = { top: 58, right: 36, bottom: 82, left: 36 };
+const topPanels = [hud, braaBox, warnEl];
+
+/**
+ * The free part of the map, measured from the panels as they are right now:
+ * the HUD wraps to more lines on a phone, the readout grows with its content
+ * and can be folded. Fixed margins put the marker on top of the readout.
+ * Also returns the HUD's bottom alone, as the fallback for edgePosition.
+ */
+function freeMapArea(): { area: EdgeArea; hudBottom: number } {
+  const canvasTop = map.getCanvas().getBoundingClientRect().top;
+  let top = 0;
+  for (const el of topPanels) {
+    if (el.hidden) continue;
+    const r = el.getBoundingClientRect();
+    // Only what actually sits up there (the warning moves down on a phone).
+    if (r.top - canvasTop > map.getCanvas().clientHeight / 3) continue;
+    top = Math.max(top, r.bottom - canvasTop);
+  }
+  const hudBottom = hud.getBoundingClientRect().bottom - canvasTop;
+  const bottom = controlsEl.getBoundingClientRect().top - canvasTop;
+  return { area: { top, bottom }, hudBottom };
+}
 
 /**
  * Places the ownship symbol and, if it has wandered out of view, an edge
@@ -1365,21 +1423,13 @@ function placeOwnship(): void {
     return;
   }
 
-  // Clamp to the screen edge along the line from centre to the aircraft.
-  const cx = w / 2;
-  const cy = h / 2;
-  const dx = p.x - cx;
-  const dy = p.y - cy;
-  const limitX = dx >= 0 ? w - EDGE_MARGIN.right - cx : cx - EDGE_MARGIN.left;
-  const limitY = dy >= 0 ? h - EDGE_MARGIN.bottom - cy : cy - EDGE_MARGIN.top;
-  const scale = Math.min(
-    limitX / Math.max(Math.abs(dx), 1e-6),
-    limitY / Math.max(Math.abs(dy), 1e-6),
-  );
-  edgeEl.style.left = `${cx + dx * scale}px`;
-  edgeEl.style.top = `${cy + dy * scale}px`;
+  // Clamp into the free map area along the line from centre to the aircraft.
+  const { area, hudBottom } = freeMapArea();
+  const at = edgePosition(p, w, h, area, hudBottom);
+  edgeEl.style.left = `${at.x}px`;
+  edgeEl.style.top = `${at.y}px`;
   // The arrow points from the edge towards the aircraft; 0 degrees is up.
-  edgeEl.style.setProperty('--angle', `${toDeg(Math.atan2(dy, dx)) + 90}deg`);
+  edgeEl.style.setProperty('--angle', `${toDeg(Math.atan2(p.y - h / 2, p.x - w / 2)) + 90}deg`);
 
   const centre = map.getCenter();
   const nm = metersToNm(distanceTo(centre.lat, centre.lng, own.lat, own.lon));
@@ -1419,6 +1469,64 @@ function displayedRangeNm(): number {
   return nm >= 10 ? Math.round(nm) : Math.round(nm * 10) / 10;
 }
 
+/**
+ * On a large monitor the HUD becomes a box laid out like the basic T of a
+ * cockpit: speed left, heading centre, altitude right, where the eye expects
+ * them; below that what is needed for navigation and the radio (steerpoint,
+ * bullseye, wind), and at the bottom what is looked at least (clock and
+ * position). A long single line would make the eye travel the whole width of
+ * the screen to collect three numbers. The same values as the bar, nothing
+ * added; the range is left out, the control bar already shows it.
+ */
+const wideHud = window.matchMedia('(min-width: 1280px) and (min-height: 700px)');
+
+interface HudValues {
+  clock: string;
+  position: string;
+  alt: string;
+  spd: string;
+  hdg: string;
+  wind: string;
+  bulls: string;
+  steer: [string, string] | null;
+}
+
+/** What the box shows right now, so it is only rebuilt when a value changes. */
+let lastHudBox = '';
+
+function renderHudBox(v: HudValues): void {
+  const key = JSON.stringify(v);
+  if (key === lastHudBox) return;
+  lastHudBox = key;
+  const el = (tag: string, cls: string, text?: string): HTMLElement => {
+    const e = document.createElement(tag);
+    e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+  // Speed, heading, altitude: each column as wide as its value, a fixed gap
+  // between them.
+  const grid = el('div', 'hb-grid');
+  for (const [label, value] of [['SPD', v.spd], ['HDG', v.hdg], ['ALT', v.alt]] as const) {
+    const cell = el('div', 'hb-cell');
+    cell.append(el('span', 'hb-label', label), el('span', 'hb-big', value));
+    grid.append(cell);
+  }
+  // Bullseye, wind, steerpoint: one line from the left edge, each label
+  // beside its value. The steerpoint comes last, as many aircraft don't
+  // report one -- so bullseye and wind always start at the same place.
+  const nav = el('div', 'hb-nav');
+  const cells: Array<[string, string]> = [['BULLS', v.bulls], ['WIND', v.wind], ...(v.steer ? [v.steer] : [])];
+  for (const [label, value] of cells) {
+    const cell = el('div', 'hb-cell hb-inline');
+    cell.append(el('span', 'hb-label', label), el('span', 'hb-value', value));
+    nav.append(cell);
+  }
+  const foot = el('div', 'hb-foot');
+  foot.append(el('span', '', v.clock), el('span', '', v.position));
+  hud.replaceChildren(grid, nav, foot);
+}
+
 function updateHud(now: number): void {
   // Runs every frame so a preset button un-highlights immediately once a
   // pinch or wheel zoom moves the view away from it, not just on the next
@@ -1429,37 +1537,54 @@ function updateHud(now: number): void {
   const bullRange = metersToNm(distanceTo(bullseye.lat, bullseye.lon, own.lat, own.lon));
   const wind = windFrom(own.wind.x, own.wind.z);
 
-  // Each group has non-breaking spaces inside, regular ones in between -- so
-  // the bar wraps to two lines on phone width instead of tearing a group
-  // apart mid-way or scrolling sideways.
-  hud.textContent = [
-    // Mission clock time, as on the F10 map -- not the wall clock, which every
-    // device already shows, and not elapsed time, which means nothing in the
-    // cockpit. Doubles as a feed-health check: if it stops advancing, so has
-    // everything else.
-    nbsp(`${connected ? '●' : '○'} ${formatMissionClock(own.missionStart, own.modelTime)}`),
-    nbsp(`${formatDDM(own.lat, 'NS')} ${formatDDM(own.lon, 'EW')}`),
-    nbsp(formatAltitude(own.alt)),
-    nbsp(`${Math.round(msToKnots(own.tas))} kt`),
-    nbsp(`HDG ${bearing3(refBearing(own.hdg))}${refSuffix}`),
-    // Below 3 kt the direction is noise off a near-zero vector, not signal
-    // -- a METAR calls this "variable" rather than print a precise-looking
-    // bearing nobody could act on.
-    nbsp(msToKnots(wind.speedMs) < 3
-      ? `WIND VRB/${Math.round(msToKnots(wind.speedMs))}`
-      : `WIND ${bearing3(refBearing(wind.bearing))}${refSuffix}/${Math.round(msToKnots(wind.speedMs))}`),
-    nbsp(`BULLS ${bearing3(refBearing(brgToUs))}/${Math.round(bullRange)}`),
-    // Only when the aircraft says which waypoint it is flying to; a mission
-    // route alone doesn't tell, and guessing would point the wrong way.
-    ...(() => {
-      const wp = route && route.next >= 0 && settings.route ? route.points[route.next] : undefined;
-      if (!route || !wp) return [];
-      const brg = bearingTo(own.lat, own.lon, wp.lat, wp.lon);
-      const nm = metersToNm(distanceTo(own.lat, own.lon, wp.lat, wp.lon));
-      return [nbsp(`WP${route.next} ${bearing3(refBearing(brg))}${refSuffix}/${nm >= 10 ? Math.round(nm) : nm.toFixed(1)}`)];
-    })(),
-    nbsp(`${displayedRangeNm()} NM`),
-  ].join('   ');
+  // Mission clock time, as on the F10 map -- not the wall clock, which every
+  // device already shows, and not elapsed time, which means nothing in the
+  // cockpit. No connection marker next to it: being connected is the normal
+  // case and needs no symbol; a lost server or a silent DCS is said in words
+  // by the notice at the top (updateLink).
+  const clock = formatMissionClock(own.missionStart, own.modelTime);
+  const position = `${formatDDM(own.lat, 'NS')} ${formatDDM(own.lon, 'EW')}`;
+  const alt = formatAltitude(own.alt);
+  const spd = `${Math.round(msToKnots(own.tas))} kt`;
+  const hdg = `${bearing3(refBearing(own.hdg))}${refSuffix}`;
+  // Below 3 kt the direction is noise off a near-zero vector, not signal
+  // -- a METAR calls this "variable" rather than print a precise-looking
+  // bearing nobody could act on.
+  const windValue = msToKnots(wind.speedMs) < 3
+    ? `VRB/${Math.round(msToKnots(wind.speedMs))}`
+    : `${bearing3(refBearing(wind.bearing))}${refSuffix}/${Math.round(msToKnots(wind.speedMs))}`;
+  const bulls = `${bearing3(refBearing(brgToUs))}/${Math.round(bullRange)}`;
+  // Only when the aircraft says which waypoint it is flying to; a mission
+  // route alone doesn't tell, and guessing would point the wrong way.
+  const steer = ((): [string, string] | null => {
+    const wp = route && route.next >= 0 && settings.route ? route.points[route.next] : undefined;
+    if (!route || !wp) return null;
+    const brg = bearingTo(own.lat, own.lon, wp.lat, wp.lon);
+    const nm = metersToNm(distanceTo(own.lat, own.lon, wp.lat, wp.lon));
+    return [`WP${route.next}`, `${bearing3(refBearing(brg))}${refSuffix}/${nm >= 10 ? Math.round(nm) : nm.toFixed(1)}`];
+  })();
+
+  const box = wideHud.matches;
+  document.documentElement.dataset['hud'] = box ? 'box' : 'bar';
+  if (box) {
+    renderHudBox({ clock, position, alt, spd, hdg, wind: windValue, bulls, steer });
+  } else {
+    lastHudBox = '';
+    // Each group has non-breaking spaces inside, regular ones in between -- so
+    // the bar wraps to two lines on phone width instead of tearing a group
+    // apart mid-way or scrolling sideways.
+    hud.textContent = [
+      nbsp(clock),
+      nbsp(position),
+      nbsp(alt),
+      nbsp(spd),
+      nbsp(`HDG ${hdg}`),
+      nbsp(`WIND ${windValue}`),
+      nbsp(`BULLS ${bulls}`),
+      ...(steer ? [nbsp(`${steer[0]} ${steer[1]}`)] : []),
+      nbsp(`${displayedRangeNm()} NM`),
+    ].join('   ');
+  }
 
   // If the mission withholds other units, this needs to be shown. Otherwise
   // you'd look for the fault in yourself, even though the display is working correctly.
@@ -1886,8 +2011,8 @@ const menuPanel = document.getElementById('settings')!;
 const toolsMenu = document.getElementById('tools-menu')!;
 const TOOL_LABEL: Record<Tool, string> = { off: 'MENU', measure: 'MEAS', coord: 'COORD' };
 
-/** The status bar along the top; the menu must not reach under it. */
-const MENU_TOP_PX = 52;
+/** Gap between the HUD and the top of the menu; the menu must not cover the HUD. */
+const MENU_GAP_PX = 8;
 
 /**
  * Fits the menu between the status bar and the control bar, in what is
@@ -1901,7 +2026,9 @@ function placeMenu(): void {
   const barTop = document.getElementById('controls')!.getBoundingClientRect().top;
   const bottom = Math.max(8, window.innerHeight - barTop + 8);
   menuPanel.style.bottom = `${bottom}px`;
-  menuPanel.style.maxHeight = `${Math.max(160, viewH - bottom - MENU_TOP_PX)}px`;
+  // The HUD is two or three lines on a phone: measured, not assumed.
+  const top = hud.getBoundingClientRect().bottom + MENU_GAP_PX;
+  menuPanel.style.maxHeight = `${Math.max(160, viewH - bottom - top)}px`;
 }
 
 function openMenu(): void {

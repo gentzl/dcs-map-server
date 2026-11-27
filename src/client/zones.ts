@@ -22,9 +22,12 @@ export const isMainZone = (z: Zone): boolean => !z.hidden && !SUB_ZONE.test(z.na
  * What a zone is, as far as the data tells -- it carries no type and no
  * owner, so this goes by size and name:
  *
- * - sector: the large areas, ship and patrol sectors (A-H in the BSC
- *   missions, 50-130 km across). Every objective is a few km at most, with
- *   nothing in between, so 10 km separates them cleanly.
+ * - sector: the large areas, ship and patrol sectors (A-J in the BSC
+ *   missions, 86-115 km long). Every objective and airfield is under 6 km
+ *   along its longest side, with nothing in between, so 10 km separates them
+ *   cleanly. Measured along the longer side: some sectors are narrow strips
+ *   (BSC's "F" is 8 x 87 km), which by their shorter side looked like an
+ *   objective and were drawn red.
  * - airfield: named like one of DCS's airbases; takes that base's side.
  * - objective: everything else -- towns, FOBs, Alpha to Kilo.
  */
@@ -32,11 +35,11 @@ export type ZoneKind = 'sector' | 'airfield' | 'objective';
 
 const SECTOR_M = 10_000;
 
-/** The shorter side of a quad, or a circle's diameter. */
+/** The longer side of a quad, or a circle's diameter. */
 function extentM(z: Zone): number {
   if (z.shape === 'quad' && z.vertices && z.vertices.length >= 3) {
     const [a, b, c] = z.vertices as [[number, number], [number, number], [number, number]];
-    return Math.min(distanceTo(a[0], a[1], b[0], b[1]), distanceTo(b[0], b[1], c[0], c[1]));
+    return Math.max(distanceTo(a[0], a[1], b[0], b[1]), distanceTo(b[0], b[1], c[0], c[1]));
   }
   return 2 * z.radiusM;
 }

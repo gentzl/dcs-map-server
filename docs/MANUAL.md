@@ -258,7 +258,7 @@ Your tablet and your second monitor can be set up differently.
 
 | Setting | Options | What it does |
 |---|---|---|
-| **Display** → Mode | Aero chart / Night | Light aeronautical chart, or dimmed for night flying |
+| **Display** → Mode | Day / Night | Light aeronautical chart with light panels, or a dark, low-glare map and panels for night flying |
 | Elevation tint | on / off | Terrain coloured by height |
 | Terrain shading | on / off | Hill shading |
 | Relief strength | slider | Stronger shows more terrain but washes out the tints |

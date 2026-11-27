@@ -342,9 +342,9 @@ metres as given, whatever the waypoint's `alt_type` (baro or radar).
 What doesn't arrive, by DCS's design rather than the hook's: waypoints entered in the cockpit or
 drawn with the F10 route tool on modules with their own navigation computer (`LoGetRoute()` stays
 `nil` on the F-16C, probed 2026-11-25), and any route for a dynamic-spawn slot, whose unit isn't in
-the mission file. The hook logs which case applies (`flight plan: ...` in `dcs.log`). `npm run
-demo` adds a made-up route (`replay-ws --demo-extras`) when a recording has none, so the layer can
-be seen without DCS; the same option marks a recording's anonymised `Player-N` units as human.
+the mission file. The hook logs which case applies (`flight plan: ...` in `dcs.log`). None of the bundled recordings
+carries a flight plan, and `npm run demo` doesn't invent one; its `replay-ws --demo-extras` option
+only marks a recording's anonymised `Player-N` units as human.
 
 **Schema 1** is the older comma-separated format with no header, kept for anyone running the
 telemetry out of their own `Export.lua`. It is ambiguous by construction: names are inserted
@@ -383,10 +383,11 @@ npm run demo
 It builds the project, starts the replay and the server together, and prints the address to open,
 normally `http://localhost:8080`. Ctrl+C stops both. A recording's path can be given relative to
 the folder you're in, or to the project folder (`tools/user-path.ts`; npm itself always runs the
-script in the project folder). To play the other recording instead:
+script in the project folder). It plays a flight over Syria with traffic around; to play another
+recording instead, for example the one over the Caucasus:
 
 ```powershell
-npm run demo -- dcs\test\fixtures\real-session-2026-11-23-multiplayer.jsonl
+npm run demo -- dcs\test\fixtures\real-session-2026-11-26-caucasus.jsonl
 ```
 
 To run the two halves separately, for example to restart only the server while the replay keeps

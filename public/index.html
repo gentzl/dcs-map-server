@@ -17,12 +17,31 @@
   <meta name="apple-mobile-web-app-title" content="DCS Map" />
   <link rel="stylesheet" href="maplibre-gl.css" />
   <style>
-    :root { color-scheme: dark; --ink: #e0e1dd; --panel: rgba(10,16,22,.88); --line: #415a77; }
+    /* Colours follow the logo (icon.svg): sage map ground, dark green ink.
+       Selected and active things are yellow, like the selection ring and BRA
+       line on the map; blue is the friendly side there, so the logo's blue
+       stays out of the controls. data-mode is set from the map mode in
+       main.ts: light panels on the chart, dark ones at night. Night mode must
+       not glare, hence a muted ochre instead of the bright yellow. */
+    :root { color-scheme: light;
+            --page: #dfe5dc; --ink: #1e2924; --panel: rgba(232,237,229,.93);
+            --panel-soft: rgba(232,237,229,.72); --line: #9aa79a; --press: #cdd7c9;
+            --field: rgba(255,255,255,.65); --accent: #ffd166; --on-accent: #14181c;
+            --ruler: #0b7285; --warn: #8a5a00; --warn-line: #c99a2e;
+            --muted-line: #8d9a90; --own: #ffd166; --own-line: #14181c;
+            --readout: rgba(232,237,229,.8); --readout-head: #7a5600; }
+    :root[data-mode="night"] { color-scheme: dark;
+            --page: #18201c; --ink: #e3e9e4; --panel: rgba(20,28,24,.9);
+            --panel-soft: rgba(20,28,24,.62); --line: #3f4d45; --press: #26332c;
+            --field: rgba(255,255,255,.06); --accent: #7a6430; --on-accent: #f1e8cf;
+            --knob: #aab4ad;
+            --ruler: #4cc9f0; --warn: #e9c46a; --warn-line: #e9c46a;
+            --muted-line: #6f7d75; --readout: rgba(20,28,24,.78); --readout-head: #c9aa5e; }
     /* touch-action: none on the whole page, not just the map canvas: iOS
        Safari ignores user-scalable=no, and a pinch that started on the HUD,
        a readout box or the gap between two buttons zoomed the entire page.
        The map does its own pinch; nothing else should. */
-    html, body { margin: 0; height: 100%; background: #0d1b2a; color: var(--ink);
+    html, body { margin: 0; height: 100%; background: var(--page); color: var(--ink);
                  font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
                  -webkit-user-select: none; user-select: none; touch-action: none;
                  overscroll-behavior: none; }
@@ -36,8 +55,8 @@
     /* Notice for when the mission withholds other units. Eye-catching, but
        not coloured as an error -- the display is working correctly after all. */
     #warning { position: absolute; top: 44px; right: 12px; padding: 6px 10px;
-               background: rgba(10,14,18,.88); border: 1px solid #e9c46a;
-               border-radius: 6px; color: #e9c46a; font-size: 11px;
+               background: var(--panel); border: 1px solid var(--warn-line);
+               border-radius: 6px; color: var(--warn); font-size: 11px;
                letter-spacing: .04em; }
     #status { white-space: pre-line; }
 
@@ -51,8 +70,8 @@
        upward nudge placeRulerBox already applies. */
     #ruler { position: absolute; transform: translate(-50%, -100%); padding: 6px 10px;
              pointer-events: none; max-width: min(300px, calc(100vw - 24px));
-             line-height: 1.6; background: var(--panel); border: 1px solid #4cc9f0;
-             border-radius: 6px; color: #4cc9f0; }
+             line-height: 1.6; background: var(--panel); border: 1px solid var(--ruler);
+             border-radius: 6px; color: var(--ruler); }
 
     /* Coordinates tool readout, at wherever you last tapped -- plain ink
        rather than the yellow selection or cyan ruler colours. Several lines
@@ -81,24 +100,24 @@
 
     #braa { position: absolute; top: 44px; left: 12px; padding: 6px 10px;
             max-width: min(460px, calc(100vw - 24px)); line-height: 1.6;
-            background: rgba(10,16,22,.75); border: 1px solid #ffd166; border-radius: 6px;
+            background: var(--panel); border: 1px solid var(--accent); border-radius: 6px;
             -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
-            color: #ffd166; white-space: pre-line; }
+            color: var(--ink); white-space: pre-line; }
 
     /* At phone width the HUD bar wraps to two lines (see #hud) and needs
        correspondingly more room before the warning and BRAA readout start --
        otherwise they'd overlap the second line. */
     /* Link state: no server, or no data from DCS. Deliberately neutral grey,
        not a warning colour -- pausing or loading in DCS is normal, and the
-       map itself is fine. Top centre, clear of the warning on the right. */
-    #link { position: absolute; top: 44px; left: 50%; transform: translateX(-50%);
-            padding: 6px 10px; background: rgba(10,14,18,.88);
-            border: 1px solid #8a96a3; border-radius: 6px; color: #c9d1d9;
+       map itself is fine. Placed below the aircraft further down (#link
+       under the HUD rules). */
+    #link { position: absolute; top: calc(50% + 40px); left: 50%; transform: translateX(-50%);
+            padding: 6px 10px; background: var(--panel);
+            border: 1px solid var(--muted-line); border-radius: 6px; color: var(--ink);
             font-size: 11px; letter-spacing: .04em; white-space: nowrap; }
 
     @media (max-width: 480px) {
       #warning, #braa { top: 78px; }
-      #link { top: 78px; }
     }
 
     /* Ownship stays fixed at screen centre while the map moves beneath it.
@@ -117,19 +136,23 @@
     /* Edge marker: in free mode, shows where the aircraft is outside the
        view, with bearing and range from screen centre. */
     #offscreen { position: absolute; transform: translate(-50%, -50%);
-                 pointer-events: none; z-index: 3; }
-    #offscreen::before { content: '▲'; display: block; color: #ffd166;
-                         font-size: 20px; line-height: 1;
-                         transform: rotate(var(--angle, 0deg));
-                         text-shadow: 0 0 3px rgba(0,0,0,.9); }
+                 pointer-events: none; z-index: 3;
+                 filter: drop-shadow(0 0 1.5px rgba(0,0,0,.95)); }
+    /* A narrow arrow in the shape of the ownship symbol, not a ▲ glyph: an
+       equilateral triangle has no visible tip once it is turned by anything
+       but a multiple of 90 degrees, so it seemed to point the wrong way. */
+    #offscreen::before { content: ''; display: block; width: 16px; height: 20px;
+                         background: var(--own);
+                         clip-path: polygon(50% 0, 100% 100%, 50% 74%, 0 100%);
+                         transform: rotate(var(--angle, 0deg)); }
     /* Dark area behind the label: without it, it runs into the map's own
        text and becomes unreadable exactly when it's needed. */
     #offscreen::after { content: attr(data-label); position: absolute;
                         left: 50%; top: 100%; transform: translateX(-50%);
-                        margin-top: 2px; padding: 2px 6px; border-radius: 4px;
-                        white-space: nowrap; color: #ffd166; font-size: 11px;
+                        margin-top: 5px; padding: 2px 6px; border-radius: 4px;
+                        white-space: nowrap; color: var(--ink); font-size: 11px;
                         font-weight: 600; letter-spacing: .03em;
-                        background: rgba(10,14,18,.85); }
+                        background: var(--panel); border: 1px solid var(--line); }
 
     button[disabled] { opacity: .35; }
 
@@ -150,7 +173,7 @@
     #controls > * { pointer-events: auto; }
     button { padding: 12px 16px; font: inherit; color: var(--ink); background: var(--panel);
              border: 1px solid var(--line); border-radius: 8px; min-width: 48px; }
-    button:active { background: #1b2a3a; }
+    button:active { background: var(--press); }
 
     /* Toggle with a visible state: with a single button it wasn't apparent
        which orientation was currently active. */
@@ -158,8 +181,8 @@
     .seg button { border-radius: 0; min-width: 52px; }
     .seg button:first-child { border-radius: 8px 0 0 8px; }
     .seg button:last-child { border-radius: 0 8px 8px 0; border-left-width: 0; }
-    .seg button[aria-pressed="true"] { background: #ffd166; color: #14181c;
-                                       border-color: #ffd166; font-weight: 600; }
+    .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent);
+                                       border-color: var(--accent); font-weight: 600; }
     /* Range readout between the buttons: the set scale must be readable,
        not just changeable. */
     /* Direct-pick buttons narrower than the step buttons: several of them
@@ -173,12 +196,12 @@
        COORD) -- a tap on the map belongs to that tool, and the button says
        which one. Fixed width, so a label change doesn't nudge the bar. */
     #menu-toggle { min-width: 104px; }
-    #menu-toggle[aria-pressed="true"] { background: #ffd166; color: #14181c;
-                                        border-color: #ffd166; font-weight: 600; }
+    #menu-toggle[aria-pressed="true"] { background: var(--accent); color: var(--on-accent);
+                                        border-color: var(--accent); font-weight: 600; }
 
     /* Find: a search field and its hits, each a button that jumps there. */
     #find { width: 100%; box-sizing: border-box; padding: 10px 12px; font: inherit; color: var(--ink);
-            background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 8px;
+            background: var(--field); border: 1px solid var(--line); border-radius: 8px;
             -webkit-user-select: text; user-select: text; touch-action: manipulation; }
     #find-results { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 4px; }
     #find-results:empty { display: none; }
@@ -192,8 +215,8 @@
                          border-left-width: 0; }
     #tools-menu button:first-child { border-radius: 8px 0 0 8px; border-left-width: 1px; }
     #tools-menu button:last-child { border-radius: 0 8px 8px 0; }
-    #tools-menu button[aria-checked="true"] { background: #ffd166; color: #14181c;
-                                              border-color: #ffd166; font-weight: 600; }
+    #tools-menu button[aria-checked="true"] { background: var(--accent); color: var(--on-accent);
+                                              border-color: var(--accent); font-weight: 600; }
 
     /* On a phone the range group (two step buttons plus seven presets) is
        wider than the screen. With flex-end packing it then overflowed past
@@ -203,12 +226,18 @@
     @media (max-width: 480px) {
       .seg.range { flex: 1 1 100%; }
       .seg.range button { flex: 1 1 0; min-width: 0; padding-left: 0; padding-right: 0; }
+      /* All nine equally wide: with the presets' own minimum width, minus and
+         plus were squeezed to 26-31 px, too narrow to hit reliably. */
+      .seg.range button.preset { min-width: 0; }
 
       /* The readout of a tapped object can fill half of a phone screen: it is
          see-through (with a light blur to keep the text legible), so the map
          stays visible behind it. */
-      #braa { background: rgba(10,16,22,.55);
+      #braa { background: var(--panel-soft);
               -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+      /* Full width with the same margin on both sides. max-width alone sat at
+         the left margin and ran past the right edge by its own padding. */
+      #braa { left: 12px; right: 12px; max-width: none; box-sizing: border-box; }
       /* A tap folds it down to its title line and back. */
       #braa { cursor: pointer; position: absolute; padding-right: 28px; }
       #braa::after { content: '▴'; position: absolute; top: 6px; right: 10px; opacity: .7; }
@@ -234,10 +263,10 @@
     #settings h3:not(:first-child) { margin-top: 16px; }
     #settings label { display: flex; align-items: center; justify-content: space-between;
                       gap: 10px; padding: 7px 0; }
-    #settings select { font: inherit; color: var(--ink); background: #16202b;
+    #settings select { font: inherit; color: var(--ink); background: var(--field);
                        border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; }
-    #settings input[type=range] { width: 120px; }
-    #settings input[type=checkbox] { width: 20px; height: 20px; accent-color: #ffd166; }
+    #settings input[type=range] { width: 120px; accent-color: var(--accent); }
+    #settings input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
     #legend table { border-collapse: collapse; width: 100%; }
     #legend td { padding: 2px 4px; vertical-align: middle; }
     #legend td:first-child { font-size: 11px; opacity: .8; }
@@ -249,12 +278,134 @@
               font-size: 11px; opacity: .75; }
     #hint { margin-top: 8px; font-size: 11px; opacity: .6; line-height: 1.5; }
     #version { margin-top: 8px; font-size: 11px; opacity: .45; }
+
+    /* Floating panels instead of bars, no hard borders, pill-shaped segmented
+       controls, switches instead of checkboxes, a sans-serif face for labels.
+       Figures (HUD, readouts) keep the monospace face. Backdrop blur only on
+       the few large panels: every blurred element is redrawn with the map on
+       each frame, which older tablets feel. */
+    :root { --shadow: 0 4px 16px rgba(20,30,25,.18); --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    :root[data-mode="night"] { --shadow: 0 4px 18px rgba(0,0,0,.45); }
+    :root #hud { top: max(8px, env(safe-area-inset-top)); left: 8px; right: 8px;
+           padding: 8px 14px; border-radius: 16px; box-shadow: var(--shadow);
+           -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); }
+    /* Below the HUD wherever it ends: --hud-bottom is measured in main.ts, as
+       the HUD wraps to two or three lines depending on width and starts lower
+       under a notch. The fallback is the HUD's height on a common phone. */
+    :root #warning, :root #braa { top: calc(var(--hud-bottom, 58px) + 10px); }
+    /* Link notice (no server, no data from DCS): centred just below the
+       aircraft symbol, where the eye already is -- clear of the readout,
+       which on a phone spans the width right under the HUD. */
+    :root #link { top: calc(50% + 40px); }
+    @media (max-width: 480px) {
+      /* Same text width as the old full-width bar, so it wraps to two lines. */
+      :root #hud { top: max(4px, env(safe-area-inset-top)); left: 4px; right: 4px; padding: 6px 8px; }
+      /* The mission warning would run into the full-width readout at the
+         top; centred just above the control bar instead. */
+      :root #warning { top: auto; right: auto; left: 50%; transform: translateX(-50%);
+             bottom: calc(var(--controls-space, 110px) + 10px); max-width: calc(100vw - 24px);
+             box-sizing: border-box; text-align: center; }
+    }
+    :root #braa, :root #ruler, :root #clickinfo,
+    :root #warning, :root #link {
+           border: none; border-radius: 14px; box-shadow: var(--shadow); padding: 8px 12px;
+           -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+    :root #braa { background: var(--readout); box-sizing: border-box; }
+    @media (max-width: 480px) { :root #braa { padding-right: 28px; } }
+    :root #braa::first-line { color: var(--readout-head); font-weight: 600; }
+    :root #ruler { color: var(--ruler); }
+    :root button { font-family: var(--sans); font-weight: 500; border: none;
+           border-radius: 14px; box-shadow: var(--shadow); }
+    :root .seg, :root #tools-menu {
+           gap: 2px; padding: 3px; border-radius: 16px; background: var(--panel);
+           box-shadow: var(--shadow); }
+    :root .seg button, :root #tools-menu button,
+    :root .seg button:first-child, :root .seg button:last-child,
+    :root #tools-menu button:first-child, :root #tools-menu button:last-child {
+           background: transparent; box-shadow: none; border: none; border-radius: 12px; }
+    :root .seg button[aria-pressed="true"],
+    :root #tools-menu button[aria-checked="true"],
+    :root #menu-toggle[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+    :root .seg button.preset { padding: 10px 6px; }
+    :root #tools-menu { background: var(--field); box-shadow: none; }
+    :root #settings { border: none; border-radius: 20px; padding: 16px 18px;
+           box-shadow: 0 12px 36px rgba(20,30,25,.28);
+           -webkit-backdrop-filter: blur(18px) saturate(1.3); backdrop-filter: blur(18px) saturate(1.3); }
+    :root #settings h3 { font-family: var(--sans); font-size: 11px; letter-spacing: .09em; }
+    :root #settings label { font-family: var(--sans); font-size: 14px; padding: 8px 0; }
+    :root #settings select, :root #find {
+           font-family: var(--sans); border: none; background: var(--field); border-radius: 10px; }
+    :root #find-results button { box-shadow: none; background: var(--field); }
+    /* Switch instead of a checkbox. */
+    :root #settings input[type=checkbox] {
+           appearance: none; -webkit-appearance: none; position: relative; flex: none;
+           width: 40px; height: 24px; margin: 0; border-radius: 12px;
+           background: var(--line); transition: background .15s; cursor: pointer; }
+    :root #settings input[type=checkbox]::before {
+           content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+           border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+           transition: transform .15s; }
+    :root #settings input[type=checkbox]:checked { background: var(--accent); }
+    :root #settings input[type=checkbox]:checked::before { transform: translateX(16px); }
+    :root #settings input[type=checkbox]::before { background: var(--knob, #fff); }
+    @media (prefers-reduced-motion: reduce) {
+      :root #settings input[type=checkbox], :root #settings input[type=checkbox]::before { transition: none; }
+    }
+
+    /* Map attribution in the page's colours instead of MapLibre's fixed white,
+       which lit up as a white patch at night. It sits just above the control
+       bar (--controls-space, measured in main.ts) rather than beside it, where
+       the bar's second row on a phone ran into it. */
+    .maplibregl-ctrl-bottom-left { bottom: var(--controls-space, 0px); }
+    .maplibregl-ctrl-attrib.maplibregl-compact, .maplibregl-ctrl-attrib {
+           background: var(--panel); color: var(--ink); box-shadow: var(--shadow); }
+    .maplibregl-ctrl-attrib a { color: inherit; }
+    :root[data-mode="night"] .maplibregl-ctrl-attrib-button { background-color: transparent; filter: invert(1) opacity(.6); }
+    @media (max-width: 480px) {
+      /* Equal widths in the range row: the presets' side padding made them
+         wider than minus and plus. Smaller gaps leave each button more room. */
+      :root .seg.range { gap: 1px; }
+      :root .seg.range button { padding-left: 0; padding-right: 0; }
+      /* Narrower on a phone so the second row (CTR/FREE, HDG/N, MENU) still
+         fits at 360 px instead of pushing MENU onto a row of its own. Still
+         wide enough for its longest label (COORD), so it doesn't jump. */
+      :root #menu-toggle { min-width: 78px; padding-left: 10px; padding-right: 10px; }
+      :root #controls { gap: 6px; }
+    }
+    /* Large monitor: the HUD as a box in the top-left corner (built in
+       main.ts, renderHudBox), the readout below it -- one column of flight
+       data, the rest of the screen is map. The box is as wide as its content
+       needs, not a fixed width the values get spread across; the readout is
+       at least as wide (--hud-width, measured in main.ts), so the column's
+       edges line up. */
+    :root[data-hud="box"] #hud { right: auto; left: 12px; top: max(12px, env(safe-area-inset-top));
+           width: max-content; box-sizing: border-box; padding: 10px 14px 8px; line-height: 1.3; }
+    :root[data-hud="box"] #braa { min-width: var(--hud-width, 0px); max-width: none; box-sizing: border-box; }
+    /* Top right is free now. */
+    :root[data-hud="box"] #warning { top: max(12px, env(safe-area-inset-top)); }
+    /* Top row (renderHudBox): each column as wide as its value plus a fixed
+       gap, left-aligned, nothing spread across spare width. */
+    #hud .hb-grid { display: grid; grid-template-columns: repeat(3, max-content); column-gap: 24px; }
+    /* Second row: steerpoint, bullseye, wind in one line from the left edge. */
+    #hud .hb-nav { display: flex; gap: 16px; margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); }
+    #hud .hb-cell { display: flex; flex-direction: column; gap: 2px; }
+    #hud .hb-label { font-family: var(--sans, system-ui, sans-serif); font-size: 11px; font-weight: 600;
+           letter-spacing: .09em; opacity: .6; }
+    #hud .hb-big { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    /* Second row: label beside its value, on one line. */
+    #hud .hb-inline { flex-direction: row; align-items: baseline; gap: 5px; }
+    #hud .hb-value { font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    #hud .hb-foot { display: flex; justify-content: space-between; gap: 18px; margin-top: 7px; padding-top: 6px;
+           border-top: 1px solid var(--line); font-size: 12px; opacity: .75; white-space: nowrap; }
+
+    /* The empty part of the slider's track is light grey by default. */
+    :root[data-mode="night"] #settings input[type=range] { filter: brightness(.7); }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <svg id="ownship" viewBox="0 0 24 28" width="26" height="30" aria-hidden="true">
-    <path d="M12 1 L22 26 L12 20 L2 26 Z" fill="#ffd166" stroke="#14181c" stroke-width="2"
+    <path d="M12 1 L22 26 L12 20 L2 26 Z" fill="var(--own)" stroke="var(--own-line)" stroke-width="2"
           stroke-linejoin="round" />
   </svg>
   <div id="offscreen" hidden></div>
@@ -293,7 +444,7 @@
     <h3>Display</h3>
     <label>Mode
       <select data-key="mode">
-        <option value="chart">Aero chart</option>
+        <option value="chart">Day</option>
         <option value="night">Night</option>
       </select>
     </label>

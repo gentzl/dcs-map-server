@@ -9,7 +9,7 @@ import { resolveUserPath } from './user-path.js';
  * relaying it, so the map shows real traffic without DCS running.
  *
  *   npm run demo
- *   npm run demo -- dcs\test\fixtures\real-session-2026-11-23-multiplayer.jsonl
+ *   npm run demo -- dcs\test\fixtures\real-session-2026-11-26-caucasus.jsonl
  *
  * Ctrl+C stops both. If either process exits, the other is stopped too.
  */
@@ -18,7 +18,9 @@ import { resolveUserPath } from './user-path.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
 
-const DEFAULT_RECORDING = path.join('dcs', 'test', 'fixtures', 'real-session-2026-11-23.jsonl');
+// Low and fast over Syria with traffic around; the 2026-11-23 recordings sit
+// on the ground the whole time, with most units far away.
+const DEFAULT_RECORDING = path.join('dcs', 'test', 'fixtures', 'real-session-2026-11-26-syria.jsonl');
 const asTyped = process.argv[2] ?? DEFAULT_RECORDING;
 
 // Resolved here, and handed on as an absolute path: the replay runs in the

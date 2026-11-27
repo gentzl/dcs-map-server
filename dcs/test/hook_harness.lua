@@ -52,17 +52,31 @@ for i = 1, N_OBJECTS do
     -- Deliberately with a comma and a tab: the comma must be preserved, the tab defused.
     objects[1000 + i].GroupName = 'Convoy, Group\t' .. i
   end
+  -- One aircraft flown by a person, for the Flags.Human field of A lines.
+  if kind == 4 and i < 10 then objects[1000 + i].Flags = { Human = true, AI_ON = true } end
 end
 
 DCS = {
   getModelTime = function() return t end,
   getCurrentMission = function()
-    return { mission = { triggers = { zones = {
-      { zoneId = 7, name = 'FOB Vulture', hidden = false, type = 0, radius = 762, x = -69625, y = 485002,
-        color = { 1, 1, 1, 0.15 } },
-      { zoneId = 8, name = 'A', hidden = false, type = 2, radius = 0, x = 0, y = 0,
-        verticies = { { x = 0, y = 0 }, { x = 100, y = 0 }, { x = 100, y = 100 }, { x = 0, y = 100 } } },
-    } } } }
+    return { mission = {
+      triggers = { zones = {
+        { zoneId = 7, name = 'FOB Vulture', hidden = false, type = 0, radius = 762, x = -69625, y = 485002,
+          color = { 1, 1, 1, 0.15 } },
+        { zoneId = 8, name = 'A', hidden = false, type = 2, radius = 0, x = 0, y = 0,
+          verticies = { { x = 0, y = 0 }, { x = 100, y = 0 }, { x = 100, y = 100 }, { x = 0, y = 100 } } },
+      } },
+      -- The player's group, found by unit name as in single player. Waypoint
+      -- names with a comma and a semicolon: both separate fields on the wire.
+      coalition = { blue = { country = { { plane = { group = { {
+        units = { { unitId = 17, name = 'Hornet-1-1' } },
+        route = { points = {
+          { x = 0, y = 0, alt = 0, name = '' },
+          { x = 11100, y = 8000, alt = 6000, name = 'IP, north;1' },
+          { x = 22200, y = 16000, alt = 6000, name = 'TGT' },
+        } },
+      } } } } } } },
+    } }
   end,
   getMissionOptions = function() return { difficulty = { optionsView = OPTIONS_VIEW } } end,
   setUserCallbacks = function(cb) _G.__cb = cb end,
@@ -155,12 +169,16 @@ local function fields(line)
 end
 
 -- Schema 3 field counts, the same table src/server/protocol.ts parses by.
-local LAYOUT = { O = 20, A = 12, W = 8, D = 2, B = 9, Z = 10 }
+-- A lines carry Flags.Human as a 13th field; the parser also still takes the
+-- older 12-field line, but this hook always writes 13.
+local LAYOUT = { O = 20, A = 13, W = 8, D = 2, B = 9, Z = 10, R = 4 }
 
-local counts = { O = 0, A = 0, W = 0, D = 0, B = 0, Z = 0 }
+local counts = { O = 0, A = 0, W = 0, D = 0, B = 0, Z = 0, R = 0 }
 local headers, closed = 0, false
 local own_id = nil
 local ids_as_unit = {}
+local humans = 0
+local route = nil
 
 for _, payload in ipairs(sent) do
   if payload:match('^close_socket') then
@@ -195,7 +213,25 @@ for _, payload in ipairs(sent) do
         if #f ~= want then
           fail(string.format('%s line has %d fields, expected %d', kind, #f, want), line)
         end
-        if not tonumber(f[2]) then fail(kind .. ' line has no numeric id', line) end
+        if kind == 'R' then
+          -- R<TAB>source<TAB>next<TAB>lat,lon,alt,name;... -- no id, a source instead.
+          if f[2] ~= '' and f[2] ~= 'mission' and f[2] ~= 'aircraft' then
+            fail('R line has an unknown source ' .. tostring(f[2]), line)
+          end
+          if not tonumber(f[3]) then fail('R line has no numeric next waypoint', line) end
+          for p in (f[4] .. ';'):gmatch('([^;]*);') do
+            if f[4] ~= '' and not p:match('^%-?[%d.]+,%-?[%d.]+,%-?%d+,[^,]*$') then
+              fail('R line has a malformed waypoint "' .. p .. '"', line)
+            end
+          end
+          route = f
+        elseif not tonumber(f[2]) then
+          fail(kind .. ' line has no numeric id', line)
+        end
+        if kind == 'A' then
+          if f[13] ~= '0' and f[13] ~= '1' then fail('A line has no 0/1 human flag', line) end
+          if f[13] == '1' then humans = humans + 1 end
+        end
         counts[kind] = counts[kind] + 1
 
         if kind == 'O' then own_id = f[2] end
@@ -215,6 +251,15 @@ if counts.D == 0 then fail('objects were removed but no D line was sent') end
 if counts.B == 0 then fail('the airbase list was never sent') end
 if counts.Z == 0 then fail('the trigger zones were never sent') end
 if not closed then fail('the session did not end with close_socket') end
+if humans == 0 then fail('a unit flown by a person was not flagged as human') end
+
+-- The flight plan comes from the mission file (the mocked aircraft reports
+-- no route of its own): all three waypoints, separators in names defused.
+if counts.R == 0 or not route then fail('the flight plan was never sent') end
+if route[2] ~= 'mission' then fail('flight plan source is "' .. route[2] .. '", expected mission') end
+local n = 0
+for _ in (route[4] .. ';'):gmatch('([^;]*);') do n = n + 1 end
+if n ~= 3 then fail(string.format('flight plan has %d waypoints, expected 3', n)) end
 
 -- LoGetWorldObjects() includes the player's own aircraft. It already has its
 -- own O line, and a second copy would draw the same aircraft twice.
@@ -232,5 +277,5 @@ end
 if not saw_comma then fail('a comma in a group name did not survive') end
 
 io.stderr:write(string.format(
-  'Datagrams: %d  (O %d, A %d, W %d, D %d, B %d)  -- format OK\n',
-  #sent, counts.O, counts.A, counts.W, counts.D, counts.B))
+  'Datagrams: %d  (O %d, A %d, W %d, D %d, B %d, R %d)  -- format OK\n',
+  #sent, counts.O, counts.A, counts.W, counts.D, counts.B, counts.R))

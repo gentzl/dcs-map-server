@@ -72,6 +72,24 @@ describe('trigger zones', () => {
     assert.deepEqual([props['Jisr Ash Shughur']!['kind'], props['Jisr Ash Shughur']!['side']], ['objective', 'red']);
   });
 
+  test('a narrow sector is still a sector, a long airfield still an objective', () => {
+    // As in the live BSC Caucasus mission: sector "F" is a strip of 8.0 x 86.8 km,
+    // and its shorter side once made it look like an objective (drawn red).
+    // Corners along a line north-northwest from Poti, 8 km wide.
+    const f = zone('F', {
+      shape: 'quad', radiusM: 0,
+      vertices: [[42.0, 41.4], [42.0, 41.497], [42.78, 41.497], [42.78, 41.4]],
+    });
+    // The longest airfield zone in that mission, Mineralnye: 2.2 x 5.8 km.
+    const field = zone('Some Field', {
+      shape: 'quad', radiusM: 0,
+      vertices: [[44.2, 43.0], [44.2, 43.0276], [44.252, 43.0276], [44.252, 43.0]],
+    });
+    const props = Object.fromEntries(buildZones([f, field]).features.map((x) => [x.properties!['name'], x.properties]));
+    assert.deepEqual([props['F']!['kind'], props['F']!['side']], ['sector', 'none']);
+    assert.deepEqual([props['Some Field']!['kind'], props['Some Field']!['side']], ['objective', 'red']);
+  });
+
   test('the server passes them on once and keeps them, like airbases', () => {
     const w = new World();
     w.upsertZone(zone('FOB Vulture'));
