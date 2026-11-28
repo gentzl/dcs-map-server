@@ -144,9 +144,11 @@ describe('the server, end to end', { timeout: 30_000 }, () => {
   });
 
   // Otherwise a browser may keep using the old layout (inline in
-  // index.html) or old main.js after an update.
+  // index.html) or old main.js after an update. Only files in the repository
+  // are fetched: main.js is a build output, absent when CI runs the tests.
+  // The header is set for every static file alike.
   test('the page and its code are served with no-cache', async () => {
-    for (const file of ['/', '/main.js', '/maplibre-gl.css']) {
+    for (const file of ['/', '/maplibre-gl.css', '/manifest.webmanifest']) {
       const r = await fetch(`http://127.0.0.1:${httpPort}${file}`);
       await r.arrayBuffer();
       assert.equal(r.status, 200, `${file} was not served`);
